@@ -16,6 +16,7 @@ export function AuthPage() {
     const next = new URLSearchParams(location.search).get('next');
     return next?.startsWith('/app/') ? next : fallbackDemoPath;
   }, [location.search]);
+  const isDemoDestination = destination.includes('/proj_acme_copilot/overview');
 
   useEffect(() => {
     let mounted = true;
@@ -71,7 +72,11 @@ export function AuthPage() {
             <div>
               <div style={{ fontWeight: 650 }}>StackCert</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {mode === 'sign-in' ? 'Sign in to the certification workbench' : 'Create a certification workspace'}
+                {mode === 'sign-in' && isDemoDestination
+                  ? 'Continue with the seeded demo account'
+                  : mode === 'sign-in'
+                    ? 'Sign in to the certification workbench'
+                    : 'Create a certification workspace'}
               </div>
             </div>
           </div>
@@ -93,10 +98,12 @@ export function AuthPage() {
           </label>
           {message ? <div className="notice" style={{ marginBottom: 12 }}>{message}</div> : null}
           <button className="btn primary" style={{ width: '100%' }} onClick={submitAuth}>
-            {mode === 'sign-in' ? 'Continue' : 'Create account'}
+            {mode === 'sign-in' && isDemoDestination ? 'Continue to demo' : mode === 'sign-in' ? 'Continue' : 'Create account'}
           </button>
           <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-            The hosted demo uses Supabase Auth. Without Supabase env vars, this route opens the seeded local project.
+            {isDemoDestination
+              ? 'The demo account is prefilled. In local mode, Continue opens the seeded project without a Supabase session.'
+              : 'The hosted demo uses Supabase Auth. Without Supabase env vars, this route opens the seeded local project.'}
           </p>
           <ButtonLink to="/">Back to landing</ButtonLink>
         </div>

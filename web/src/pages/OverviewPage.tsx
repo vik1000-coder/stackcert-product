@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtNumber, fmtPercent, fmtUsd } from '../lib/format';
-import { Badge, ButtonLink, Card, ErrorState, ExternalButton, LoadingState, PageHeader, Stat } from '../components/Primitives';
+import { Badge, ButtonLink, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader, Stat } from '../components/Primitives';
 import { BenchmarkMix, WelfareMovementChart } from '../components/Charts';
 
 export function OverviewPage({ lambda }: { lambda: number }) {
@@ -18,7 +18,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
     <div className="page">
       <PageHeader
         title={`${data.recommended_stack.label} is the current certified recommendation`}
-        subtitle="StackCert compares marginal scores with full correlated-failure evaluation, then issues a scoped certificate over the actual candidate set and benchmark mixture."
+        subtitle="StackCert compares the common shortcut with full correlated-failure evaluation, then issues a scoped certificate over the actual candidate set and benchmark mixture."
         actions={
           <>
             <ButtonLink to="../certificate" variant="primary">
@@ -28,11 +28,19 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           </>
         }
       />
+      <Explainer title="What this demo proves" tone="accent" style={{ marginBottom: 16 }}>
+        <p>
+          The naive marginal winner is <strong>{data.marginal_stack.label}</strong>, but after measuring co-failure
+          the certified stack is <strong>{data.recommended_stack.label}</strong>. CASS measured{' '}
+          <strong>{data.stats.pair_cells_measured}/{data.stats.pair_cells_total}</strong> pair-cells and avoided{' '}
+          <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> versus exhaustive evidence in this seeded run.
+        </p>
+      </Explainer>
       <div className="grid grid-4">
-        <Stat label="Full welfare" value={fmtNumber(data.stats.welfare)} tone="ok" />
-        <Stat label="Regret avoided" value={fmtNumber(data.stats.regret_avoided)} tone={data.stats.regret_avoided >= 0 ? 'ok' : 'bad'} />
-        <Stat label="Comparisons" value={`${data.stats.certified_comparison_count}/${data.stats.comparison_count}`} tone="ok" />
-        <Stat label="Cost avoided" value={fmtUsd(data.stats.cost_avoided_usd)} tone="ok" />
+        <Stat label="Full welfare" value={fmtNumber(data.stats.welfare)} tone="ok" description="Higher is better: benign passes minus lambda-weighted adversarial misses." />
+        <Stat label="Regret avoided" value={fmtNumber(data.stats.regret_avoided)} tone={data.stats.regret_avoided >= 0 ? 'ok' : 'bad'} description="Lift over the naive marginal winner after co-failure is included." />
+        <Stat label="Comparisons" value={`${data.stats.certified_comparison_count}/${data.stats.comparison_count}`} tone="ok" description="Certified head-to-head wins among candidate stacks." />
+        <Stat label="Cost avoided" value={fmtUsd(data.stats.cost_avoided_usd)} tone="ok" description="Estimated measurement spend saved versus exhaustive pair-cell evidence." />
       </div>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <Card>
@@ -51,6 +59,10 @@ export function OverviewPage({ lambda }: { lambda: number }) {
             </div>
           </div>
           <WelfareMovementChart rows={rows} />
+          <p className="muted" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
+            Hollow dots are first-order estimates. Filled dots are the CASS result after shared misses and shared
+            false blocks are counted.
+          </p>
         </Card>
         <Card>
           <h2 style={{ margin: '0 0 12px', fontSize: 18 }}>Benchmark mixture</h2>
@@ -61,7 +73,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
         <Card>
           <div className="stat-label">Measurement cost</div>
           <div className="stat-value">{fmtUsd(data.stats.measurement_cost_usd)}</div>
-          <p className="muted">CASS bundle-greedy measures only the evidence that can change the certificate.</p>
+          <p className="muted">CASS measures only evidence that can change the certificate, instead of sweeping every pair-cell.</p>
         </Card>
         <Card>
           <div className="stat-label">Pair-cell coverage</div>

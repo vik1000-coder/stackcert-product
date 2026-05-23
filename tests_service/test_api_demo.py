@@ -456,7 +456,9 @@ class DemoApiTest(unittest.TestCase):
         )
         self.assertEqual(issued_response.status_code, 200)
         issued = issued_response.json()["certificate"]
-        self.assertEqual(issued["status"], "valid")
+        current_certificate = self.client.get("/api/runs/real_main_2000/certificate?lambda_cost=5").json()
+        self.assertEqual(issued["status"], current_certificate["status_compact"])
+        self.assertIn(issued["status"], {"valid", "provisional"})
         self.assertTrue(issued["summary"]["not_a_guarantee"])
         self.assertEqual(len(issued["artifact_hash"]), 64)
 

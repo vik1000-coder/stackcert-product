@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../lib/api';
-import { Badge, Card, ErrorState, ExternalButton, LoadingState, PageHeader } from '../components/Primitives';
+import { Badge, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader } from '../components/Primitives';
 
 export function CertificatePage({ lambda }: { lambda: number }) {
   const queryClient = useQueryClient();
@@ -51,6 +51,23 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           </>
         }
       />
+      <Explainer title="What the certificate means" tone="accent" style={{ marginBottom: 16 }}>
+        <div className="definition-list">
+          <div className="definition-row">
+            <div className="definition-term">It proves</div>
+            <div className="definition-copy">
+              The selected stack beat the other candidate stacks for this benchmark mixture, guard set, aggregation
+              rule, and welfare profile.
+            </div>
+          </div>
+          <div className="definition-row">
+            <div className="definition-term">It does not prove</div>
+            <div className="definition-copy">
+              Universal safety, legal compliance, or future performance after model, prompt, guard, or policy drift.
+            </div>
+          </div>
+        </div>
+      </Explainer>
       <div className="grid grid-2">
         <Card>
           <Badge tone={cert.status_compact} dot>
@@ -67,6 +84,9 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </Card>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Assumptions</h2>
+          <p className="muted" style={{ marginTop: -4, lineHeight: 1.5 }}>
+            These assumptions define the boundary of the claim reviewers are being asked to accept.
+          </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {Object.entries(cert.assumptions).map(([key, value]) => (
               <Fact key={key} label={key} value={String(value)} />

@@ -69,14 +69,16 @@ export function Stat({
 export function Explainer({
   title,
   children,
-  tone = 'neutral'
+  tone = 'neutral',
+  style
 }: {
   title: string;
   children: ReactNode;
   tone?: 'neutral' | 'accent' | 'ok' | 'warn';
+  style?: CSSProperties;
 }) {
   return (
-    <div className={`explainer ${tone}`}>
+    <div className={`explainer ${tone}`} style={style}>
       <div className="explainer-title">{title}</div>
       <div className="explainer-copy">{children}</div>
     </div>

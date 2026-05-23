@@ -12,11 +12,12 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Certify the/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Certify the.*guardrail stack.*you actually ship/i })).toBeInTheDocument();
     expect(screen.getAllByText(/guardrail stack/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Correlation-Aware Stack Selection/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/What is CASS/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Open the demo/i })).toHaveAttribute(
+    expect(screen.getByText(/What teams often do instead/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /View seeded demo/i })).toHaveAttribute(
       'href',
       '/auth/sign-in?next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview'
     );
@@ -30,7 +31,8 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Sign in to the certification workbench/i)).toBeInTheDocument();
+    expect(screen.getByText(/Continue with the seeded demo account/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue to demo/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Create account/i }));
     expect(screen.getByText(/Create a certification workspace/i)).toBeInTheDocument();
   });

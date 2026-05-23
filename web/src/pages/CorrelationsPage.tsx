@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CorrelationMatrix } from '../components/Charts';
-import { Badge, Card, ErrorState, LoadingState, PageHeader } from '../components/Primitives';
+import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader } from '../components/Primitives';
 import { api } from '../lib/api';
 import { fmtNumber, fmtPercent } from '../lib/format';
 
@@ -37,9 +37,21 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
           </>
         }
       />
+      <Explainer title={side === 'adversarial' ? 'What co-miss means' : 'What false-block overlap means'} tone={side === 'adversarial' ? 'warn' : 'ok'} style={{ marginBottom: 16 }}>
+        <p>
+          {side === 'adversarial'
+            ? 'A high positive cell means two guards are missing the same unsafe examples, so stacking them may buy less safety than their individual scores imply.'
+            : 'A high benign cell means two guards are blocking the same safe examples. That can be useful when false blocks are concentrated, but harmful if it suppresses normal users.'}
+        </p>
+      </Explainer>
       <div className="grid grid-2">
         <Card>
           <CorrelationMatrix payload={data} onSelect={(row, column) => setSelected({ row, column })} />
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, color: 'var(--sc-ink-3)', fontSize: 12 }}>
+            <span>Red cells: shared mistakes</span>
+            <span>Green cells: useful disagreement</span>
+            <span>Diagonal: same guard</span>
+          </div>
         </Card>
         <Card>
           <Badge tone={side === 'adversarial' ? 'bad' : 'ok'} dot>
@@ -53,6 +65,11 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
               <Metric label={selectedPair.metric_label} value={fmtPercent(selectedPair.metric)} />
               <Metric label="Disagreement" value={fmtPercent(selectedPair.disagreement_rate)} />
               <Metric label="Examples" value={String(selectedPair.n_examples)} />
+              <div className={`notice ${side === 'adversarial' ? 'bad' : ''}`}>
+                {selectedPair.metric >= 0.5
+                  ? 'This pair is often making the same decision in this cell, so composition value depends on whether that overlap is desirable.'
+                  : 'This pair shows more disagreement in this cell, which can make the stack less redundant.'}
+              </div>
             </div>
           ) : null}
           <p className="muted" style={{ lineHeight: 1.55 }}>
@@ -99,4 +116,3 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

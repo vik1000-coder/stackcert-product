@@ -116,10 +116,10 @@ function HeroDashboard() {
           </Badge>
           <div style={{ marginTop: 12, fontSize: 32, fontWeight: 650 }}>LG3 + Phi3</div>
           <div className="grid grid-4" style={{ marginTop: 18 }}>
-            <MiniStat label="Welfare" value="0.1363" tone="ok" />
-            <MiniStat label="Regret avoided" value="+0.0253" tone="ok" />
+            <MiniStat label="Welfare" value="0.1377" tone="ok" />
+            <MiniStat label="Regret avoided" value="+0.0382" tone="ok" />
             <MiniStat label="Pair-cells" value="13/168" />
-            <MiniStat label="Cost avoided" value="$25k" tone="ok" />
+            <MiniStat label="Cost avoided" value="$4.6k" tone="ok" />
           </div>
           <div className="grid grid-2" style={{ marginTop: 18 }}>
             <Card>
@@ -169,7 +169,7 @@ function LogoStrip() {
     <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '54px 0' }}>
       <div className="landing-container" style={{ textAlign: 'center' }}>
         <div style={{ color: 'var(--sc-ink-3)', fontSize: 12, fontWeight: 650, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 26 }}>
-          Built for safety teams shipping regulated AI workflows
+          Built for teams making agent guardrails safer, cheaper, and repeatable
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 28, flexWrap: 'wrap', color: 'var(--sc-dim)', fontSize: 22, fontWeight: 650 }}>
           {['Acme', 'Northwind', 'Helix', 'Atlas', 'Vela', 'Pillar'].map((item) => (
@@ -189,8 +189,9 @@ function ProblemSection() {
           <div className="section-eyebrow">The problem</div>
           <h2 className="section-title">Stacking guardrails creates a hidden correlation tax.</h2>
           <p className="hero-copy" style={{ margin: '16px 0 0', fontSize: 17 }}>
-            Two strong guards do not necessarily compose into a stronger system. If they miss the same attacks, the
-            stack can be redundant, expensive, and hard to defend.
+            The usual playbook is either under-measured or over-spent. Two strong guards do not necessarily compose
+            into a stronger system; if they miss the same attacks, the stack can be redundant, slow, and hard to
+            defend in review.
           </p>
         </div>
         <div className="grid grid-2">
@@ -208,6 +209,48 @@ function ProblemSection() {
             <h3 style={{ fontSize: 28, margin: '18px 0 8px' }}>Scoped certified winner</h3>
             <p className="muted">CASS measures co-failure and certifies the winner among the actual candidate stacks.</p>
           </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AlternativesSection() {
+  const cards = [
+    [
+      'Pick the best single guard',
+      'Fast, but it ignores how the guard behaves when paired with another guard. The demo marginal winner loses once shared misses are measured.'
+    ],
+    [
+      'Stack every strong guard',
+      'Looks safer on paper, but redundant guards add cost and latency while still missing the same unsafe examples.'
+    ],
+    [
+      'Add more policy context',
+      'More prompt text can help, but it is not a certificate. It often increases token spend and still leaves composition risk unmeasured.'
+    ],
+    [
+      'Run the full grid',
+      'Brute-force evidence is clean but expensive at scale. Each new guard, behavior cell, and release variant multiplies the measurement bill.'
+    ]
+  ];
+
+  return (
+    <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '96px 0' }}>
+      <div className="landing-container">
+        <div style={{ maxWidth: 780 }}>
+          <div className="section-eyebrow">What teams often do instead</div>
+          <h2 className="section-title">The shortcut choices either miss risk or buy evidence you do not need.</h2>
+        </div>
+        <div className="grid grid-4" style={{ marginTop: 36 }}>
+          {cards.map(([title, body]) => (
+            <Card key={title}>
+              <h3 style={{ margin: '0 0 10px', fontSize: 18 }}>{title}</h3>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+                {body}
+              </p>
+            </Card>
+          ))}
         </div>
       </div>
     </section>
@@ -247,6 +290,45 @@ function CassSection() {
               </div>
             </div>
           </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EconomicsSection() {
+  const stats = [
+    ['168', 'possible pair-cells', 'Every guard pair across every benchmark cell in the seeded run.'],
+    ['13', 'measured pair-cells', 'The evidence CASS needed to certify the winner and shrink active gaps.'],
+    ['$4.6k', 'avoided in demo spend', 'Estimated saved measurement cost versus exhaustive pair-cell evidence.']
+  ];
+
+  return (
+    <section style={{ padding: '96px 0' }}>
+      <div className="landing-container">
+        <div className="grid grid-2" style={{ alignItems: 'start' }}>
+          <div>
+            <div className="section-eyebrow">Cost and scale</div>
+            <h2 className="section-title">Safer decisions without measuring every combination.</h2>
+            <p className="hero-copy" style={{ margin: '18px 0 0', maxWidth: 650, fontSize: 17 }}>
+              StackCert is not trying to sell a bigger evaluation bill. It spends measurement budget where uncertainty
+              can change the launch decision, then turns the result into a certificate that can be reused across review,
+              deployment gates, and drift monitoring.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {stats.map(([value, label, body]) => (
+              <Card key={label}>
+                <div className="mono" style={{ fontSize: 28, fontWeight: 650, color: 'var(--sc-ink)' }}>
+                  {value}
+                </div>
+                <div style={{ marginTop: 6, fontWeight: 650 }}>{label}</div>
+                <p className="muted" style={{ margin: '8px 0 0', lineHeight: 1.5 }}>
+                  {body}
+                </p>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     </section>

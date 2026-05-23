@@ -567,6 +567,11 @@ tr:last-child td {
   line-height: 1.5;
 }
 
+.notice.bad {
+  border-color: rgba(188, 42, 42, 0.24);
+  background: rgba(188, 42, 42, 0.06);
+}
+
 .marketing-nav {
   display: flex;
   align-items: center;
@@ -960,6 +965,11 @@ tr:last-child td {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .definition-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .setup-grid-two,

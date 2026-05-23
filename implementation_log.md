@@ -781,3 +781,43 @@ Started: 2026-05-23
   - Playwright loaded a direct unauthenticated app URL from a fresh page and was
     redirected to sign-in.
   - `scripts/deployment_smoke.py ... --web-url https://vik1000-coder.github.io/stackcert-product/` -> deployment smoke OK.
+
+## Source Repository GitHub Pages CI/CD Slice
+
+- Set up option 1: this source repository is now the source of truth for the
+  GitHub Pages deployment.
+- GitHub repository:
+  - `https://github.com/vik1000-coder/stackcert-product`
+- Deployed site target:
+  - `https://vik1000-coder.github.io/stackcert-product/`
+  - demo sign-in route:
+    `https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in`
+- Added `.github/workflows/deploy-pages.yml` to:
+  - run Python unit/API tests;
+  - run frontend typecheck and Vitest;
+  - build Vite with `VITE_ROUTER_MODE=hash` and
+    `VITE_PUBLIC_BASE=/stackcert-product/`;
+  - publish `web/dist` through GitHub Pages;
+  - run `scripts/deployment_smoke.py` against the deployed Pages URL and
+    Supabase Auth/API.
+- Configured repository variables/secrets:
+  - vars: `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`;
+  - secrets: `VITE_SUPABASE_ANON_KEY`, `STACKCERT_SMOKE_EMAIL`,
+    `STACKCERT_SMOKE_PASSWORD`.
+- Fixed the first source-repo CI failures:
+  - certificate issuing test now accepts the current scoped certificate status
+    (`valid` or `provisional`) instead of assuming the fixture dataset is
+    always fully valid;
+  - landing/auth tests now match the updated seeded-demo auth copy;
+  - Vitest setup now explicitly cleans up mounted React trees after each test.
+- Included the explanatory product-copy UI refinements that were already in the
+  working tree, covering the landing page, dashboard explainers, and responsive
+  definition rows.
+- Local verification:
+  - `.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v` -> OK.
+  - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 39 tests passed.
+  - `cd web && npm run lint && npm run typecheck && npm test -- --run &&
+    npm run build` -> OK.
+  - GitHub Pages hash build with Supabase env placeholders -> OK.
+  - `supabase start && supabase db reset --local && supabase status` -> OK.

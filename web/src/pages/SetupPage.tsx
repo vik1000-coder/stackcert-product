@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
 import { api, type CustomBehaviorInput, type GuardConnectorInput } from '../lib/api';
 import { fmtUsd } from '../lib/format';
-import { Badge, Card, ErrorState, LoadingState, PageHeader, Stat } from '../components/Primitives';
+import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
 
 const initialBehavior: CustomBehaviorInput = {
   name: 'Unauthorized tool invocation',
@@ -127,10 +127,17 @@ export function SetupPage() {
         title="Setup and custom tests"
         subtitle="Create behavior-level tests that match your agent's actual failure modes, then estimate the cost of certifying candidate stacks before a run."
       />
+      <Explainer title="What StackCert needs before CASS can help" tone="accent" style={{ marginBottom: 16 }}>
+        <p>
+          A useful certificate starts with three ingredients: weighted behavior cells, guard connectors or uploaded
+          outputs, and candidate stacks. The cost estimate compares a full sweep against the targeted CASS measurement
+          path so teams can see the savings before spending provider budget.
+        </p>
+      </Explainer>
       <div className="grid grid-3">
-        <Stat label="Estimated full eval" value={fmtUsd(cost.data!.estimate.estimated_full_eval_usd, 2)} />
-        <Stat label="CASS incremental" value={fmtUsd(cost.data!.estimate.estimated_cass_incremental_usd, 2)} tone="ok" />
-        <Stat label="Estimated savings" value={fmtUsd(cost.data!.estimate.estimated_savings_usd, 2)} tone="ok" />
+        <Stat label="Estimated full eval" value={fmtUsd(cost.data!.estimate.estimated_full_eval_usd, 2)} description="Brute-force guard evaluation for the configured run." />
+        <Stat label="CASS incremental" value={fmtUsd(cost.data!.estimate.estimated_cass_incremental_usd, 2)} tone="ok" description="Expected targeted measurement spend after existing outputs." />
+        <Stat label="Estimated savings" value={fmtUsd(cost.data!.estimate.estimated_savings_usd, 2)} tone="ok" description="Difference from not measuring every unnecessary path." />
       </div>
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Card>

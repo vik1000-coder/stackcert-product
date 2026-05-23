@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, Card, ErrorState, LoadingState, PageHeader, Stat } from '../components/Primitives';
+import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
 import { api } from '../lib/api';
 import { fmtNumber, fmtUsd } from '../lib/format';
 
@@ -8,6 +8,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['measurements', lambda], queryFn: () => api.measurements(lambda) });
   const costs = useQuery({ queryKey: ['run-costs'], queryFn: api.runCosts });
+  const overview = useQuery({ queryKey: ['overview', lambda], queryFn: () => api.overview(lambda) });
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [budgetCap, setBudgetCap] = useState('');
   const queuePlan = useMutation({
@@ -41,8 +42,10 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
 
   const actualCost = costs.data?.summary.actual_cost_usd ?? 0;
 
-  if (query.isLoading || costs.isLoading) return <LoadingState />;
-  if (query.error || costs.error) return <ErrorState error={query.error || costs.error} />;
+  if (query.isLoading || costs.isLoading || overview.isLoading) return <LoadingState />;
+  if (query.error || costs.error || overview.error) return <ErrorState error={query.error || costs.error || overview.error} />;
+
+  const overviewStats = overview.data!.stats;
 
   return (
     <div className="page">
@@ -79,10 +82,18 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
           </>
         }
       />
+      <Explainer title="Where the cost savings happen" tone="accent" style={{ marginBottom: 16 }}>
+        <p>
+          Exhaustive measurement would evaluate every guard pair across every benchmark cell. CASS has measured{' '}
+          <strong>{overviewStats.pair_cells_measured}/{overviewStats.pair_cells_total}</strong> pair-cells here, selecting
+          only bundles likely to shrink an active certificate gap and avoiding <strong>{fmtUsd(overviewStats.cost_avoided_usd)}</strong>
+          {' '}of estimated measurement spend.
+        </p>
+      </Explainer>
       <div className="grid grid-3">
-        <Stat label="Selected cost" value={fmtUsd(selectedCost)} />
-        <Stat label="Actual usage" value={fmtUsd(actualCost)} tone={actualCost > 0 ? 'ok' : undefined} />
-        <Stat label="ETA" value={`${eta} min`} />
+        <Stat label="Selected cost" value={fmtUsd(selectedCost)} description="Estimated spend for the currently checked measurement bundles." />
+        <Stat label="Actual usage" value={fmtUsd(actualCost)} tone={actualCost > 0 ? 'ok' : undefined} description="Ledgered provider and worker cost from jobs that have run." />
+        <Stat label="ETA" value={`${eta} min`} description="Projected runtime for the selected queue, useful for release planning." />
       </div>
       <Card style={{ marginTop: 16 }}>
         <div className="grid grid-4" style={{ gap: 12 }}>
@@ -91,6 +102,10 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
           <MiniMetric label="Input tokens" value={costs.data!.summary.input_tokens.toLocaleString()} />
           <MiniMetric label="Output tokens" value={costs.data!.summary.output_tokens.toLocaleString()} />
         </div>
+        <p className="muted" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
+          Radius reduction is the expected shrinkage in comparison uncertainty. Bigger reductions are more likely to
+          turn an open comparison into a certified win.
+        </p>
       </Card>
       <div className="table-wrap" style={{ marginTop: 16 }}>
         <table>
