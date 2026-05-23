@@ -92,11 +92,23 @@ export function AuthPage() {
           <form onSubmit={submitAuth}>
             <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
               <span className="stat-label">Email</span>
-              <input className="btn" value={email} onChange={(event) => setEmail(event.currentTarget.value)} />
+              <input
+                className="btn"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.currentTarget.value)}
+              />
             </label>
             <label style={{ display: 'grid', gap: 6, marginBottom: 16 }}>
               <span className="stat-label">Password</span>
-              <input className="btn" type="password" value={password} onChange={(event) => setPassword(event.currentTarget.value)} />
+              <input
+                className="btn"
+                type="password"
+                autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={(event) => setPassword(event.currentTarget.value)}
+              />
             </label>
             {message ? <div className="notice" style={{ marginBottom: 12 }}>{message}</div> : null}
             <button className="btn primary" style={{ width: '100%' }} type="submit">

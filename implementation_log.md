@@ -835,3 +835,5 @@ Started: 2026-05-23
     `supabase/setup-cli@v2`.
   - wrapped the auth inputs in a real form so hosted browser validation has no
     password-field console warning during the demo sign-in flow.
+  - added auth input `autocomplete` attributes for password-manager support and
+    cleaner browser diagnostics.
