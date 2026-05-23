@@ -821,3 +821,10 @@ Started: 2026-05-23
     npm run build` -> OK.
   - GitHub Pages hash build with Supabase env placeholders -> OK.
   - `supabase start && supabase db reset --local && supabase status` -> OK.
+- Remote verification after push:
+  - `deploy pages` run `26346305957` -> passed, including deployed smoke test.
+  - `ci` run `26346305964` -> passed, including Supabase migration checks.
+- Follow-up hardening:
+  - opted both workflows into GitHub Actions' Node 24 runtime early with
+    `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` so the June 2026 runner change is
+    tested before it becomes the default.
