@@ -828,3 +828,8 @@ Started: 2026-05-23
   - opted both workflows into GitHub Actions' Node 24 runtime early with
     `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` so the June 2026 runner change is
     tested before it becomes the default.
+  - bumped GitHub Actions to current Node 24-ready major versions:
+    `actions/checkout@v6`, `actions/setup-python@v6`,
+    `actions/setup-node@v6`, `actions/configure-pages@v6`,
+    `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, and
+    `supabase/setup-cli@v2`.
