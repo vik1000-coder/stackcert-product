@@ -833,3 +833,5 @@ Started: 2026-05-23
     `actions/setup-node@v6`, `actions/configure-pages@v6`,
     `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, and
     `supabase/setup-cli@v2`.
+  - wrapped the auth inputs in a real form so hosted browser validation has no
+    password-field console warning during the demo sign-in flow.

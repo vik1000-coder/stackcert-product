@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ButtonLink, Card, LogoMark } from '../components/Primitives';
 import { supabase } from '../lib/supabase';
@@ -31,7 +31,8 @@ export function AuthPage() {
     };
   }, [destination, navigate]);
 
-  async function submitAuth() {
+  async function submitAuth(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     setMessage(null);
     if (!supabase) {
       navigate(destination);
@@ -88,18 +89,20 @@ export function AuthPage() {
               Create account
             </button>
           </div>
-          <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-            <span className="stat-label">Email</span>
-            <input className="btn" value={email} onChange={(event) => setEmail(event.currentTarget.value)} />
-          </label>
-          <label style={{ display: 'grid', gap: 6, marginBottom: 16 }}>
-            <span className="stat-label">Password</span>
-            <input className="btn" type="password" value={password} onChange={(event) => setPassword(event.currentTarget.value)} />
-          </label>
-          {message ? <div className="notice" style={{ marginBottom: 12 }}>{message}</div> : null}
-          <button className="btn primary" style={{ width: '100%' }} onClick={submitAuth}>
-            {mode === 'sign-in' && isDemoDestination ? 'Continue to demo' : mode === 'sign-in' ? 'Continue' : 'Create account'}
-          </button>
+          <form onSubmit={submitAuth}>
+            <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+              <span className="stat-label">Email</span>
+              <input className="btn" value={email} onChange={(event) => setEmail(event.currentTarget.value)} />
+            </label>
+            <label style={{ display: 'grid', gap: 6, marginBottom: 16 }}>
+              <span className="stat-label">Password</span>
+              <input className="btn" type="password" value={password} onChange={(event) => setPassword(event.currentTarget.value)} />
+            </label>
+            {message ? <div className="notice" style={{ marginBottom: 12 }}>{message}</div> : null}
+            <button className="btn primary" style={{ width: '100%' }} type="submit">
+              {mode === 'sign-in' && isDemoDestination ? 'Continue to demo' : mode === 'sign-in' ? 'Continue' : 'Create account'}
+            </button>
+          </form>
           <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
             {isDemoDestination
               ? 'The demo account is prefilled. In local mode, Continue opens the seeded project without a Supabase session.'
