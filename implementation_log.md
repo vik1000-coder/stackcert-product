@@ -837,3 +837,10 @@ Started: 2026-05-23
     password-field console warning during the demo sign-in flow.
   - added auth input `autocomplete` attributes for password-manager support and
     cleaner browser diagnostics.
+- Final option 1 verification:
+  - `ci` run `26346576582` passed after the auth metadata polish.
+  - `deploy pages` run `26346576576` passed after the auth metadata polish.
+  - Live Pages smoke path verified with Playwright:
+    `https://vik1000-coder.github.io/stackcert-product/?v=0ba9115` ->
+    "View seeded demo" -> sign-in -> seeded overview dashboard.
+  - Browser console produced no warnings or errors during that deployed flow.
