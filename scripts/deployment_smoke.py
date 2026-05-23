@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Smoke-check a deployed StackCert web/API/Auth environment."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def read_url(url: str, headers: dict[str, str] | None = None) -> tuple[int, str]:
+    request = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status, response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", errors="replace")
+
+
+def post_json(url: str, body: dict[str, object], headers: dict[str, str] | None = None) -> tuple[int, dict[str, object]]:
+    payload = json.dumps(body).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json", **(headers or {})},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        text = error.read().decode("utf-8", errors="replace")
+        try:
+            parsed: dict[str, object] = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = {"error": text}
+        return error.code, parsed
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--web-url", required=True, help="Public URL for the deployed web index.html")
+    parser.add_argument("--api-url", required=True, help="Base URL for the deployed StackCert API")
+    parser.add_argument("--supabase-url", help="Supabase project URL for Auth smoke checks")
+    parser.add_argument("--email", help="Demo or test user email for Auth smoke checks")
+    parser.add_argument("--password", help="Demo or test user password for Auth smoke checks")
+    parser.add_argument(
+        "--anon-key-env",
+        default="STACKCERT_SMOKE_SUPABASE_ANON_KEY",
+        help="Environment variable containing the Supabase anon/publishable key",
+    )
+    args = parser.parse_args()
+
+    web_status, web_body = read_url(args.web_url)
+    require(web_status == 200, f"web URL returned {web_status}")
+    require("StackCert" in web_body, "web URL did not return the StackCert app shell")
+
+    api_base = args.api_url.rstrip("/")
+    health_status, health_body = read_url(f"{api_base}/api/health")
+    require(health_status == 200, f"health returned {health_status}: {health_body[:200]}")
+
+    denied_status, _ = read_url(f"{api_base}/api/projects")
+    require(denied_status in {401, 403}, f"unauthenticated projects should be denied, got {denied_status}")
+
+    token = None
+    if args.supabase_url and args.email and args.password:
+        anon_key = os.environ.get(args.anon_key_env)
+        require(bool(anon_key), f"{args.anon_key_env} must be set for Auth smoke checks")
+        auth_status, auth_payload = post_json(
+            f"{args.supabase_url.rstrip('/')}/auth/v1/token?grant_type=password",
+            {"email": args.email, "password": args.password},
+            {"apikey": anon_key or ""},
+        )
+        require(auth_status == 200, f"auth token request returned {auth_status}: {auth_payload}")
+        token = str(auth_payload.get("access_token") or "")
+        require(token.startswith("ey"), "auth response did not include a JWT access token")
+
+    if token:
+        authed_status, authed_body = read_url(f"{api_base}/api/projects", {"Authorization": f"Bearer {token}"})
+        require(authed_status == 200, f"authenticated projects returned {authed_status}: {authed_body[:200]}")
+        require("proj_acme_copilot" in authed_body, "authenticated projects did not include the demo project")
+
+    print("deployment smoke OK")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except AssertionError as error:
+        print(f"deployment smoke failed: {error}", file=sys.stderr)
+        raise SystemExit(1)

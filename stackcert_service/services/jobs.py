@@ -1,0 +1,593 @@
+from __future__ import annotations
+
+import uuid
+from collections import Counter
+from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import HTTPException, status
+
+from stackcert.eval.runner import EvaluationRunner
+from stackcert.eval.sampling import sample_within_cells
+from stackcert.guards.fake_adapter import DeterministicPolicyGuardAdapter
+from stackcert_service.config import settings
+from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
+from stackcert_service.schemas import EvaluationJobCreate, MeasurementPlanCreate
+from stackcert_service.services import demo_project
+from stackcert_service.services import usage
+from stackcert_service.services.display import guard_label, stack_label
+
+
+_jobs: dict[str, dict[str, Any]] = {}
+DEFAULT_MAX_JOB_ATTEMPTS = 3
+DEFAULT_LEASE_SECONDS = 300
+MAX_RETRY_DELAY_SECONDS = 300
+RETRYABLE_ERROR_CLASSES = {"timeout", "rate_limited", "provider_unavailable", "worker_exception"}
+
+
+def _now_dt() -> datetime:
+    return datetime.now(UTC).replace(microsecond=0)
+
+
+def _now() -> str:
+    return _now_dt().isoformat()
+
+
+def _future(seconds: int) -> str:
+    return (_now_dt() + timedelta(seconds=seconds)).isoformat()
+
+
+def _store(job: dict[str, Any]) -> dict[str, Any]:
+    store = _persistent_store()
+    if store:
+        try:
+            return store.store_job(job)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    _jobs[job["id"]] = job
+    return job
+
+
+def _update(job: dict[str, Any]) -> dict[str, Any]:
+    job["updated_at"] = _now()
+    store = _persistent_store()
+    if store:
+        try:
+            return store.update_job(job)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    _jobs[job["id"]] = job
+    return job
+
+
+def _reliability_fields() -> dict[str, Any]:
+    return {
+        "max_attempts": DEFAULT_MAX_JOB_ATTEMPTS,
+        "lease_expires_at": None,
+        "locked_by": None,
+        "retry_after": None,
+        "error": None,
+        "error_class": None,
+        "dead_letter_reason": None,
+        "events": [
+            {
+                "at": _now(),
+                "type": "queued",
+                "message": "Job queued for worker execution.",
+            }
+        ],
+    }
+
+
+def _append_event(job: dict[str, Any], event_type: str, message: str, metadata: dict[str, Any] | None = None) -> None:
+    events = list(job.get("events") or [])
+    event: dict[str, Any] = {"at": _now(), "type": event_type, "message": message}
+    if metadata:
+        event["metadata"] = metadata
+    events.append(event)
+    job["events"] = events[-50:]
+
+
+def list_jobs(project_id: str) -> list[dict[str, Any]]:
+    store = _persistent_store()
+    if store:
+        try:
+            return store.list_jobs(project_id)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return sorted(
+        [job for job in _jobs.values() if job["project_id"] == project_id],
+        key=lambda job: job["created_at"],
+        reverse=True,
+    )
+
+
+def get_job(job_id: str) -> dict[str, Any]:
+    store = _persistent_store()
+    if store:
+        try:
+            job = store.get_job(job_id)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        if not job:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+        return job
+    if job_id not in _jobs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    return _jobs[job_id]
+
+
+def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict[str, Any]:
+    if project_id != settings.demo_project_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    engine, _, _ = demo_project.demo_bundle()
+    requested_guard_ids = payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
+    unknown = sorted(set(requested_guard_ids).difference(engine.guard_ids))
+    if unknown:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+
+    run_id = f"eval_{uuid.uuid4().hex[:10]}"
+    job = {
+        "id": f"job_{uuid.uuid4().hex[:12]}",
+        "type": "evaluation_run",
+        "project_id": project_id,
+        "run_id": run_id,
+        "status": "queued",
+        "created_at": _now(),
+        "updated_at": _now(),
+        "started_at": None,
+        "completed_at": None,
+        "attempts": 0,
+        "progress": 0.0,
+        "input": {
+            "payload": payload.model_dump(),
+            "requested_guard_ids": requested_guard_ids,
+        },
+        "summary": {
+            "adapter_mode": payload.adapter_mode,
+            "examples": 0,
+            "guards": len(requested_guard_ids),
+            "outputs": 0,
+            "errors": 0,
+        },
+        "artifact_preview": [],
+        "next_steps": [
+            "Worker will execute selected guard/cell bundles with provider rate limits.",
+            "Outputs will be written idempotently and the certificate recomputed.",
+        ],
+        **_reliability_fields(),
+    }
+    if payload.execution_mode == "queued":
+        return _store(job)
+    _store(job)
+    return run_job(job["id"])
+
+
+def run_next_job(project_id: str | None = None, worker_id: str | None = None) -> dict[str, Any]:
+    now = _now_dt()
+    runnable = [
+        job
+        for job in (list_jobs(project_id) if project_id else sorted(_all_jobs(), key=lambda item: item["created_at"]))
+        if _job_is_runnable(job, now)
+    ]
+    if not runnable:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No queued jobs found")
+    runnable.sort(key=lambda item: (str(item.get("retry_after") or item.get("created_at") or ""), str(item.get("id") or "")))
+    return run_job(runnable[0]["id"], worker_id=worker_id)
+
+
+def run_job(job_id: str, worker_id: str | None = None) -> dict[str, Any]:
+    job = get_job(job_id)
+    if job["type"] not in {"evaluation_run", "measurement_plan"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported executable job type: {job['type']}")
+    if job["status"] not in {"queued", "running"}:
+        return job
+    worker_id = worker_id or f"worker_{uuid.uuid4().hex[:8]}"
+    if job["status"] == "running" and not _job_lease_expired(job, _now_dt()):
+        current_owner = job.get("locked_by") or "unknown worker"
+        if current_owner != worker_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Job is leased by {current_owner}")
+    job = _lease_job(job, worker_id)
+    _update(job)
+
+    try:
+        if job["type"] == "evaluation_run":
+            payload = EvaluationJobCreate(**job.get("input", {}).get("payload", {}))
+            completed = _execute_evaluation_job(job, payload)
+        else:
+            completed = _execute_measurement_plan_job(job)
+        completed = _mark_job_succeeded(completed, worker_id)
+    except Exception as exc:
+        completed = _handle_job_failure(job, exc)
+    return _update(completed)
+
+
+def retry_job(job_id: str) -> dict[str, Any]:
+    job = get_job(job_id)
+    if job["status"] == "running" and not _job_lease_expired(job, _now_dt()):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot retry an actively leased job")
+    job["status"] = "queued"
+    job["started_at"] = None
+    job["completed_at"] = None
+    job["attempts"] = 0
+    job["progress"] = 0.0
+    job["locked_by"] = None
+    job["lease_expires_at"] = None
+    job["retry_after"] = None
+    job["error"] = None
+    job["error_class"] = None
+    job["dead_letter_reason"] = None
+    job["summary"] = {
+        **job.get("summary", {}),
+        "operator_retry": True,
+    }
+    job["next_steps"] = [
+        "Worker will retry the job from the beginning.",
+        "If the same provider or configuration error returns, review connector credentials, rate limits, and input payload.",
+    ]
+    _append_event(job, "manual_retry", "Operator requeued the job for another worker attempt.")
+    return _update(job)
+
+
+def _parse_time(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _job_is_runnable(job: dict[str, Any], now: datetime) -> bool:
+    if job.get("status") == "queued":
+        retry_after = _parse_time(job.get("retry_after"))
+        return retry_after is None or retry_after <= now
+    if job.get("status") == "running":
+        lease_expires_at = _parse_time(job.get("lease_expires_at"))
+        return lease_expires_at is not None and lease_expires_at <= now
+    return False
+
+
+def _job_lease_expired(job: dict[str, Any], now: datetime) -> bool:
+    lease_expires_at = _parse_time(job.get("lease_expires_at"))
+    return lease_expires_at is not None and lease_expires_at <= now
+
+
+def _lease_job(job: dict[str, Any], worker_id: str) -> dict[str, Any]:
+    attempts = int(job.get("attempts") or 0) + 1
+    lease_expires_at = _future(DEFAULT_LEASE_SECONDS)
+    job["status"] = "running"
+    job["started_at"] = job.get("started_at") or _now()
+    job["attempts"] = attempts
+    job["progress"] = 0.25
+    job["locked_by"] = worker_id
+    job["lease_expires_at"] = lease_expires_at
+    job["retry_after"] = None
+    _append_event(
+        job,
+        "leased",
+        f"Worker {worker_id} claimed attempt {attempts}.",
+        {"attempt": attempts, "lease_expires_at": lease_expires_at},
+    )
+    return job
+
+
+def _mark_job_succeeded(job: dict[str, Any], worker_id: str) -> dict[str, Any]:
+    job["locked_by"] = None
+    job["lease_expires_at"] = None
+    job["retry_after"] = None
+    job["error"] = None
+    job["error_class"] = None
+    job["dead_letter_reason"] = None
+    _append_event(job, "succeeded", f"Worker {worker_id} completed the job.", {"status": job.get("status")})
+    return job
+
+
+def _handle_job_failure(job: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    error_class = _classify_job_error(exc)
+    error_detail = _error_detail(exc)
+    attempts = int(job.get("attempts") or 0)
+    max_attempts = int(job.get("max_attempts") or DEFAULT_MAX_JOB_ATTEMPTS)
+    can_retry = error_class in RETRYABLE_ERROR_CLASSES and attempts < max_attempts
+
+    job["error"] = error_detail
+    job["error_class"] = error_class
+    job["locked_by"] = None
+    job["lease_expires_at"] = None
+    job["summary"] = {
+        **job.get("summary", {}),
+        "last_error_class": error_class,
+        "last_error": error_detail,
+        "attempts": attempts,
+        "max_attempts": max_attempts,
+    }
+
+    if can_retry:
+        delay_seconds = _retry_delay_seconds(attempts)
+        retry_after = _future(delay_seconds)
+        job["status"] = "queued"
+        job["progress"] = 0.0
+        job["completed_at"] = None
+        job["retry_after"] = retry_after
+        job["dead_letter_reason"] = None
+        job["summary"] = {
+            **job["summary"],
+            "retry_after": retry_after,
+            "retry_delay_seconds": delay_seconds,
+        }
+        job["next_steps"] = [
+            f"Transient {error_class} failure detected; worker will retry after {delay_seconds} seconds.",
+            "If retries continue, check provider status, rate limits, adapter timeout budgets, and request volume.",
+        ]
+        _append_event(
+            job,
+            "retry_scheduled",
+            f"{error_class} failure scheduled for retry.",
+            {"attempt": attempts, "retry_after": retry_after, "error": error_detail},
+        )
+        return job
+
+    job["status"] = "failed"
+    job["progress"] = 1.0
+    job["completed_at"] = _now()
+    job["retry_after"] = None
+    job["dead_letter_reason"] = error_class
+    job["next_steps"] = [
+        "Job moved to the dead-letter queue after exhausting retries or hitting a nonretryable error.",
+        "Review the error details, provider credentials, benchmark payload, and guard configuration before retrying.",
+    ]
+    _append_event(
+        job,
+        "dead_lettered",
+        f"Job failed with {error_class}.",
+        {"attempt": attempts, "max_attempts": max_attempts, "error": error_detail},
+    )
+    return job
+
+
+def _retry_delay_seconds(attempts: int) -> int:
+    return min(MAX_RETRY_DELAY_SECONDS, 30 * (2 ** max(0, attempts - 1)))
+
+
+def _classify_job_error(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        if exc.status_code in {status.HTTP_408_REQUEST_TIMEOUT, status.HTTP_504_GATEWAY_TIMEOUT}:
+            return "timeout"
+        if exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            return "rate_limited"
+        if exc.status_code in {
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status.HTTP_502_BAD_GATEWAY,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        }:
+            return "provider_unavailable"
+        if exc.status_code in {
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+        }:
+            return "invalid_configuration"
+        return "http_error"
+    return "worker_exception"
+
+
+def _error_detail(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
+    return f"{type(exc).__name__}: {exc}"
+
+
+def _raise_provider_failure(failure_mode: str | None) -> None:
+    if failure_mode == "provider_timeout":
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Provider timeout while evaluating guard adapter.")
+    if failure_mode == "provider_rate_limited":
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Provider rate limit exceeded while evaluating guard adapter.")
+    if failure_mode == "invalid_configuration":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid guard adapter configuration.")
+
+
+def _execute_evaluation_job(job: dict[str, Any], payload: EvaluationJobCreate) -> dict[str, Any]:
+    engine, _, _ = demo_project.demo_bundle()
+    _raise_provider_failure(payload.failure_mode)
+    requested_guard_ids = job.get("input", {}).get("requested_guard_ids") or payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
+    unknown = sorted(set(requested_guard_ids).difference(engine.guard_ids))
+    if unknown:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+
+    examples = sample_within_cells(engine.examples, per_cell=payload.examples_per_cell, seed=payload.seed)
+    if payload.adapter_mode == "uploaded_outputs":
+        outputs = [output for output in engine.outputs if output.guard_id in requested_guard_ids and output.example_id in {ex.example_id for ex in examples}]
+    else:
+        adapters = tuple(
+            DeterministicPolicyGuardAdapter(
+                guard_id=guard_id,
+                run_id=job["run_id"],
+                metadata={"source": "local_fixture", "contract": "guard_adapter_v1"},
+            )
+            for guard_id in requested_guard_ids
+        )
+        outputs = EvaluationRunner(adapters).run(examples)
+
+    blocked = sum(1 for output in outputs if not output.binary_pass)
+    errors = sum(1 for output in outputs if output.error)
+    by_guard = Counter(output.guard_id for output in outputs)
+    by_cell = Counter(example.cell_id for example in examples)
+    preview = [
+        {
+            "example_id": output.example_id,
+            "guard_id": output.guard_id,
+            "guard_label": guard_label(output.guard_id),
+            "binary_pass": output.binary_pass,
+            "block_probability": output.block_probability,
+            "error": output.error,
+        }
+        for output in outputs[:12]
+    ]
+    job["status"] = "complete" if errors == 0 else "complete_with_errors"
+    job["completed_at"] = _now()
+    job["progress"] = 1.0
+    job["summary"] = {
+        "adapter_mode": payload.adapter_mode,
+        "examples": len(examples),
+        "guards": len(requested_guard_ids),
+        "outputs": len(outputs),
+        "blocked_outputs": blocked,
+        "pass_rate": round((len(outputs) - blocked) / len(outputs), 4) if outputs else 0.0,
+        "errors": errors,
+        "cells": dict(sorted(by_cell.items())),
+        "outputs_by_guard": dict(sorted(by_guard.items())),
+    }
+    job["artifact_preview"] = preview
+    job["next_steps"] = [
+        "Persist full outputs to Supabase Storage and guard_outputs for large customer suites.",
+        "Recompute CASS certificate after approved outputs land.",
+    ]
+    return job
+
+
+def create_measurement_plan_job(run_id: str, payload: MeasurementPlanCreate, lambda_cost: float = 5.0) -> dict[str, Any]:
+    measurements = demo_project.measurements(lambda_cost)
+    requested = set(payload.action_ids)
+    actions = [
+        action
+        for action in measurements["actions"]
+        if not requested or action["id"] in requested
+    ]
+    if payload.action_ids and not actions:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No matching measurement actions")
+    selected_cost = round(sum(action["cost_usd"] for action in actions), 4)
+    if payload.max_cost_usd is not None and selected_cost > payload.max_cost_usd:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Selected measurement plan costs ${selected_cost:.2f}, above the ${payload.max_cost_usd:.2f} budget cap",
+        )
+
+    job = {
+        "id": f"job_{uuid.uuid4().hex[:12]}",
+        "type": "measurement_plan",
+        "project_id": settings.demo_project_id,
+        "run_id": run_id,
+        "status": "queued",
+        "created_at": _now(),
+        "updated_at": _now(),
+        "started_at": None,
+        "completed_at": None,
+        "attempts": 0,
+        "progress": 0.0,
+        "input": {
+            "payload": payload.model_dump(),
+            "lambda_cost": lambda_cost,
+            "requested_action_ids": [action["id"] for action in actions],
+        },
+        "summary": {
+            "action_count": len(actions),
+            "selected_cost_usd": selected_cost,
+            "actual_cost_usd": 0.0,
+            "selected_eta_minutes": sum(action["eta_minutes"] for action in actions),
+            "total_expected_radius_reduction": sum(action["expected_radius_reduction"] for action in actions),
+            "bundles": [stack_label(action["guard_ids"]) for action in actions],
+            "budget_cap_usd": payload.max_cost_usd,
+            "usage_event_count": 0,
+            "provider_calls": 0,
+        },
+        "actions": actions,
+        "usage_preview": [],
+        "next_steps": [
+            "Worker will execute selected guard/cell bundles with provider rate limits.",
+            "Outputs will be written idempotently and the certificate recomputed.",
+        ],
+        **_reliability_fields(),
+    }
+    return _store(job)
+
+
+def _execute_measurement_plan_job(job: dict[str, Any]) -> dict[str, Any]:
+    actions = job.get("actions") or []
+    if not actions:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Measurement plan has no actions to execute")
+
+    usage_events = [_usage_event_from_action(job, action) for action in actions]
+    recorded_events = usage.record_usage_events(str(job["project_id"]), job, usage_events)
+    actual_cost = round(sum(float(event.get("actual_cost_usd") or 0) for event in recorded_events), 4)
+    estimated_cost = round(sum(float(action["cost_usd"]) for action in actions), 4)
+    completed_actions = [
+        {
+            **action,
+            "status": "complete",
+            "actual_cost_usd": round(float(action["cost_usd"]), 4),
+            "usage_event_id": recorded_events[index]["id"] if index < len(recorded_events) else None,
+        }
+        for index, action in enumerate(actions)
+    ]
+
+    job["status"] = "complete"
+    job["completed_at"] = _now()
+    job["progress"] = 1.0
+    job["actions"] = completed_actions
+    job["summary"] = {
+        **job.get("summary", {}),
+        "action_count": len(completed_actions),
+        "completed_actions": len(completed_actions),
+        "selected_cost_usd": estimated_cost,
+        "actual_cost_usd": actual_cost,
+        "usage_event_count": len(recorded_events),
+        "provider_calls": sum(int(event.get("request_count") or 0) for event in recorded_events),
+        "budget_status": "within_cap",
+    }
+    job["usage_preview"] = recorded_events[:8]
+    job["next_steps"] = [
+        "Recompute the CASS certificate after these measurements land in the run output table.",
+        "Review actual spend against the selected plan before queueing additional measurements.",
+    ]
+    return job
+
+
+def _usage_event_from_action(job: dict[str, Any], action: dict[str, Any]) -> dict[str, Any]:
+    guard_count = max(1, len(action.get("guard_ids") or []))
+    request_count = max(1, int(round(float(action.get("cost_agent_cells") or 1) * guard_count)))
+    return {
+        "id": f"use_{job['id']}_{action['id']}",
+        "provider": "stackcert_worker",
+        "model": "deterministic_measurement_adapter",
+        "operation": "measurement_action",
+        "input_tokens": request_count * 750,
+        "output_tokens": request_count * 80,
+        "request_count": request_count,
+        "duration_ms": int(action.get("eta_minutes") or 0) * 60_000,
+        "estimated_cost_usd": float(action["cost_usd"]),
+        "actual_cost_usd": float(action["cost_usd"]),
+        "metadata": {
+            "action_id": action["id"],
+            "action_type": action.get("action_type"),
+            "cell_id": action.get("cell_id"),
+            "side": action.get("side"),
+            "guard_ids": action.get("guard_ids") or [],
+            "label": action.get("label"),
+        },
+    }
+
+
+def clear_jobs() -> None:
+    _jobs.clear()
+    usage.clear_usage_events()
+
+
+def _all_jobs() -> list[dict[str, Any]]:
+    store = _persistent_store()
+    if store:
+        # The current worker scope is project-oriented; use demo project until
+        # workspace-scoped job leasing is added.
+        return store.list_jobs(settings.demo_project_id)
+    return list(_jobs.values())
+
+
+def _persistent_store():
+    try:
+        return configured_supabase_store()
+    except SupabasePersistenceError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

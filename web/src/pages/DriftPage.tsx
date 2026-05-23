@@ -1,0 +1,65 @@
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { Badge, Card, ErrorState, LoadingState, PageHeader } from '../components/Primitives';
+
+export function DriftPage({ lambda }: { lambda: number }) {
+  const query = useQuery({ queryKey: ['drift', lambda], queryFn: () => api.drift(lambda) });
+  if (query.isLoading) return <LoadingState />;
+  if (query.error) return <ErrorState error={query.error} />;
+  const data = query.data!;
+
+  return (
+    <div className="page">
+      <PageHeader
+        title="Drift and recertification"
+        subtitle="Certificates remain valid only while their benchmark mixture, guard versions, model versions, prompts, tools, and traffic assumptions stay in scope."
+        actions={<button className="btn primary">Trigger recertification</button>}
+      />
+      <div className="grid grid-3">
+        {data.signals.map((signal) => (
+          <Card key={signal.id}>
+            <Badge tone={signal.severity} dot>
+              {signal.severity}
+            </Badge>
+            <h2 style={{ margin: '14px 0 8px', fontSize: 18 }}>{signal.title}</h2>
+            <p className="muted" style={{ lineHeight: 1.55 }}>{signal.description}</p>
+            <div className="mono" style={{ color: 'var(--sc-ink-3)', fontSize: 12 }}>
+              {signal.kind} · {signal.status}
+            </div>
+          </Card>
+        ))}
+      </div>
+      <div className="table-wrap" style={{ marginTop: 16 }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Recertification</th>
+              <th>Status</th>
+              <th>Run</th>
+              <th>Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.history.map((row) => (
+              <tr key={row.id}>
+                <td className="mono">{row.id}</td>
+                <td>
+                  <Badge tone={row.status}>{row.status}</Badge>
+                </td>
+                <td className="mono">{row.run_id}</td>
+                <td className="muted">{row.summary}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Card>
+        <p className="muted" style={{ margin: 0 }}>
+          Future integrations should create drift signals from LangSmith/Langfuse traces, deployment webhooks, guard
+          version changes, prompt diffs, model releases, and incident reports.
+        </p>
+      </Card>
+    </div>
+  );
+}
+

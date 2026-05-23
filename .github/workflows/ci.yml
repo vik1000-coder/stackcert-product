@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python-core:
+    name: python core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          python -m unittest discover -s tests_service -p 'test_*.py' -v
+
+  frontend:
+    name: frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check frontend if present
+        run: |
+          if [ -f web/package.json ]; then
+            cd web
+            npm ci
+            npm run lint
+            npm run typecheck
+            npm test -- --run
+            npm run build
+            VITE_ROUTER_MODE=hash VITE_PUBLIC_BASE=./ VITE_API_BASE_URL=https://example.invalid/functions/v1/stackcert-api VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=example npm run build
+          else
+            echo "web/package.json not present yet; skipping frontend checks"
+          fi
+
+  supabase:
+    name: supabase migration checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Check Supabase migrations if present
+        run: |
+          if [ -f supabase/config.toml ]; then
+            supabase start
+            supabase db reset --local
+            test -f supabase/functions/stackcert-api/index.ts
+            supabase status
+          else
+            echo "supabase/config.toml not present yet; skipping migration checks"
+          fi

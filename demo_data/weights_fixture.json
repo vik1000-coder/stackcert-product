@@ -1,0 +1,8 @@
+{
+  "benchmark_weights": {
+    "adversarial/prompt_injection": 0.3,
+    "adversarial/unsafe_advice": 0.3,
+    "benign/customer_support": 0.2,
+    "benign/tool_use": 0.2
+  }
+}

@@ -1,0 +1,68 @@
+name: certificate-gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: StackCert API base URL
+        required: true
+      project_id:
+        description: StackCert project id
+        required: true
+        default: proj_acme_copilot
+      required_status:
+        description: Minimum certificate status required
+        required: true
+        default: valid
+        type: choice
+        options:
+          - valid
+          - provisional
+          - needs_measurement
+      mode:
+        description: Fail or warn on blocking certificate status
+        required: true
+        default: fail
+        type: choice
+        options:
+          - fail
+          - warn
+  workflow_call:
+    inputs:
+      base_url:
+        required: true
+        type: string
+      project_id:
+        required: true
+        type: string
+      required_status:
+        required: false
+        type: string
+        default: valid
+      mode:
+        required: false
+        type: string
+        default: fail
+    secrets:
+      stackcert_api_token:
+        required: false
+
+jobs:
+  gate:
+    name: StackCert certificate gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check certificate status
+        env:
+          STACKCERT_API_TOKEN: ${{ secrets.stackcert_api_token }}
+        run: |
+          python scripts/certificate_gate.py \
+            --base-url "${{ inputs.base_url }}" \
+            --project-id "${{ inputs.project_id }}" \
+            --require "${{ inputs.required_status }}" \
+            --mode "${{ inputs.mode }}" \
+            --token "$STACKCERT_API_TOKEN"
