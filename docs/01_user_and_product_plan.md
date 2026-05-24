@@ -2,22 +2,23 @@
 
 ## Product Thesis
 
-StackCert should be a one-stop guardrail certification workbench for teams that
-ship AI agents, copilots, or model-backed workflows into environments where
-safety, reliability, and auditability matter.
+StackCert should be a one-stop workbench for teams choosing safety-check
+combinations for AI agents, copilots, or model-backed workflows in environments
+where safety, usefulness, reliability, cost, and auditability matter.
 
 The product should not feel like a generic BI dashboard. It should feel like an
-AI safety launch-gate console: precise, operational, evidence-backed, and useful
-before, during, and after launch.
+AI app release console: precise, operational, evidence-backed, and useful
+before, during, and after launch. Users should not need to understand the CASS
+paper before the product makes sense.
 
 The user should be able to:
 
-1. Choose or create the benchmark behaviors they care about.
-2. Connect candidate guards, model judges, policies, or custom adapters.
-3. Estimate quality, risk, latency, and cost for competing guardrail stacks.
-4. Run only the measurements needed to certify or refute a stack.
-5. Export a certificate that a security or GRC reviewer can understand.
-6. Keep watching drift after launch so old certificates do not silently remain
+1. Choose or create app examples that represent the behavior they care about.
+2. Connect candidate safety checks, model judges, policies, or custom adapters.
+3. Compare safety, usefulness, latency, and cost for competing combinations.
+4. Run only the targeted tests that can change the recommendation.
+5. Export release evidence that a security or GRC reviewer can understand.
+6. Keep watching drift after launch so old evidence does not silently remain
    trusted.
 
 ## Primary Users
@@ -30,75 +31,75 @@ Responsibilities:
 
 - Own jailbreak, prompt-injection, unsafe-content, data-exposure, tool-risk, and
   policy compliance controls.
-- Decide whether a guardrail stack is launch-ready.
-- Explain why a marginally good guard pair can still fail together.
-- Trigger re-certification after guard, model, prompt, traffic, or incident
+- Decide which safety-check combination is ready to ship.
+- Explain why the obvious one-at-a-time pick can fail once checks are combined.
+- Trigger retesting after safety-check, model, prompt, traffic, or incident
   changes.
 
 StackCert value:
 
-- Surfaces co-failure, not only marginal pass/block rates.
-- Explains why the winning stack is defensible.
-- Converts a review into an evidence artifact.
+- Surfaces shared misses and shared false blocks, not only one-at-a-time scores.
+- Explains why the recommended combination is defensible.
+- Converts a review into scoped release evidence.
 - Gives a recurring drift workflow instead of a one-time report.
 
 Most important screens:
 
 - Overview
-- Stack Ranking
-- Co-Failure
-- Measurements
-- Certificate
-- Drift
+- Options compared
+- Overlap analysis
+- Test plan and cost
+- Release evidence
+- When to retest
 
 ### AI Platform Engineer
 
 Responsibilities:
 
-- Connect guard APIs, local policies, model judges, benchmark sets, and
+- Connect safety-check APIs, local policies, model judges, example suites, and
   evaluation jobs.
-- Keep guard versions, prompts, thresholds, and run metadata accurate.
+- Keep safety-check versions, prompts, thresholds, and run metadata accurate.
 - Make evaluations reproducible and affordable.
-- Wire certification into existing deployment workflows.
+- Wire release evidence into existing deployment workflows.
 
 StackCert value:
 
-- Adapter registry for REST, Python, local, and provider-backed guards.
+- Adapter registry for REST, Python, local, and provider-backed safety checks.
 - Run validation before any result is trusted.
-- Measurement planner with cost, ETA, and expected value.
+- Test plan with cost, ETA, and expected decision help.
 - APIs, CLI, and future CI/CD gates.
 
 Most important screens:
 
 - Setup and integrations
-- Measurements
-- Stack Ranking
-- Drift
+- Test plan and cost
+- Options compared
+- When to retest
 - Cost ledger
 
 ### Model Risk / GRC Reviewer
 
 Responsibilities:
 
-- Review scope, assumptions, candidate set, benchmark mixture, residual risk,
+- Review scope, assumptions, candidate set, example mix, residual risk,
   and signoff.
 - Confirm that exported artifacts are stable and traceable.
 - Preserve evidence for audits.
 
 StackCert value:
 
-- Conservative certificate language.
+- Conservative release-evidence language.
 - Explicit assumptions and limitations.
-- Immutable issued certificate snapshots.
+- Immutable evidence snapshots.
 - JSON, Markdown, PDF, and API exports.
 - Audit log and signer workflow.
 
 Most important screens:
 
-- Certificate
+- Release evidence
 - Overview
 - Audit log
-- Drift history
+- Retest history
 
 ### Product Owner
 
@@ -110,17 +111,17 @@ Responsibilities:
 
 StackCert value:
 
-- Named risk profiles that map to lambda.
-- Welfare tradeoff explanations in product terms.
-- Config cost and latency comparisons.
-- Regret avoided by using full StackCert evaluation instead of marginal scores.
+- Named risk profiles that map to the risk weight.
+- Safety/usefulness tradeoff explanations in product terms.
+- Combination cost and latency comparisons.
+- Lift over the obvious one-at-a-time pick.
 
 Most important screens:
 
 - Overview
-- Stack Ranking
+- Options compared
 - Cost comparison
-- Benign false-block view
+- Normal-example false-block view
 
 ### Solutions Engineer / Customer Success
 
@@ -128,7 +129,7 @@ Responsibilities:
 
 - Run pilots.
 - Import customer data.
-- Configure candidate guards and custom behaviors.
+- Configure candidate safety checks and custom behaviors.
 - Produce evidence packets quickly.
 
 StackCert value:
@@ -150,8 +151,8 @@ Most important screens:
 The latest design adds a production-facing public site. It should serve two jobs:
 
 1. Convert qualified safety, platform, and risk teams.
-2. Explain the non-obvious insight: stacking guardrails creates a hidden
-   correlation tax.
+2. Explain the practical problem: LLM app teams have many safety options, and
+   choosing how to combine them is hard.
 
 Required public pages for the first production pass:
 
@@ -161,13 +162,17 @@ Required public pages for the first production pass:
 - Methodology/docs entry point.
 - Sign in and open app flows.
 
-The landing page should remain clear and direct. The current design's strongest
-messages are:
+The landing page should remain clear and direct. The current shipped messages
+are:
 
-- "Certify the guardrail stack you actually ship."
-- Marginal block-rates lie because co-failure matters.
-- CASS schedules only the measurements needed to issue a defensible certificate.
-- The product serves safety, platform, and risk teams from one evidence record.
+- "Choose the right safety checks for your LLM app."
+- Teams often pick the best single check, use a stronger model, add lots of
+  context, or test every combination. Those shortcuts can be expensive,
+  ambiguous, or misleading.
+- StackCert compares combinations on app-specific examples and runs only the
+  targeted overlap tests that can change the decision.
+- The product serves safety, platform, and risk teams from one scoped evidence
+  record.
 
 ## Authenticated Product Workflow
 
@@ -184,13 +189,13 @@ Inputs:
 - Data handling mode: raw prompts allowed, redacted snippets, hashes only, or
   customer-hosted/private mode.
 
-### 2. Choose Benchmarks And Behaviors
+### 2. Choose Examples And Behaviors
 
 The product must support both built-in and user-defined evaluations.
 
 Inputs:
 
-- Provided benchmark suites from StackCert.
+- Provided example suites from StackCert.
 - Uploaded CSV/JSONL datasets.
 - Custom behavior definitions created in the UI.
 - Expected behavior, side label, severity, policy category, and tags.
@@ -198,19 +203,19 @@ Inputs:
 
 Output:
 
-- Versioned benchmark suite.
+- Versioned example suite.
 - Cell taxonomy and weights.
 - Validation report before evaluation begins.
 
-### 3. Connect Models, Guards, And Judges
+### 3. Connect Models, Safety Checks, And Judges
 
-The user defines candidate guardrails and candidate stacks.
+The user defines candidate safety checks and combinations.
 
 Supported first:
 
-- Uploaded guard outputs.
-- REST guard adapter.
-- Python/local guard adapter.
+- Uploaded safety-check outputs.
+- REST safety-check adapter.
+- Python/local safety-check adapter.
 - Model judge adapter.
 - Local/Ollama-style adapter when available.
 
@@ -224,41 +229,41 @@ Supported later:
 
 Before a run starts, the user should see:
 
-- Missing examples or guard outputs.
+- Missing examples or safety-check outputs.
 - Invalid labels or scores.
 - Duplicate examples.
 - Unmapped benchmark cells.
 - Estimated token, model, compute, and storage cost.
 - Estimated ETA and concurrency limits.
 
-### 5. Run And Certify
+### 5. Compare And Recommend
 
 The app runs evaluations or imports outputs, computes CASS statistics, ranks
-candidate stacks, and determines what is certified.
+candidate combinations, and determines what recommendation is supported.
 
 Important:
 
-- The frontend never computes certification.
+- The frontend never computes release-evidence truth.
 - The FastAPI service calls the Python core.
-- Certificates are issued from backend-generated immutable snapshots.
+- Release evidence is issued from backend-generated immutable snapshots.
 
 ### 6. Measure Next
 
-When a winner is unresolved, the Measurement Planner should recommend the next
-measurements with:
+When a winner is unresolved, the test plan should recommend the next targeted
+tests with:
 
-- Expected radius reduction.
+- Expected decision help.
 - Comparisons affected.
 - Cost estimate.
 - ETA estimate.
 - Required provider/model calls.
 - Confidence impact.
 
-The user can queue a measurement plan and recompute.
+The user can queue a test plan and recompute.
 
 ### 7. Export And Sign Off
 
-The certificate flow should support:
+The release-evidence flow should support:
 
 - JSON export for machines.
 - Markdown export for model cards.
@@ -268,9 +273,9 @@ The certificate flow should support:
 
 ### 8. Monitor Drift
 
-Drift signals should include:
+Retest triggers should include:
 
-- Guard version change.
+- Safety-check version change.
 - Policy/prompt change.
 - Base model change.
 - Traffic mixture change.
@@ -279,7 +284,7 @@ Drift signals should include:
 - Incidents or manual flags.
 - Time-based expiration.
 
-Drift should lead to re-certification, not just an alert.
+Drift should lead to retesting, not just an alert.
 
 ## What Must Be Real In The First Usable App
 
@@ -289,8 +294,8 @@ The first usable production-oriented build should include:
 - Supabase Auth sign-in/sign-up.
 - Workspace and project records in Supabase Postgres.
 - Seeded demo project from the current CASS data.
-- Six evidence screens using backend data.
-- Certificate JSON and Markdown export.
+- Eight app screens using backend data.
+- Release-evidence JSON and Markdown export.
 - Basic storage for uploaded artifacts.
 - CI running backend, frontend, DB, and smoke tests.
 
@@ -301,4 +306,3 @@ The first build can still defer:
 - Heavy provider marketplace.
 - Enterprise self-hosting.
 - PDF polish beyond a basic export.
-

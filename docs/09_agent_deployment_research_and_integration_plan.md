@@ -54,15 +54,15 @@ Current deployment patterns from primary docs:
 
 StackCert should not try to become the customer's agent runtime first.
 
-The wedge is stronger if StackCert is the certification and risk-evidence layer
-that plugs into whatever runtime the customer already uses.
+The wedge is stronger if StackCert is the safety-combination and release-evidence
+layer that plugs into whatever runtime the customer already uses.
 
 Positioning:
 
 - LangGraph/LangSmith, Bedrock, Azure Foundry, Google Agent Platform, CrewAI,
   custom FastAPI, and in-house runtimes are where agents run.
-- StackCert is where guardrail stack choices are tested, compared, certified,
-  monitored, and exported.
+- StackCert is where safety-check choices are tested, combined, compared,
+  monitored, and exported as scoped release evidence.
 
 This lets us fit both adoption modes:
 
@@ -76,12 +76,12 @@ This lets us fit both adoption modes:
 
 Build generic interfaces before deep vendor integrations:
 
-- REST agent/guard adapter.
+- REST agent/safety-check adapter.
 - Uploaded JSONL/CSV outputs.
 - OpenAPI-described action/agent endpoints.
 - Webhook receiver for run completion and drift events.
 - OpenTelemetry/GenAI trace ingestion.
-- CLI for CI and local certification runs.
+- CLI for CI and local release-evidence runs.
 
 This covers custom deployments, FastAPI apps, Kubernetes jobs, Cloud Run, Azure
 Container Apps, and teams that do not want vendor lock-in.
@@ -94,17 +94,17 @@ Add thin adapters where they reduce customer effort:
   - import datasets and traces;
   - callback/tracing adapter;
   - run benchmark suite against deployed graph endpoint;
-  - map graph nodes/tools to StackCert cells and guard positions.
+  - map graph nodes/tools to StackCert cells and safety-check positions.
 - OpenAI Agents SDK:
   - test harness around `Runner.run`;
-  - adapters for input, output, and tool guardrails;
+  - adapters for input, output, and tool safety checks;
   - trace import when available;
-  - optional StackCert guardrail function for preflight checks.
+  - optional StackCert safety-check function for preflight checks.
 - Bedrock Agents:
   - invoke deployed agent aliases;
   - import/parse traces;
-  - evaluate Bedrock Guardrail variants and custom guardrail stacks;
-  - support knowledge-base and flow guardrail positions.
+  - evaluate Bedrock Guardrail variants and custom safety-check combinations;
+  - support knowledge-base and flow safety-check positions.
 - Azure Foundry Agent Service:
   - invoke agent endpoints;
   - import trace/evaluation artifacts;
@@ -116,22 +116,22 @@ Add thin adapters where they reduce customer effort:
 - CrewAI:
   - call deployed crew REST endpoints;
   - consume webhook streaming or trace/log exports;
-  - evaluate crew-level and tool-level guardrail positions.
+  - evaluate crew-level and tool-level safety-check positions.
 - Langfuse/observability:
   - import traces and datasets;
-  - push StackCert scores/certificate status back as custom scores.
+  - push StackCert scores and release-evidence status back as custom scores.
 
 ### Layer 3: Pipeline Gates
 
-Add deployment gates once certificates are reliable:
+Add deployment gates once release evidence is reliable:
 
-- GitHub Action: fail/warn if certificate is expired, provisional, revoked, or
+- GitHub Action: fail/warn if evidence is expired, provisional, revoked, or
   missing for a deployment target.
-- Generic webhook: deployment system asks StackCert for certificate status.
+- Generic webhook: deployment system asks StackCert for evidence status.
 - CLI:
 
 ```bash
-stackcert certify --project acme-copilot --suite prod-risk-v4
+stackcert evidence issue --project acme-copilot --suite prod-risk-v4
 stackcert status --deployment prod --require valid
 ```
 
@@ -140,7 +140,7 @@ Pipeline output should be machine-readable:
 ```json
 {
   "status": "valid",
-  "certificate_id": "cert_...",
+  "evidence_id": "evidence_...",
   "scope": "project:acme-copilot environment:prod",
   "expires_at": "2026-06-24T00:00:00Z",
   "blocking_reasons": []
@@ -156,21 +156,21 @@ Agent-facing interfaces:
 - Stable OpenAPI schema.
 - Idempotent job creation.
 - Pollable job status.
-- Webhooks for completion/drift/certificate status.
+- Webhooks for completion/drift/evidence status.
 - CLI for CI and local agents.
 - Optional MCP server later.
 
 Candidate agent/MCP tools:
 
 - `list_projects`
-- `get_certificate_status`
+- `get_evidence_status`
 - `create_benchmark_suite`
 - `add_custom_behavior`
 - `estimate_run_cost`
-- `create_certification_run`
+- `create_evidence_run`
 - `get_run_status`
 - `get_measurement_recommendations`
-- `export_certificate`
+- `export_release_evidence`
 
 Safety defaults for agent access:
 
@@ -187,19 +187,19 @@ Safety defaults for agent access:
 
 CASS remains the theory we should lean on.
 
-For agentic systems, a "guardrail stack" is not only two content filters at the
-edge. It can include:
+For agentic systems, a safety-check combination is not only two content filters
+at the edge. It can include:
 
-- input guardrails;
-- output guardrails;
-- tool-call guardrails;
-- retrieval guardrails;
-- policy/routing guards;
+- input safety checks;
+- output safety checks;
+- tool-call checks;
+- retrieval checks;
+- policy/routing checks;
 - approval gates;
 - model judges;
 - action-specific constraints.
 
-Each candidate architecture can be represented as a stack over workflow
+Each candidate architecture can be represented as a combination over workflow
 boundaries. Benchmark cells become behavior families:
 
 - prompt injection;
@@ -213,14 +213,14 @@ boundaries. Benchmark cells become behavior families:
 - benign refusal/false block;
 - latency/cost-sensitive paths.
 
-CASS is useful because agent systems compose many fallible controls. Marginal
-guard scores do not tell the user whether two controls fail on the same
-examples. Pair-cell measurements and CASS scheduling give us:
+CASS is useful because agent systems compose many fallible controls.
+One-at-a-time safety-check scores do not tell the user whether two controls fail
+on the same examples. Targeted overlap tests and CASS scheduling give us:
 
-- the actual co-failure map;
-- a better stack ranking;
-- a way to spend measurement budget only where it changes the decision;
-- a conditional certificate over a defined candidate set and benchmark mixture.
+- the actual shared-miss and false-block map;
+- a better combination ranking;
+- a way to spend test budget only where it changes the decision;
+- scoped release evidence over a defined candidate set and example mix.
 
 ## Product Implication
 
@@ -235,18 +235,17 @@ StackCert should:
 
 - connect to deployed endpoints or import traces;
 - run selected benchmarks and custom behaviors;
-- compare guardrail configurations;
-- issue certificates and pipeline gates.
+- compare safety-check combinations;
+- issue release evidence and pipeline gates.
 
 ### Run From StackCert
 
 The customer uses StackCert's dashboard/service to:
 
 - define benchmarks and custom behaviors;
-- configure guards and models;
+- configure safety checks and models;
 - execute evaluation jobs;
 - produce evidence.
 
 This is valuable for pilots and smaller teams. Enterprise customers will often
 prefer the bring-your-own-runtime model.
-

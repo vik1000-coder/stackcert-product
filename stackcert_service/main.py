@@ -18,6 +18,7 @@ from stackcert_service.schemas import (
     MeasurementPlanCreate,
     McpRpcRequest,
     ProjectCreate,
+    UploadedOutputRunCreate,
     WorkspaceCreate,
 )
 from stackcert_service.services import benchmark_imports
@@ -28,6 +29,7 @@ from stackcert_service.services import guard_connectors
 from stackcert_service.services import integrations
 from stackcert_service.services import jobs
 from stackcert_service.services import mcp
+from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import usage
 
@@ -83,12 +85,19 @@ def get_project(project_id: str, _: PrincipalDep) -> dict[str, object]:
 @app.get("/api/projects/{project_id}/runs")
 def list_runs(project_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     if project_id != demo_project.project()["id"]:
-        return {"runs": []}
+        return {"runs": pilot_runs.list_project_runs(project_id)}
     return {"runs": [demo_project.run_summary(lambda_cost)]}
+
+
+@app.post("/api/projects/{project_id}/runs/uploaded-outputs")
+def create_uploaded_output_run(project_id: str, payload: UploadedOutputRunCreate, _: PrincipalDep) -> dict[str, object]:
+    return {"run": pilot_runs.create_uploaded_output_run(project_id, payload)}
 
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return {"run": pilot_runs.run_summary(run_id)}
     run = demo_project.run_summary(lambda_cost)
     if run_id != run["id"]:
         return {"run": None}
@@ -98,7 +107,7 @@ def get_run(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str,
 @app.get("/api/projects/{project_id}/benchmark-suites")
 def list_benchmark_suites(project_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     if project_id != demo_project.project()["id"]:
-        return {"suites": []}
+        return {"suites": benchmark_imports.list_committed_suites(project_id)}
     demo_payload = demo_project.benchmark_suites(lambda_cost)
     committed = benchmark_imports.list_committed_suites(project_id)
     return {"suites": committed + demo_payload["suites"]}
@@ -106,14 +115,14 @@ def list_benchmark_suites(project_id: str, _: PrincipalDep, lambda_cost: float =
 
 @app.post("/api/projects/{project_id}/benchmark-suites/preview")
 def preview_benchmark_import(project_id: str, payload: BenchmarkImportPreviewRequest, _: PrincipalDep) -> dict[str, object]:
-    if project_id != demo_project.project()["id"]:
+    if not projects.get_project(project_id):
         return {"project_id": project_id, "status": "invalid", "issues": [{"severity": "error", "code": "project_not_found", "message": "Project not found"}]}
     return {"project_id": project_id, "import_preview": benchmark_imports.preview_import(payload)}
 
 
 @app.post("/api/projects/{project_id}/benchmark-suites")
 def create_benchmark_suite(project_id: str, payload: BenchmarkImportCommitRequest, _: PrincipalDep) -> dict[str, object]:
-    if project_id != demo_project.project()["id"]:
+    if not projects.get_project(project_id):
         return {"project_id": project_id, "status": "invalid", "issues": [{"severity": "error", "code": "project_not_found", "message": "Project not found"}]}
     committed = benchmark_imports.commit_import(project_id, payload)
     return {"project_id": project_id, **committed}
@@ -139,7 +148,7 @@ def create_guard_connector(project_id: str, payload: GuardConnectorCreate, _: Pr
 @app.get("/api/projects/{project_id}/stacks")
 def list_stacks(project_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     if project_id != demo_project.project()["id"]:
-        return {"run": None, "stacks": []}
+        return pilot_runs.candidate_stacks(project_id, lambda_cost)
     return demo_project.candidate_stacks(lambda_cost)
 
 
@@ -166,7 +175,26 @@ def run_next_project_job(project_id: str, _: PrincipalDep, worker_id: str | None
 @app.get("/api/projects/{project_id}/certificate-status")
 def get_certificate_status(project_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     if project_id != demo_project.project()["id"]:
-        return {"project_id": project_id, "status": "missing", "blocking_reasons": ["project_not_found"]}
+        runs = pilot_runs.list_project_runs(project_id)
+        if not runs:
+            return {"project_id": project_id, "status": "missing", "blocking_reasons": ["no_uploaded_output_run"]}
+        latest = runs[0]
+        return {
+            "project_id": project_id,
+            "run_id": latest["id"],
+            "certificate_id": latest["certificate_id"],
+            "status": latest["certificate_status"],
+            "scope": "Uploaded-output pilot suite and configured safety-check set.",
+            "blocking_reasons": [] if latest["certificate_status"] == "valid" else [f"certificate_{latest['certificate_status']}"],
+            "not_a_guarantee": True,
+            "recertification_required_on": [
+                "safety_option_version_change",
+                "model_change",
+                "prompt_or_policy_change",
+                "traffic_mix_drift",
+                "new_attack_family",
+            ],
+        }
     overview = demo_project.overview(lambda_cost)
     status_value = overview["certificate"]["status"]
     blocking_reasons = [] if status_value == "valid" else [f"certificate_{status_value}"]
@@ -205,6 +233,8 @@ def mcp_rpc(payload: McpRpcRequest, _: PrincipalDep) -> dict[str, object]:
 
 @app.get("/api/runs/{run_id}/overview")
 def get_overview(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.overview(run_id, lambda_cost)
     payload = demo_project.overview(lambda_cost)
     payload["run"]["id"] = run_id
     return payload
@@ -212,6 +242,8 @@ def get_overview(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict
 
 @app.get("/api/runs/{run_id}/ranking")
 def get_ranking(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.ranking(run_id, lambda_cost)
     payload = demo_project.ranking(lambda_cost)
     payload["run"]["id"] = run_id
     return payload
@@ -219,6 +251,12 @@ def get_ranking(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[
 
 @app.get("/api/runs/{run_id}/ranking.csv")
 def get_ranking_csv(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> Response:
+    if pilot_runs.has_run(run_id):
+        return Response(
+            content=pilot_runs.ranking_csv(run_id, lambda_cost),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}_ranking.csv"'},
+        )
     return Response(
         content=demo_project.ranking_csv(lambda_cost),
         media_type="text/csv",
@@ -233,6 +271,8 @@ def get_correlations(
     lambda_cost: float = 5.0,
     side: str = "adversarial",
 ) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.correlations(run_id, lambda_cost, side=side)
     payload = demo_project.correlations(lambda_cost, side=side)
     payload["run"]["id"] = run_id
     return payload
@@ -240,6 +280,8 @@ def get_correlations(
 
 @app.get("/api/runs/{run_id}/measurements")
 def get_measurements(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.measurements(run_id, lambda_cost)
     payload = demo_project.measurements(lambda_cost)
     payload["run"]["id"] = run_id
     return payload
@@ -247,11 +289,16 @@ def get_measurements(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> 
 
 @app.get("/api/runs/{run_id}/costs")
 def get_run_costs(run_id: str, _: PrincipalDep) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        run = pilot_runs.run_summary(run_id)
+        return usage.cost_summary(str(run["project_id"]), run_id)
     return usage.cost_summary(settings.demo_project_id, run_id)
 
 
 @app.post("/api/runs/{run_id}/measurement-plans")
 def create_measurement_plan(run_id: str, payload: MeasurementPlanCreate, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.create_measurement_plan(run_id, payload, lambda_cost)
     job = jobs.create_measurement_plan_job(run_id, payload, lambda_cost)
     return {
         "id": f"plan_{job['id']}",
@@ -295,6 +342,8 @@ def create_certificate_signoff(certificate_id: str, payload: CertificateSignoffC
 
 @app.get("/api/runs/{run_id}/certificate")
 def get_certificate(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.certificate_payload(run_id, lambda_cost)
     payload = demo_project.certificate_payload(lambda_cost)
     payload["run_id"] = run_id
     return payload
@@ -302,6 +351,10 @@ def get_certificate(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> d
 
 @app.get("/api/runs/{run_id}/certificate.json")
 def get_certificate_json(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if pilot_runs.has_run(run_id):
+        payload = pilot_runs.certificate_payload(run_id, lambda_cost)
+        payload.pop("markdown", None)
+        return payload
     payload = demo_project.certificate_payload(lambda_cost)
     payload["run_id"] = run_id
     payload.pop("markdown", None)
@@ -310,6 +363,12 @@ def get_certificate_json(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0)
 
 @app.get("/api/runs/{run_id}/certificate.md")
 def get_certificate_markdown(run_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> Response:
+    if pilot_runs.has_run(run_id):
+        return Response(
+            content=pilot_runs.certificate_markdown(run_id, lambda_cost),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}_certificate.md"'},
+        )
     markdown = demo_project.certificate_markdown(lambda_cost).replace(f"- Run ID: `{settings.demo_run_id}`", f"- Run ID: `{run_id}`")
     return Response(
         content=markdown,
@@ -320,6 +379,8 @@ def get_certificate_markdown(run_id: str, _: PrincipalDep, lambda_cost: float = 
 
 @app.get("/api/projects/{project_id}/drift")
 def get_drift(project_id: str, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    if project_id != demo_project.project()["id"]:
+        return pilot_runs.drift(project_id)
     payload = demo_project.drift(lambda_cost)
     payload["project"]["id"] = project_id
     return payload

@@ -80,6 +80,16 @@ class BenchmarkImportCommitRequest(BenchmarkImportPreviewRequest):
     license: str | None = Field(default=None, max_length=200)
 
 
+class UploadedOutputRunCreate(BaseModel):
+    benchmark_suite_id: str | None = Field(default=None, min_length=2, max_length=120)
+    format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
+    content: str = Field(min_length=20, max_length=2_000_000)
+    lambda_cost: float = Field(default=5.0, ge=0, le=100)
+    rho_prior: float = Field(default=0.6, ge=-1, le=1)
+    max_k: int = Field(default=2, ge=1, le=2)
+    name: str | None = Field(default=None, max_length=120)
+
+
 class CertificateIssueRequest(BaseModel):
     acknowledge_limitations: bool
     expires_in_days: int = Field(default=30, ge=1, le=365)

@@ -79,10 +79,21 @@ class SupabaseStore:
                 "risk_tier": project["risk_tier"],
                 "data_mode": project["data_mode"],
                 "description": project["description"],
+                "setup_status": project.get("setup_status") or "needs_benchmark_suite",
             },
             prefer="return=representation",
         )
         return self._project_from_row(rows[0])
+
+    def update_project_setup_status(self, project_id: str, setup_status: str) -> None:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        self._request(
+            "PATCH",
+            "projects",
+            params={"workspace_id": f"eq.{workspace_db_id}", "id": f"eq.{project_db_id}"},
+            json={"setup_status": setup_status},
+            prefer="return=minimal",
+        )
 
     def list_benchmark_suites(self, project_id: str) -> list[dict[str, Any]]:
         workspace_db_id, project_db_id = self._resolve_project(project_id)
@@ -98,6 +109,86 @@ class SupabaseStore:
             },
         )
         return [self._benchmark_suite_from_row(row, project_id) for row in suites]
+
+    def get_benchmark_suite_bundle(self, project_id: str, suite_id: str | None = None) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        params = {
+            "workspace_id": f"eq.{workspace_db_id}",
+            "project_id": f"eq.{project_db_id}",
+            "source": "eq.custom_import",
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": "1",
+        }
+        if suite_id:
+            params.pop("limit")
+            params.pop("order")
+            params["id"] = f"eq.{suite_id}"
+        suites = self._request("GET", "benchmark_suites", params=params)
+        if not suites:
+            raise SupabasePersistenceError("Benchmark suite not found" if suite_id else "Create a benchmark suite before uploading outputs")
+
+        suite = suites[0]
+        cell_rows = self._request(
+            "GET",
+            "benchmark_cells",
+            params={"suite_id": f"eq.{suite['id']}", "select": "*", "order": "cell_key.asc"},
+        )
+        cell_keys_by_id = {str(row["id"]): row["cell_key"] for row in cell_rows}
+        example_rows = self._request(
+            "GET",
+            "examples",
+            params={"suite_id": f"eq.{suite['id']}", "select": "*", "order": "external_id.asc"},
+        )
+        return {
+            "suite": {
+                "id": str(suite["id"]),
+                "project_id": project_id,
+                "name": suite["name"],
+                "version": suite["version"],
+                "status": suite["status"],
+                "source": suite["source"],
+                "description": "",
+                "license": suite.get("license"),
+                "created_at": suite.get("created_at"),
+                "artifact": None,
+            },
+            "cells": [
+                {
+                    "cell_id": row["cell_key"],
+                    "cell_key": row["cell_key"],
+                    "side": row["side"],
+                    "source": row["source"],
+                    "policy_category": row.get("policy_category"),
+                    "severity": row.get("severity"),
+                    "weight": float(row["weight"]),
+                    "description": row.get("description") or "",
+                    "examples": sum(1 for example in example_rows if str(example["cell_id"]) == str(row["id"])),
+                }
+                for row in cell_rows
+            ],
+            "examples": [
+                {
+                    "external_id": row["external_id"],
+                    "cell_id": cell_keys_by_id.get(str(row["cell_id"]), str(row["cell_id"])),
+                    "prompt_hash": row["prompt_hash"],
+                    "prompt_redacted": row.get("prompt_redacted"),
+                    "metadata": row.get("metadata") or {},
+                }
+                for row in example_rows
+            ],
+            "source_content": "",
+            "source_format": "jsonl",
+            "preview": {
+                "format": "jsonl",
+                "status": "valid",
+                "rows_seen": len(example_rows),
+                "valid_rows": len(example_rows),
+                "issues": [],
+                "summary": {"warnings": 0, "errors": 0},
+                "preview": [],
+            },
+        }
 
     def create_benchmark_suite(self, project_id: str, bundle: dict[str, Any]) -> dict[str, Any]:
         workspace_db_id, project_db_id = self._resolve_project(project_id)
@@ -166,7 +257,7 @@ class SupabaseStore:
             source_format=bundle["source_format"],
         )
         return {
-            "id": suite["id"],
+            "id": suite_db_id,
             "db_id": suite_db_id,
             "project_id": project_id,
             "name": suite_row["name"],
@@ -374,6 +465,7 @@ class SupabaseStore:
             return []
         workspace_db_id, project_db_id = self._resolve_project(project_id)
         job_db_id = self._resolve_job_db_id(str(job["id"]))
+        run_db_id = self._resolve_evaluation_run_db_id(workspace_db_id, str(job.get("run_id"))) if job.get("run_id") else None
         self._request(
             "POST",
             "usage_events",
@@ -381,6 +473,7 @@ class SupabaseStore:
                 {
                     "workspace_id": workspace_db_id,
                     "project_id": project_db_id,
+                    "run_id": run_db_id,
                     "job_id": job_db_id,
                     "provider": event.get("provider"),
                     "model": event.get("model"),
@@ -416,6 +509,145 @@ class SupabaseStore:
         if run_id:
             events = [event for event in events if event.get("run_id") == run_id]
         return events
+
+    def list_pilot_runs(self, project_id: str) -> list[dict[str, Any]]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        rows = self._request(
+            "GET",
+            "evaluation_runs",
+            params={
+                "workspace_id": f"eq.{workspace_db_id}",
+                "project_id": f"eq.{project_db_id}",
+                "select": "*",
+                "order": "created_at.desc",
+            },
+        )
+        summaries = [
+            self._pilot_run_summary_from_row(row, project_id)
+            for row in rows
+            if (row.get("summary") or {}).get("source") == "uploaded_outputs"
+        ]
+        return summaries
+
+    def get_pilot_run_source(self, run_id: str) -> dict[str, Any] | None:
+        rows = self._request(
+            "GET",
+            "evaluation_runs",
+            params={
+                "external_run_id": f"eq.{run_id}",
+                "select": "*",
+                "limit": "1",
+            },
+        )
+        if not rows:
+            return None
+        run_row = rows[0]
+        summary = run_row.get("summary") or {}
+        if summary.get("source") != "uploaded_outputs":
+            return None
+        project_id = settings.demo_project_id if str(run_row["project_id"]) == settings.demo_project_db_id else str(run_row["project_id"])
+        project = self._project_by_db_id(str(run_row["project_id"]))
+        suite_bundle = self.get_benchmark_suite_bundle(project_id, str(run_row["benchmark_suite_id"]) if run_row.get("benchmark_suite_id") else None)
+        output_rows = self._request(
+            "GET",
+            "guard_outputs",
+            params={
+                "run_id": f"eq.{run_row['id']}",
+                "select": "*",
+                "order": "created_at.asc",
+            },
+        )
+        return {
+            "run": self._pilot_run_from_row(run_row, project_id),
+            "project": project,
+            "suite_bundle": suite_bundle,
+            "outputs": [self._pilot_output_from_row(row, run_id) for row in output_rows],
+        }
+
+    def has_pilot_run(self, run_id: str) -> bool:
+        rows = self._request(
+            "GET",
+            "evaluation_runs",
+            params={
+                "external_run_id": f"eq.{run_id}",
+                "select": "id,summary",
+                "limit": "1",
+            },
+        )
+        return bool(rows and (rows[0].get("summary") or {}).get("source") == "uploaded_outputs")
+
+    def store_pilot_run(
+        self,
+        project_id: str,
+        run: dict[str, Any],
+        run_summary: dict[str, Any],
+        outputs: list[dict[str, Any]],
+        measurement_actions: list[dict[str, Any]],
+        certificate: dict[str, Any],
+    ) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        suite_db_id = str(run["benchmark_suite_id"])
+        existing = self._request(
+            "GET",
+            "evaluation_runs",
+            params={
+                "workspace_id": f"eq.{workspace_db_id}",
+                "external_run_id": f"eq.{run['id']}",
+                "select": "id",
+                "limit": "1",
+            },
+        )
+        summary = {
+            **run_summary,
+            "source": "uploaded_outputs",
+            "name": run.get("name") or "Uploaded-output pilot run",
+            "benchmark_suite_id": suite_db_id,
+            "benchmark_suite_name": run.get("benchmark_suite_name"),
+            "certificate": certificate,
+        }
+        payload = {
+            "workspace_id": workspace_db_id,
+            "project_id": project_db_id,
+            "benchmark_suite_id": suite_db_id,
+            "external_run_id": run["id"],
+            "status": "succeeded",
+            "lambda_cost": run_summary["lambda_cost"],
+            "rho_prior": run_summary["rho_prior"],
+            "k": run_summary["k"],
+            "summary": summary,
+            "started_at": run.get("created_at"),
+            "completed_at": run.get("completed_at"),
+        }
+        if existing:
+            run_db_id = str(existing[0]["id"])
+            self._request(
+                "PATCH",
+                "evaluation_runs",
+                params={"id": f"eq.{run_db_id}"},
+                json=payload,
+                prefer="return=minimal",
+            )
+        else:
+            created = self._request(
+                "POST",
+                "evaluation_runs",
+                json=payload,
+                prefer="return=representation",
+            )
+            run_db_id = str(created[0]["id"])
+
+        self._replace_pilot_outputs(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            suite_db_id=suite_db_id,
+            outputs=outputs,
+        )
+        self._replace_measurement_recommendations(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            actions=measurement_actions,
+        )
+        return run_summary
 
     def get_issued_certificate(self, certificate_id: str) -> dict[str, Any] | None:
         rows = self._certificate_rows(certificate_id)
@@ -473,6 +705,106 @@ class SupabaseStore:
         )
         return self._certificate_signoff_from_row(signoff_rows[0], certificate_id)
 
+    def _replace_pilot_outputs(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        suite_db_id: str,
+        outputs: list[dict[str, Any]],
+    ) -> None:
+        self._request(
+            "DELETE",
+            "guard_outputs",
+            params={"workspace_id": f"eq.{workspace_db_id}", "run_id": f"eq.{run_db_id}"},
+            prefer="return=minimal",
+        )
+        if not outputs:
+            return
+        example_ids = self._example_db_ids_by_external(suite_db_id)
+        guard_version_ids = self._guard_version_ids_by_key(workspace_db_id)
+        self._request(
+            "POST",
+            "guard_outputs",
+            json=[
+                {
+                    "workspace_id": workspace_db_id,
+                    "run_id": run_db_id,
+                    "example_id": example_ids.get(output["example_id"]),
+                    "guard_version_id": guard_version_ids.get(output["guard_id"]),
+                    "external_example_id": output["example_id"],
+                    "guard_key": output["guard_id"],
+                    "pass_probability": output["pass_probability"],
+                    "block_probability": output["block_probability"],
+                    "binary_pass": output["binary_pass"],
+                    "error": output.get("error"),
+                    "metadata": output.get("metadata") or {},
+                }
+                for output in outputs
+            ],
+            prefer="return=minimal",
+        )
+
+    def _replace_measurement_recommendations(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        actions: list[dict[str, Any]],
+    ) -> None:
+        self._request(
+            "DELETE",
+            "measurement_recommendations",
+            params={"workspace_id": f"eq.{workspace_db_id}", "run_id": f"eq.{run_db_id}"},
+            prefer="return=minimal",
+        )
+        if not actions:
+            return
+        self._request(
+            "POST",
+            "measurement_recommendations",
+            json=[
+                {
+                    "workspace_id": workspace_db_id,
+                    "run_id": run_db_id,
+                    "action_key": action["id"],
+                    "guard_keys": action["guard_ids"],
+                    "cell_key": action["cell_id"],
+                    "expected_radius_reduction": action["expected_radius_reduction"],
+                    "cost_estimate_usd": action["cost_usd"],
+                    "eta_minutes": action["eta_minutes"],
+                    "status": action["status"],
+                }
+                for action in actions
+            ],
+            prefer="return=minimal",
+        )
+
+    def _example_db_ids_by_external(self, suite_db_id: str) -> dict[str, str]:
+        rows = self._request(
+            "GET",
+            "examples",
+            params={"suite_id": f"eq.{suite_db_id}", "select": "id,external_id"},
+        )
+        return {str(row["external_id"]): str(row["id"]) for row in rows}
+
+    def _guard_version_ids_by_key(self, workspace_db_id: str) -> dict[str, str]:
+        rows = self._request(
+            "GET",
+            "guard_definitions",
+            params={
+                "workspace_id": f"eq.{workspace_db_id}",
+                "select": "id,guard_key,guard_versions(id,created_at)",
+            },
+        )
+        mapping: dict[str, str] = {}
+        for row in rows:
+            versions = row.get("guard_versions") or []
+            if versions:
+                latest = sorted(versions, key=lambda item: item.get("created_at") or "", reverse=True)[0]
+                mapping[str(row["guard_key"])] = str(latest["id"])
+        return mapping
+
     def _resolve_project(self, project_id: str) -> tuple[str, str]:
         if project_id == settings.demo_project_id:
             return settings.demo_workspace_db_id, settings.demo_project_db_id
@@ -510,6 +842,19 @@ class SupabaseStore:
             "GET",
             "jobs",
             params={"external_job_id": f"eq.{job_id}", "select": "id", "limit": "1"},
+        )
+        return str(rows[0]["id"]) if rows else None
+
+    def _resolve_evaluation_run_db_id(self, workspace_db_id: str, run_id: str) -> str | None:
+        rows = self._request(
+            "GET",
+            "evaluation_runs",
+            params={
+                "workspace_id": f"eq.{workspace_db_id}",
+                "external_run_id": f"eq.{run_id}",
+                "select": "id",
+                "limit": "1",
+            },
         )
         return str(rows[0]["id"]) if rows else None
 
@@ -695,6 +1040,74 @@ class SupabaseStore:
             ],
         }
 
+    def _project_by_db_id(self, project_db_id: str) -> dict[str, Any]:
+        rows = self._request(
+            "GET",
+            "projects",
+            params={"id": f"eq.{project_db_id}", "select": "*", "limit": "1"},
+        )
+        if not rows:
+            raise SupabasePersistenceError(f"Project not found: {project_db_id}")
+        return self._project_from_row(rows[0])
+
+    @staticmethod
+    def _pilot_run_from_row(row: dict[str, Any], project_id: str) -> dict[str, Any]:
+        summary = row.get("summary") or {}
+        workspace_id = settings.demo_workspace_id if str(row["workspace_id"]) == settings.demo_workspace_db_id else str(row["workspace_id"])
+        return {
+            "id": row.get("external_run_id") or row["id"],
+            "project_id": project_id,
+            "workspace_id": workspace_id,
+            "status": _job_status_from_db(row.get("status") or "succeeded"),
+            "name": summary.get("name") or "Uploaded-output pilot run",
+            "source": summary.get("source") or "uploaded_outputs",
+            "benchmark_suite_id": str(row["benchmark_suite_id"]) if row.get("benchmark_suite_id") else summary.get("benchmark_suite_id"),
+            "benchmark_suite_name": summary.get("benchmark_suite_name") or "Imported benchmark suite",
+            "lambda_cost": float(summary.get("lambda_cost") or row.get("lambda_cost") or 5.0),
+            "rho_prior": float(summary.get("rho_prior") or row.get("rho_prior") or 0.6),
+            "k": int(summary.get("k") or row.get("k") or 2),
+            "created_at": row.get("created_at"),
+            "completed_at": row.get("completed_at"),
+        }
+
+    def _pilot_run_summary_from_row(self, row: dict[str, Any], project_id: str) -> dict[str, Any]:
+        summary = row.get("summary") or {}
+        run = self._pilot_run_from_row(row, project_id)
+        return {
+            "id": run["id"],
+            "project_id": project_id,
+            "workspace_id": run["workspace_id"],
+            "status": run["status"],
+            "k": int(summary.get("k") or row.get("k") or 2),
+            "rho_prior": float(summary.get("rho_prior") or row.get("rho_prior") or 0.6),
+            "lambda_cost": float(summary.get("lambda_cost") or row.get("lambda_cost") or 5.0),
+            "examples": int(summary.get("examples") or 0),
+            "guards": int(summary.get("guards") or 0),
+            "candidate_stacks": int(summary.get("candidate_stacks") or 0),
+            "benchmark_cells": int(summary.get("benchmark_cells") or 0),
+            "outputs": int(summary.get("outputs") or 0),
+            "certificate_id": summary.get("certificate_id") or f"evidence_{run['id']}",
+            "certificate_status": summary.get("certificate_status") or "provisional",
+            "measurement_actions": int(summary.get("measurement_actions") or 0),
+            "created_at": row.get("created_at"),
+            "completed_at": row.get("completed_at"),
+            "source": summary.get("source") or "uploaded_outputs",
+        }
+
+    @staticmethod
+    def _pilot_output_from_row(row: dict[str, Any], run_id: str) -> dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "example_id": row["external_example_id"],
+            "guard_id": row["guard_key"],
+            "pass_probability": float(row.get("pass_probability") or 0),
+            "block_probability": float(row.get("block_probability") or 0),
+            "binary_pass": bool(row.get("binary_pass")),
+            "raw_score": row.get("raw_score"),
+            "metadata": row.get("metadata") or {},
+            "error": row.get("error"),
+        }
+
     @staticmethod
     def _workspace_from_row(row: dict[str, Any]) -> dict[str, Any]:
         row_id = str(row["id"])
@@ -720,7 +1133,7 @@ class SupabaseStore:
             "risk_tier": row["risk_tier"],
             "data_mode": row["data_mode"],
             "description": row.get("description") or "",
-            "setup_status": "ready_for_setup" if row_id != settings.demo_project_db_id else "demo_seeded",
+            "setup_status": row.get("setup_status") or ("ready_for_setup" if row_id != settings.demo_project_db_id else "demo_seeded"),
             "created_at": row.get("created_at"),
         }
 

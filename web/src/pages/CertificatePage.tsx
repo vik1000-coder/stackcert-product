@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api } from '../lib/api';
+import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { Badge, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader } from '../components/Primitives';
 
 export function CertificatePage({ lambda }: { lambda: number }) {
+  const { activeRunId } = useStackCertApp();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ['certificate', lambda], queryFn: () => api.certificate(lambda) });
+  const query = useQuery({ queryKey: ['certificate', activeRunId, lambda], queryFn: () => api.certificate(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const [acknowledged, setAcknowledged] = useState(false);
   const [signoffComment, setSignoffComment] = useState('');
   const issuedQuery = useQuery({
@@ -14,7 +16,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     enabled: Boolean(query.data?.certificate_id)
   });
   const issueCertificate = useMutation({
-    mutationFn: () => api.issueCertificate(lambda, { acknowledge_limitations: acknowledged, expires_in_days: 30 }),
+    mutationFn: () => api.issueCertificate(activeRunId!, lambda, { acknowledge_limitations: acknowledged, expires_in_days: 30 }),
     onSuccess: (data) => {
       queryClient.setQueryData(['issued-certificate', data.certificate.certificate_id], data);
     }
@@ -33,6 +35,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     }
   });
 
+  if (!activeRunId) return <NoRunState title="No release evidence yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const cert = query.data!;
@@ -60,10 +63,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         subtitle="This packet supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
         actions={
           <>
-            <ExternalButton href={api.certificateMarkdownUrl(lambda)} variant="primary">
+            <ExternalButton href={api.certificateMarkdownUrl(activeRunId, lambda)} variant="primary">
               Export evidence Markdown
             </ExternalButton>
-            <ExternalButton href={api.certificateJsonUrl(lambda)}>Export evidence JSON</ExternalButton>
+            <ExternalButton href={api.certificateJsonUrl(activeRunId, lambda)}>Export evidence JSON</ExternalButton>
           </>
         }
       />

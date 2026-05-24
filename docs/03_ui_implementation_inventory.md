@@ -16,11 +16,11 @@ Primary files:
 - `ui-landing.jsx`: public site sections.
 - `ui-shell.jsx`: app shell, sidebar, top bar, command palette.
 - `ui-overview.jsx`: answer page.
-- `ui-ranking.jsx`: stack ranking.
-- `ui-corr.jsx`: co-failure map.
-- `ui-planner.jsx`: measurement planner.
-- `ui-cert.jsx`: certificate artifact.
-- `ui-drift.jsx`: drift monitoring.
+- `ui-ranking.jsx`: options compared.
+- `ui-corr.jsx`: overlap analysis.
+- `ui-planner.jsx`: test plan and cost.
+- `ui-cert.jsx`: release evidence.
+- `ui-drift.jsx`: retest monitoring.
 - `_check/*.png`: visual reference screenshots.
 
 Earlier bundle:
@@ -38,6 +38,12 @@ The implementation now has two first-class UI surfaces:
 They share the same visual system, but they should not share all layout
 components. The public site is narrative and conversion-oriented; the app is a
 dense evidence workbench.
+
+Current copy rule: public and demo UI should explain the product to an LLM app
+operator, not to someone who already knows the CASS paper. Prefer "safety
+check," "combination," "app examples," "targeted tests," and "release evidence."
+Keep CASS, welfare, certificate, and internal route/API names out of visible UI
+unless a methodology page is explicitly explaining them.
 
 ## Shared Design Tokens
 
@@ -82,28 +88,32 @@ Geometry:
 
 ## Public Landing Page Inventory
 
-Sections from `ui-landing.jsx`:
+Current landing sections:
 
 1. Sticky nav.
 2. Hero with headline and product preview.
-3. Customer/logo strip.
-4. Problem section: hidden correlation tax.
-5. How it works: declare candidates, run bundle-greedy, issue certificate.
-6. Product previews: ranking, co-failure, measurements, certificate.
-7. Feature grid.
-8. Proof/research callouts.
-9. Pricing.
-10. Final CTA.
-11. Footer.
+3. Basic building blocks: safety options and combinations.
+4. Problem section: choosing the combination is the hard part.
+5. Common alternatives: best single check, stronger model, more context, or
+   exhaustive testing.
+6. How StackCert chooses: app examples, overlap tests, and recommendation.
+7. Product previews: recommendation, options compared, overlap analysis, test
+   plan and cost, release evidence, retest triggers.
+8. Feature grid.
+9. Proof/research callouts.
+10. Pricing.
+11. Final CTA.
+12. Footer.
 
 Implementation notes:
 
-- Preserve the headline: "Certify the guardrail stack you actually ship."
+- Preserve the headline family: "Choose the right safety checks for your LLM
+  app."
 - Preserve the product preview as code-native UI, not a static screenshot.
-- Replace fake customer names/testimonial with final approved copy before
-  public launch.
-- The "Open app" CTA should route to sign-in or the app depending on session.
-- The "Book demo" CTA can be a placeholder route until CRM/calendar exists.
+- Do not reintroduce the old "Built for teams making agent guardrails..."
+  language.
+- The demo CTA should route through sign-in to the seeded support-copilot demo.
+- The "Start pilot" CTA routes to onboarding until CRM/calendar exists.
 - Pricing numbers are product assumptions, not final billing truth. Keep them
   configurable.
 
@@ -119,22 +129,24 @@ Responsive requirements:
 
 Navigation labels:
 
-- Overview
-- Stack ranking
-- Co-failure
-- Measurements
-- Certificate
-- Drift
+- Recommendation
+- Options compared
+- Overlap analysis
+- Test plan and cost
+- Release evidence
+- When to retest
+- App setup
+- Apps
 
 App shell:
 
 - Sidebar with workspace/project context.
 - Top search.
-- Lambda/risk profile control.
+- Risk-weight/risk-profile control.
 - Persona segmented control.
 - Notifications.
 - Command palette on Cmd/Ctrl+K.
-- Keyboard nav 1-6.
+- Keyboard nav 1-8.
 
 The persona control is useful as a product idea, but in production it should not
 hide core facts. It can tune helper copy and default focus.
@@ -145,41 +157,43 @@ hide core facts. It can tune helper copy and default focus.
 
 Purpose:
 
-- Answer whether the stack is certified and what should happen next.
+- Answer which safety-check combination is recommended and what should happen
+  next.
 
 Required data:
 
-- Recommended stack.
-- Certificate status.
-- Welfare estimate and interval.
-- Regret avoided.
-- Measurement coverage.
-- Benchmark mixture.
-- Recent drift signals.
+- Recommended combination.
+- Release-evidence status.
+- App score and confidence interval.
+- Lift over the obvious one-at-a-time pick.
+- Targeted-test coverage.
+- Example mix.
+- Recent retest triggers.
 - Cost summary for current recommendation.
 
 Required interactions:
 
-- Open certificate.
+- Open release evidence.
 - See ranking.
-- Inspect co-failure.
-- Change lambda/risk profile.
+- Inspect overlap.
+- Change risk weight/profile.
 - Export current evidence summary.
 
-### Stack Ranking
+### Options Compared
 
 Purpose:
 
-- Compare all candidate stacks and expose marginal-vs-full welfare movement.
+- Compare all candidate combinations and expose one-at-a-time versus
+  overlap-tested movement.
 
 Required data:
 
-- Candidate stack IDs.
-- Guard display names and versions.
-- First-order welfare.
-- Full welfare.
+- Candidate combination IDs.
+- Safety-check display names and versions.
+- One-at-a-time score.
+- Together score.
 - Intervals.
-- Certification/open/negative status.
+- Recommended/close/poor-fit status.
 - Estimated latency and cost.
 
 Required interactions:
@@ -188,30 +202,30 @@ Required interactions:
 - Filter status.
 - Compare selected stacks.
 - Export CSV.
-- Inspect stack detail.
+- Inspect combination detail.
 
-### Co-Failure
+### Overlap Analysis
 
 Purpose:
 
-- Make correlated failure visible and actionable.
+- Make shared unsafe misses and shared false blocks visible and actionable.
 
 Required data:
 
-- Guard pair matrix.
+- Safety-check pair matrix.
 - Side: adversarial or benign.
 - Cell-level breakdown.
-- Worst co-miss and false-block pairs.
-- Measurement gaps.
+- Worst shared-miss and false-block pairs.
+- Targeted-test gaps.
 
 Required interactions:
 
 - Toggle adversarial/benign.
 - Click matrix cell.
 - Queue relevant measurement.
-- Jump to stack ranking filtered by pair.
+- Jump to options compared filtered by pair.
 
-### Measurements
+### Test Plan And Cost
 
 Purpose:
 
@@ -219,8 +233,8 @@ Purpose:
 
 Required data:
 
-- Recommended measurement actions.
-- Expected radius reduction.
+- Recommended test bundles.
+- Expected decision help.
 - Cost estimate.
 - ETA estimate.
 - Comparisons affected.
@@ -230,30 +244,31 @@ Required interactions:
 
 - Select/clear/select all.
 - Queue plan.
-- Re-rank after measurements complete.
+- Re-rank after tests complete.
 - View cost impact.
 
-### Certificate
+### Release Evidence
 
 Purpose:
 
-- Formal evidence artifact.
+- Scoped release evidence for one app, one example mix, and one safety-option
+  set.
 
 Required data:
 
-- Certificate status.
+- Evidence status.
 - Scope, assumptions, candidate set.
-- Benchmark suite versions and weights.
-- Stack versions.
-- Welfare profile.
-- Measurement coverage.
+- Example suite versions and weights.
+- Combination and safety-check versions.
+- Risk profile.
+- Targeted-test coverage.
 - Comparison proof state.
 - Signoffs.
 - Expiration and invalidation rules.
 
 Required interactions:
 
-- Issue certificate.
+- Issue release evidence.
 - Export JSON.
 - Export Markdown.
 - Export PDF.
@@ -264,22 +279,22 @@ Required interactions:
 
 Purpose:
 
-- Keep certificates live after launch.
+- Keep release evidence fresh after launch.
 
 Required data:
 
 - Drift signals.
-- Recertification history.
-- Model/guard/prompt/version diffs.
+- Retest history.
+- Model/safety-check/prompt/version diffs.
 - Traffic mixture changes.
 - Incident and benchmark updates.
 
 Required interactions:
 
-- Trigger recertification.
+- Trigger retest.
 - Configure signal.
 - Snooze/acknowledge with audit reason.
-- Open affected certificate.
+- Open affected release evidence.
 
 ## Additional Product Screens Needed
 
@@ -288,9 +303,9 @@ The current app design covers the evidence console. A usable product also needs:
 - Sign in/sign up.
 - Workspace onboarding.
 - Project setup.
-- Benchmark/custom behavior builder.
-- Guard/model connector setup.
-- Candidate stack builder.
+- Example/custom behavior builder.
+- Safety-check/model connector setup.
+- Candidate combination builder.
 - Cost estimate/usage ledger.
 - Job/run history.
 - Settings: members, roles, secrets, retention, billing.
@@ -331,6 +346,5 @@ source of truth.
 - Keep public landing copy crisp and specific.
 - Do not replace the evidence app with marketing cards.
 - Do not ship inert controls in core workflows.
-- Do not compute certificate truth in the frontend.
+- Do not compute release-evidence truth in the frontend.
 - Browser-test desktop and mobile breakpoints before handoff.
-

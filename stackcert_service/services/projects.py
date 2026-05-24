@@ -91,6 +91,22 @@ def create_project(workspace_id: str, payload: ProjectCreate) -> dict[str, Any]:
     return project
 
 
+def set_project_setup_status(project_id: str, setup_status: str) -> None:
+    if project_id == settings.demo_project_id:
+        return
+    store = _persistent_store()
+    if store:
+        try:
+            store.update_project_setup_status(project_id, setup_status)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        return
+    for project in _projects:
+        if project["id"] == project_id:
+            project["setup_status"] = setup_status
+            return
+
+
 def clear_setup_records() -> None:
     _workspaces.clear()
     _projects.clear()

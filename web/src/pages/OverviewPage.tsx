@@ -3,22 +3,31 @@ import { api } from '../lib/api';
 import { fmtNumber, fmtPercent, fmtUsd } from '../lib/format';
 import { Badge, ButtonLink, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader, Stat } from '../components/Primitives';
 import { BenchmarkMix, WelfareMovementChart } from '../components/Charts';
+import { NoRunState, useStackCertApp } from '../lib/appContext';
 
 export function OverviewPage({ lambda }: { lambda: number }) {
-  const overview = useQuery({ queryKey: ['overview', lambda], queryFn: () => api.overview(lambda) });
-  const ranking = useQuery({ queryKey: ['ranking', lambda], queryFn: () => api.ranking(lambda) });
+  const { activeRunId } = useStackCertApp();
+  const overview = useQuery({ queryKey: ['overview', activeRunId, lambda], queryFn: () => api.overview(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const ranking = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
 
+  if (!activeRunId) return <NoRunState title="No recommendation yet" />;
   if (overview.isLoading || ranking.isLoading) return <LoadingState />;
   if (overview.error || ranking.error) return <ErrorState error={overview.error || ranking.error} />;
 
   const data = overview.data!;
   const rows = ranking.data!.rows;
+  const projectName = data.project.name || 'This app';
+  const appDescription = data.project.description || 'Compare tested safety options against your uploaded examples and release goals.';
+  const recommendationChanged = data.recommended_stack.architecture_id !== data.marginal_stack.architecture_id;
+  const subtitle = appDescription.toLowerCase().startsWith(projectName.toLowerCase())
+    ? appDescription
+    : `${projectName}: ${appDescription}`;
 
   return (
     <div className="page">
       <PageHeader
         title={`Recommended safety combination: ${data.recommended_stack.label}`}
-        subtitle="Demo app: Acme Support Copilot. Goal: stop unsafe refund and tool actions while still answering normal support questions."
+        subtitle={subtitle}
         actions={
           <>
             <ButtonLink to="../certificate" variant="primary">
@@ -28,11 +37,14 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           </>
         }
       />
-      <Explainer title="What this demo is deciding" tone="accent" style={{ marginBottom: 16 }}>
+      <Explainer title="What this run is deciding" tone="accent" style={{ marginBottom: 16 }}>
         <p>
-          Acme has 8 safety options and 36 possible combinations. If you test options one at a time,{' '}
-          <strong>{data.marginal_stack.label}</strong> looks best. But those checks fail together on some unsafe
-          examples, so StackCert recommends <strong>{data.recommended_stack.label}</strong> for this app. It ran{' '}
+          {projectName} has {data.run.guards} safety options and {data.run.candidate_stacks} candidate combinations in
+          this run. If you test options one at a time, <strong>{data.marginal_stack.label}</strong> looks best.{' '}
+          {recommendationChanged
+            ? 'The overlap evidence changes that launch decision, so StackCert recommends '
+            : 'The uploaded outputs keep that option ahead after available overlap evidence, so StackCert recommends '}
+          <strong>{data.recommended_stack.label}</strong> for this app. It ran{' '}
           <strong>{data.stats.pair_cells_measured}/{data.stats.pair_cells_total}</strong> useful overlap tests and
           avoided <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> of estimated testing spend.
         </p>
@@ -86,9 +98,9 @@ export function OverviewPage({ lambda }: { lambda: number }) {
         <Card>
           <div className="stat-label">Exports</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <ExternalButton href={api.certificateMarkdownUrl(lambda)}>Evidence Markdown</ExternalButton>
-            <ExternalButton href={api.certificateJsonUrl(lambda)}>Evidence JSON</ExternalButton>
-            <ExternalButton href={api.rankingCsvUrl(lambda)}>Options CSV</ExternalButton>
+            <ExternalButton href={api.certificateMarkdownUrl(activeRunId, lambda)}>Evidence Markdown</ExternalButton>
+            <ExternalButton href={api.certificateJsonUrl(activeRunId, lambda)}>Evidence JSON</ExternalButton>
+            <ExternalButton href={api.rankingCsvUrl(activeRunId, lambda)}>Options CSV</ExternalButton>
           </div>
           <p className="muted">Exports are app-specific evidence, not broad safety guarantees.</p>
         </Card>

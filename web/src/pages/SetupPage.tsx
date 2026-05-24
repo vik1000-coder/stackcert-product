@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, type CustomBehaviorInput, type GuardConnectorInput } from '../lib/api';
+import { useStackCertApp } from '../lib/appContext';
 import { fmtUsd } from '../lib/format';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
 
@@ -49,53 +51,80 @@ const initialConnector: GuardConnectorInput = {
   threshold: 0.8
 };
 
+const sampleOutputContent = [
+  { example_id: 'adversarial_tool_misuse_0001', guard_id: 'refund_policy_guard', binary_pass: false, block_probability: 0.94 },
+  { example_id: 'adversarial_tool_misuse_0001', guard_id: 'pii_check', binary_pass: true, block_probability: 0.22 },
+  { example_id: 'benign_support_0001', guard_id: 'refund_policy_guard', binary_pass: true, block_probability: 0.08 },
+  { example_id: 'benign_support_0001', guard_id: 'pii_check', binary_pass: true, block_probability: 0.05 }
+].map((row) => JSON.stringify(row)).join('\n');
+
 export function SetupPage() {
+  const { projectId, activeRunId } = useStackCertApp();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [behavior, setBehavior] = useState<CustomBehaviorInput>(initialBehavior);
   const [importContent, setImportContent] = useState(sampleImport);
+  const [outputContent, setOutputContent] = useState(sampleOutputContent);
   const [suiteName, setSuiteName] = useState('Pilot app example suite');
   const [suiteVersion, setSuiteVersion] = useState('v1');
   const [connector, setConnector] = useState<GuardConnectorInput>(initialConnector);
-  const suites = useQuery({ queryKey: ['benchmark-suites'], queryFn: api.benchmarkSuites });
-  const guards = useQuery({ queryKey: ['guards'], queryFn: api.guards });
-  const stacks = useQuery({ queryKey: ['stacks'], queryFn: api.stacks });
-  const jobs = useQuery({ queryKey: ['jobs'], queryFn: api.jobs });
-  const behaviors = useQuery({ queryKey: ['custom-behaviors'], queryFn: api.customBehaviors });
+  const suites = useQuery({ queryKey: ['benchmark-suites', projectId], queryFn: () => api.benchmarkSuites(projectId) });
+  const guards = useQuery({ queryKey: ['guards', projectId], queryFn: () => api.guards(projectId) });
+  const stacks = useQuery({ queryKey: ['stacks', projectId], queryFn: () => api.stacks(projectId) });
+  const jobs = useQuery({ queryKey: ['jobs', projectId], queryFn: () => api.jobs(projectId) });
+  const behaviors = useQuery({ queryKey: ['custom-behaviors', projectId], queryFn: () => api.customBehaviors(projectId) });
   const cost = useQuery({
-    queryKey: ['cost-estimate'],
-    queryFn: () => api.estimateCost({ examples: 2000, guards: 8, candidate_stacks: 36 })
+    queryKey: ['cost-estimate', projectId],
+    queryFn: () => api.estimateCost(projectId, { examples: 2000, guards: 8, candidate_stacks: 36 })
   });
   const create = useMutation({
-    mutationFn: api.createCustomBehavior,
+    mutationFn: (payload: CustomBehaviorInput) => api.createCustomBehavior(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['custom-behaviors'] });
     }
   });
   const createEvaluation = useMutation({
-    mutationFn: api.createEvaluationJob,
+    mutationFn: (payload: Parameters<typeof api.createEvaluationJob>[1]) => api.createEvaluationJob(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     }
   });
   const runNextWorker = useMutation({
-    mutationFn: api.runNextWorkerJob,
+    mutationFn: () => api.runNextWorkerJob(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     }
   });
   const previewImport = useMutation({
-    mutationFn: api.previewBenchmarkImport
+    mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) => api.previewProjectBenchmarkImport(projectId, payload)
   });
   const createSuite = useMutation({
-    mutationFn: api.createBenchmarkSuite,
+    mutationFn: (payload: Parameters<typeof api.createBenchmarkSuite>[1]) => api.createBenchmarkSuite(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['benchmark-suites'] });
     }
   });
   const createConnector = useMutation({
-    mutationFn: api.createGuardConnector,
+    mutationFn: (payload: GuardConnectorInput) => api.createGuardConnector(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guards'] });
+    }
+  });
+  const createUploadedRun = useMutation({
+    mutationFn: () =>
+      api.createUploadedOutputRun(projectId, {
+        benchmark_suite_id: savedSuites[0]?.id,
+        format: 'jsonl',
+        content: outputContent,
+        lambda_cost: 5,
+        rho_prior: 0.6,
+        max_k: 2,
+        name: `${suiteName || 'Pilot'} uploaded-output run`
+      }),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      navigate(`../overview?run=${response.run.id}`);
     }
   });
 
@@ -113,12 +142,12 @@ export function SetupPage() {
     return <ErrorState error={behaviors.error || cost.error || suites.error || guards.error || stacks.error || jobs.error} />;
   }
 
-  const suite = suites.data!.suites[0];
-  const examples = suite.cells.reduce((sum, cell) => sum + cell.examples, 0);
   const savedSuites = suites.data!.suites;
+  const suite = savedSuites[0];
+  const examples = suite?.cells.reduce((sum, cell) => sum + cell.examples, 0) ?? 0;
   const stackPreview = stacks.data!.stacks.slice(0, 5);
   const latestJob = jobs.data!.jobs[0];
-  const executableGuards = guards.data!.guards.filter((guard) => guard.status === 'available');
+  const executableGuards = guards.data!.guards.filter((guard) => guard.status !== 'draft');
   const dryRunGuardIds = executableGuards.slice(0, 4).map((guard) => guard.id);
 
   return (
@@ -142,21 +171,27 @@ export function SetupPage() {
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Example suite</h2>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
-            <div>
-              <strong>{suite.name}</strong>
-              <p className="muted" style={{ margin: '6px 0 0' }}>{examples.toLocaleString()} examples across {suite.cells.length} weighted example groups.</p>
-            </div>
-            <Badge tone={suite.status}>{suite.status}</Badge>
-          </div>
-          <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
-            {suite.cells.slice(0, 5).map((cell) => (
-              <div key={cell.cell_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
-                <span>{cell.cell_id}</span>
-                <span className="muted">{cell.side} · {(cell.weight * 100).toFixed(0)}%</span>
+          {suite ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+                <div>
+                  <strong>{suite.name}</strong>
+                  <p className="muted" style={{ margin: '6px 0 0' }}>{examples.toLocaleString()} examples across {suite.cells.length} weighted example groups.</p>
+                </div>
+                <Badge tone={suite.status}>{suite.status}</Badge>
               </div>
-            ))}
-          </div>
+              <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
+                {suite.cells.slice(0, 5).map((cell) => (
+                  <div key={cell.cell_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                    <span>{cell.cell_id}</span>
+                    <span className="muted">{cell.side} · {(cell.weight * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>No example suite yet. Import app examples below to start the pilot.</p>
+          )}
         </Card>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Safety options</h2>
@@ -170,12 +205,12 @@ export function SetupPage() {
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>Combinations to compare</h2>
           <div style={{ display: 'grid', gap: 8 }}>
-            {stackPreview.map((stack) => (
+            {stackPreview.length ? stackPreview.map((stack) => (
               <div key={stack.architecture_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
                 <span>{stack.label}</span>
                 <span className="muted">{stack.estimated_latency_ms}ms · ${stack.estimated_cost_usd_per_1k.toFixed(2)}/1k</span>
               </div>
-            ))}
+            )) : <p className="muted" style={{ margin: 0 }}>Upload safety-check outputs to generate candidate combination scores.</p>}
           </div>
         </Card>
       </div>
@@ -417,6 +452,40 @@ export function SetupPage() {
             </div>
           ))}
         </div>
+      </Card>
+      <Card style={{ marginTop: 16 }}>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Upload safety-check outputs</h2>
+        <p className="muted" style={{ lineHeight: 1.5 }}>
+          For Pilot V1, StackCert can use outputs you already produced. Each row needs an example ID, safety-check ID,
+          and pass/block decision. Once uploaded, the recommendation, overlap analysis, cost plan, and release evidence
+          pages use that run instead of the seeded demo.
+        </p>
+        <textarea
+          className="btn mono setup-input"
+          style={{ minHeight: 168, alignItems: 'flex-start', justifyContent: 'flex-start', resize: 'vertical', fontSize: 12, lineHeight: 1.45 }}
+          value={outputContent}
+          onChange={(event) => setOutputContent(event.currentTarget.value)}
+        />
+        <div className="setup-button-row" style={{ marginTop: 12 }}>
+          <button
+            className="btn primary"
+            disabled={!savedSuites.length || outputContent.trim().length < 20 || createUploadedRun.isPending}
+            onClick={() => createUploadedRun.mutate()}
+          >
+            {createUploadedRun.isPending ? 'Creating evidence run...' : 'Create uploaded-output run'}
+          </button>
+          {activeRunId ? (
+            <button className="btn" type="button" onClick={() => navigate(`../overview?run=${activeRunId}`)}>
+              Open current recommendation
+            </button>
+          ) : null}
+        </div>
+        {!savedSuites.length ? <p className="form-error">Create an example suite before uploading outputs.</p> : null}
+        {createUploadedRun.isError ? (
+          <div className="notice bad" style={{ marginTop: 12 }}>
+            {createUploadedRun.error instanceof Error ? createUploadedRun.error.message : 'Could not create uploaded-output run.'}
+          </div>
+        ) : null}
       </Card>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <Card>

@@ -39,6 +39,9 @@ export type RunSummary = {
   certificate_id: string;
   certificate_status: string;
   measurement_actions: number;
+  created_at?: string;
+  completed_at?: string;
+  source?: string;
 };
 
 export type RankingRow = {
@@ -385,6 +388,16 @@ export type EvaluationJobInput = {
   execution_mode?: 'immediate' | 'queued';
 };
 
+export type UploadedOutputRunInput = {
+  benchmark_suite_id?: string;
+  format: 'auto' | 'jsonl' | 'csv';
+  content: string;
+  lambda_cost: number;
+  rho_prior?: number;
+  max_k?: number;
+  name?: string;
+};
+
 export type BenchmarkImportPreview = {
   format: 'jsonl' | 'csv';
   status: 'valid' | 'invalid';
@@ -467,47 +480,52 @@ export const api = {
   project: (projectId: string) => request<{ project: Project | null }>(`/api/projects/${projectId}`),
   createProject: ({ workspace_id, ...payload }: ProjectInput) =>
     post<{ project: Project }>(`/api/workspaces/${workspace_id}/projects`, payload),
-  overview: (lambda: number) => request<OverviewPayload>(`/api/runs/real_main_2000/overview?lambda_cost=${lambda}`),
-  ranking: (lambda: number) => request<RankingPayload>(`/api/runs/real_main_2000/ranking?lambda_cost=${lambda}`),
-  correlations: (lambda: number, side: 'adversarial' | 'benign') =>
-    request<CorrelationsPayload>(`/api/runs/real_main_2000/correlations?lambda_cost=${lambda}&side=${side}`),
-  measurements: (lambda: number) => request<MeasurementsPayload>(`/api/runs/real_main_2000/measurements?lambda_cost=${lambda}`),
-  runCosts: () => request<CostSummaryPayload>('/api/runs/real_main_2000/costs'),
-  certificate: (lambda: number) => request<CertificatePayload>(`/api/runs/real_main_2000/certificate?lambda_cost=${lambda}`),
+  projectRuns: (projectId: string, lambda: number) => request<{ runs: RunSummary[] }>(`/api/projects/${projectId}/runs?lambda_cost=${lambda}`),
+  createUploadedOutputRun: (projectId: string, payload: UploadedOutputRunInput) =>
+    post<{ run: RunSummary }>(`/api/projects/${projectId}/runs/uploaded-outputs`, payload),
+  overview: (runId: string, lambda: number) => request<OverviewPayload>(`/api/runs/${runId}/overview?lambda_cost=${lambda}`),
+  ranking: (runId: string, lambda: number) => request<RankingPayload>(`/api/runs/${runId}/ranking?lambda_cost=${lambda}`),
+  correlations: (runId: string, lambda: number, side: 'adversarial' | 'benign') =>
+    request<CorrelationsPayload>(`/api/runs/${runId}/correlations?lambda_cost=${lambda}&side=${side}`),
+  measurements: (runId: string, lambda: number) => request<MeasurementsPayload>(`/api/runs/${runId}/measurements?lambda_cost=${lambda}`),
+  runCosts: (runId: string) => request<CostSummaryPayload>(`/api/runs/${runId}/costs`),
+  certificate: (runId: string, lambda: number) => request<CertificatePayload>(`/api/runs/${runId}/certificate?lambda_cost=${lambda}`),
   issuedCertificate: (certificateId: string) => request<{ certificate: IssuedCertificate | null }>(`/api/certificates/${certificateId}`),
-  issueCertificate: (lambda: number, payload: { acknowledge_limitations: boolean; expires_in_days: number; reviewer_note?: string }) =>
-    post<{ certificate: IssuedCertificate }>(`/api/runs/real_main_2000/certificate/issue?lambda_cost=${lambda}`, payload),
+  issueCertificate: (runId: string, lambda: number, payload: { acknowledge_limitations: boolean; expires_in_days: number; reviewer_note?: string }) =>
+    post<{ certificate: IssuedCertificate }>(`/api/runs/${runId}/certificate/issue?lambda_cost=${lambda}`, payload),
   createCertificateSignoff: (
     certificateId: string,
     payload: { signer_role: string; decision: CertificateSignoff['decision']; comment?: string }
   ) => post<{ signoff: CertificateSignoff }>(`/api/certificates/${certificateId}/signoffs`, payload),
-  drift: (lambda: number) => request<DriftPayload>(`/api/projects/proj_acme_copilot/drift?lambda_cost=${lambda}`),
-  certificateMarkdownUrl: (lambda: number) => `${apiBase}/api/runs/real_main_2000/certificate.md?lambda_cost=${lambda}`,
-  certificateJsonUrl: (lambda: number) => `${apiBase}/api/runs/real_main_2000/certificate.json?lambda_cost=${lambda}`,
-  rankingCsvUrl: (lambda: number) => `${apiBase}/api/runs/real_main_2000/ranking.csv?lambda_cost=${lambda}`,
-  benchmarkSuites: () =>
-    request<{ suites: BenchmarkSuite[] }>('/api/projects/proj_acme_copilot/benchmark-suites?lambda_cost=5'),
+  drift: (projectId: string, lambda: number) => request<DriftPayload>(`/api/projects/${projectId}/drift?lambda_cost=${lambda}`),
+  certificateMarkdownUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.md?lambda_cost=${lambda}`,
+  certificateJsonUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.json?lambda_cost=${lambda}`,
+  rankingCsvUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/ranking.csv?lambda_cost=${lambda}`,
+  benchmarkSuites: (projectId: string) =>
+    request<{ suites: BenchmarkSuite[] }>(`/api/projects/${projectId}/benchmark-suites?lambda_cost=5`),
   previewBenchmarkImport: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
     post<{ project_id: string; import_preview: BenchmarkImportPreview }>('/api/projects/proj_acme_copilot/benchmark-suites/preview', payload),
-  createBenchmarkSuite: (payload: BenchmarkImportCommitInput) =>
-    post<{ project_id: string; suite: BenchmarkSuite; import_preview: BenchmarkImportPreview }>('/api/projects/proj_acme_copilot/benchmark-suites', payload),
-  guards: () => request<{ guards: GuardCatalogItem[] }>('/api/projects/proj_acme_copilot/guards?lambda_cost=5'),
-  guardConnectors: () => request<{ connectors: GuardCatalogItem[] }>('/api/projects/proj_acme_copilot/guard-connectors?lambda_cost=5'),
-  createGuardConnector: (payload: GuardConnectorInput) =>
-    post<{ connector: GuardCatalogItem }>('/api/projects/proj_acme_copilot/guard-connectors', payload),
-  stacks: () => request<{ run: RunSummary; stacks: CandidateStack[] }>('/api/projects/proj_acme_copilot/stacks?lambda_cost=5'),
-  jobs: () => request<{ jobs: StackCertJob[] }>('/api/projects/proj_acme_copilot/jobs'),
-  createEvaluationJob: (payload: EvaluationJobInput) =>
-    post<{ job: StackCertJob }>('/api/projects/proj_acme_copilot/evaluation-jobs', payload),
-  runNextWorkerJob: () => post<{ job: StackCertJob }>('/api/projects/proj_acme_copilot/workers/run-next', {}),
-  createMeasurementPlan: (payload: { action_ids: string[]; max_cost_usd?: number }, lambda: number) =>
+  previewProjectBenchmarkImport: (projectId: string, payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
+    post<{ project_id: string; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites/preview`, payload),
+  createBenchmarkSuite: (projectId: string, payload: BenchmarkImportCommitInput) =>
+    post<{ project_id: string; suite: BenchmarkSuite; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites`, payload),
+  guards: (projectId: string) => request<{ guards: GuardCatalogItem[] }>(`/api/projects/${projectId}/guards?lambda_cost=5`),
+  guardConnectors: (projectId: string) => request<{ connectors: GuardCatalogItem[] }>(`/api/projects/${projectId}/guard-connectors?lambda_cost=5`),
+  createGuardConnector: (projectId: string, payload: GuardConnectorInput) =>
+    post<{ connector: GuardCatalogItem }>(`/api/projects/${projectId}/guard-connectors`, payload),
+  stacks: (projectId: string) => request<{ run: RunSummary | null; stacks: CandidateStack[] }>(`/api/projects/${projectId}/stacks?lambda_cost=5`),
+  jobs: (projectId: string) => request<{ jobs: StackCertJob[] }>(`/api/projects/${projectId}/jobs`),
+  createEvaluationJob: (projectId: string, payload: EvaluationJobInput) =>
+    post<{ job: StackCertJob }>(`/api/projects/${projectId}/evaluation-jobs`, payload),
+  runNextWorkerJob: (projectId: string) => post<{ job: StackCertJob }>(`/api/projects/${projectId}/workers/run-next`, {}),
+  createMeasurementPlan: (runId: string, payload: { action_ids: string[]; max_cost_usd?: number }, lambda: number) =>
     post<{ id: string; job: StackCertJob; status: string; run_id: string; summary: Record<string, unknown>; actions: MeasurementsPayload['actions'] }>(
-      `/api/runs/real_main_2000/measurement-plans?lambda_cost=${lambda}`,
+      `/api/runs/${runId}/measurement-plans?lambda_cost=${lambda}`,
       payload
     ),
-  customBehaviors: () => request<{ behaviors: CustomBehavior[] }>('/api/projects/proj_acme_copilot/custom-behaviors'),
-  createCustomBehavior: (payload: CustomBehaviorInput) =>
-    post<{ behavior: CustomBehavior }>('/api/projects/proj_acme_copilot/custom-behaviors', payload),
-  estimateCost: (payload: { examples: number; guards: number; candidate_stacks: number }) =>
-    post<{ estimate: CostEstimate }>('/api/projects/proj_acme_copilot/costs/estimate', payload)
+  customBehaviors: (projectId: string) => request<{ behaviors: CustomBehavior[] }>(`/api/projects/${projectId}/custom-behaviors`),
+  createCustomBehavior: (projectId: string, payload: CustomBehaviorInput) =>
+    post<{ behavior: CustomBehavior }>(`/api/projects/${projectId}/custom-behaviors`, payload),
+  estimateCost: (projectId: string, payload: { examples: number; guards: number; candidate_stacks: number }) =>
+    post<{ estimate: CostEstimate }>(`/api/projects/${projectId}/costs/estimate`, payload)
 };

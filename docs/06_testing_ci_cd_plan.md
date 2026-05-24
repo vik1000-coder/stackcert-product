@@ -4,11 +4,11 @@
 
 StackCert has three correctness layers:
 
-1. Mathematical correctness of CASS and certificates.
+1. Mathematical correctness of CASS and release evidence.
 2. Product/data correctness across API, DB, jobs, and exports.
 3. UI correctness and workflow fidelity.
 
-All three must be tested. A pretty dashboard with incorrect certificate logic is
+All three must be tested. A pretty dashboard with incorrect evidence logic is
 dangerous; a correct engine with broken auth or exports is not sellable.
 
 ## Test Pyramid
@@ -17,7 +17,7 @@ dangerous; a correct engine with broken auth or exports is not sellable.
 
 Purpose:
 
-- Validate CASS math, data validation, scheduling, and certificate logic.
+- Validate CASS math, data validation, scheduling, and release-evidence logic.
 
 Current baseline:
 
@@ -28,7 +28,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 Add:
 
 - pytest migration if useful.
-- Golden certificate fixtures.
+- Golden release-evidence fixtures.
 - Property tests for interval bounds and monotonicity.
 - Scheduler edge cases.
 - Import/validation tests for malformed customer files.
@@ -48,7 +48,7 @@ Cover:
 - Project/run CRUD.
 - Benchmark/custom behavior CRUD.
 - Run summary endpoints.
-- Certificate issue/export.
+- Release-evidence issue/export.
 - Job creation/cancel/retry.
 - Cost estimate endpoints.
 
@@ -100,12 +100,12 @@ Core paths:
 - Public landing loads.
 - Sign in.
 - Open seeded demo project.
-- Read overview certified status.
-- Open ranking and sort/filter.
-- Open co-failure and inspect a cell.
-- Queue measurements.
-- Export certificate.
-- Trigger drift recertification.
+- Read recommendation status.
+- Open options compared and sort/filter.
+- Open overlap analysis and inspect a cell.
+- Queue targeted tests.
+- Export release evidence.
+- Trigger drift retesting.
 - Create a custom behavior and include it in a draft suite.
 
 ### Visual And Accessibility Tests
@@ -120,11 +120,11 @@ Visual baselines:
 - Landing top.
 - Landing long scroll.
 - Overview.
-- Ranking.
-- Co-failure.
-- Measurements.
-- Certificate.
-- Drift.
+- Options compared.
+- Overlap analysis.
+- Test plan and cost.
+- Release evidence.
+- When to retest.
 
 Accessibility:
 
@@ -285,7 +285,7 @@ Runs slower confidence checks.
 
 Jobs:
 
-- Golden certificate replay.
+- Golden release-evidence replay.
 - Longer import/eval smoke.
 - Load test with fake providers.
 - Browser visual snapshots.

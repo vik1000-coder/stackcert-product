@@ -112,7 +112,9 @@ python scripts/smoke_api.py http://127.0.0.1:8000
 ```
 
 Deployment systems and external agent platforms should use the machine-readable
-gate endpoint instead of scraping UI state:
+release-evidence gate endpoint instead of scraping UI state. Some endpoint and
+script names still use `certificate` for backwards compatibility, but product
+copy should describe the result as scoped release evidence.
 
 ```bash
 curl http://127.0.0.1:8000/api/projects/proj_acme_copilot/certificate-status
@@ -160,6 +162,6 @@ environment variables. The web image serves the static Vite build through nginx.
 - Smoke script passes against the deployed API.
 - Deployment smoke passes against the hosted Supabase Auth/API/web target when
   releasing the free-tier demo.
-- Certificate gate returns `ok: true` for the deployment target or intentionally
+- Release-evidence gate returns `ok: true` for the deployment target or intentionally
   runs in `warn` mode.
-- A certificate export includes scoped limitations and recertification triggers.
+- A release-evidence export includes scoped limitations and retest triggers.

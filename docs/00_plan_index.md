@@ -55,7 +55,7 @@ Latest primary files:
   roadmap.
 - `09_agent_deployment_research_and_integration_plan.md`: how current agent
   deployments work and where StackCert should integrate.
-- `10_certificate_scope_and_risk_positioning.md`: scoped certificate language,
+- `10_certificate_scope_and_risk_positioning.md`: release-evidence scope,
   disclaimers, and risk-positioning rules.
 - `11_local_dev_and_release_runbook.md`: local API/web/Supabase setup and
   release gates.
@@ -63,6 +63,7 @@ Latest primary files:
   Auth/API/static hosting commands, smoke test, and limitations.
 - `13_production_hosting_setup.md`: recommended Cloudflare Pages, Supabase,
   Cloud Run, and GitHub Actions production setup checklist.
+- `14_product_language_guide.md`: current public/demo vocabulary and copy rules.
 
 ## Current Hosted Demo
 
@@ -86,7 +87,7 @@ Every implementation slice should end with a small verification pass:
 - Frontend edits: run TypeScript, lint, unit/component tests, and build.
 - Workflow changes: run Playwright e2e against local Supabase/API/web.
 - Release candidates: run the full CI matrix, security scans, migration checks,
-  smoke tests, and at least one golden certificate replay.
+  smoke tests, and at least one golden release-evidence replay.
 
 The current core smoke test remains:
 

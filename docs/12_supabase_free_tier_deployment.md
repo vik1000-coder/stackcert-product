@@ -1,6 +1,6 @@
 # Supabase Backend And Hosted Web Deployment
 
-Last verified: 2026-05-23
+Last verified: 2026-05-24
 
 This document describes the current playable hosted deployment. Supabase runs
 the free-tier Auth/API backend, while GitHub Pages serves the static Vite app.
@@ -51,10 +51,16 @@ The free-tier deployment uses:
 
 The Edge Function mirrors the main product API surface enough for demos:
 
-- overview, ranking, co-failure, measurements, costs, certificate, drift;
-- setup catalogs, custom behavior creation, import preview, guard connectors;
-- jobs, worker-run simulation, certificate issue/signoff;
+- recommendation, options compared, overlap analysis, test plan and cost,
+  release evidence, retest triggers;
+- setup catalogs, custom behavior creation, import preview, safety-check
+  connectors;
+- jobs, worker-run simulation, release-evidence issue/signoff;
 - MCP manifest/RPC and agent-platform integration metadata.
+
+Some API routes and JSON fields retain older names such as `certificate` or
+`guard` for compatibility. Visible product copy should use "release evidence"
+and "safety checks."
 
 The Edge Function verifies Supabase Auth tokens before serving app data. Public
 exceptions are limited to health and export endpoints.
@@ -84,7 +90,7 @@ Supabase remains the backend.
 Supabase free tier does not host the Python FastAPI app or long-running Python
 workers. The production path is still:
 
-- FastAPI service for CASS orchestration, authorization, certificates, and
+- FastAPI service for CASS orchestration, authorization, release evidence, and
   provider-safe API contracts;
 - worker service for durable evaluation jobs, provider retries, budgets, and
   artifact writes;
@@ -125,6 +131,27 @@ supabase functions deploy stackcert-api \
 
 The function is deployed with `--no-verify-jwt` so it can keep `/api/health`
 and export routes public while enforcing Supabase Auth manually for app routes.
+
+## Deploy Database Migrations
+
+The remote free-tier project is linked to `cgwiwmfzpektpyquiveg`.
+
+```bash
+cd stackcert_product
+supabase db push --linked --dry-run
+supabase db push --linked --yes
+supabase migration list --linked
+```
+
+Remote migration history was verified on 2026-05-24 and includes:
+
+- `20260523151421_initial_stackcert_schema.sql`
+- `20260523192827_add_usage_event_metadata.sql`
+- `20260524023733_add_project_setup_status.sql`
+
+Do not run multiple Supabase database CLI commands against the same linked
+project in parallel. The CLI creates a temporary login role, and parallel
+commands can race and invalidate each other's password.
 
 ## Deploy Static App To GitHub Pages
 
@@ -226,6 +253,7 @@ The test asserts that:
 - publish `web/dist` to GitHub Pages
 - `scripts/deployment_smoke.py ...`
 - browser-load landing and auth routes at desktop and mobile widths
+- confirm public page metadata uses safety-check and release-evidence language
 
 ## Known Limitations
 
@@ -234,7 +262,5 @@ The test asserts that:
 - GitHub Pages is the current web host; Supabase remains the Auth/API backend.
 - Edge Function state is demo-oriented and not a durable replacement for the
   Python API/worker path.
-- Remote Postgres migrations are not part of this free-tier demo deploy unless
-  the project is linked or a remote DB password/connection string is provided.
-- The certificate remains a scoped comparative-risk artifact. It does not
+- Release evidence remains a scoped comparative-risk artifact. It does not
   guarantee the AI system is safe, compliant, or free of harmful behavior.

@@ -21,6 +21,7 @@ VALID_SIDES = {"adversarial", "benign"}
 VALID_SEVERITIES = {"low", "medium", "high", "critical"}
 
 _committed_suites: dict[str, list[dict[str, Any]]] = {}
+_committed_bundles: dict[str, dict[str, dict[str, Any]]] = {}
 
 
 def _detect_format(content: str, requested: str) -> str:
@@ -148,6 +149,25 @@ def list_committed_suites(project_id: str) -> list[dict[str, Any]]:
     return list(_committed_suites.get(project_id, []))
 
 
+def get_committed_suite_bundle(project_id: str, suite_id: str | None = None) -> dict[str, Any]:
+    store = _persistent_store()
+    if store:
+        try:
+            return store.get_benchmark_suite_bundle(project_id, suite_id)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    bundles = _committed_bundles.get(project_id, {})
+    if suite_id:
+        bundle = bundles.get(suite_id)
+        if not bundle:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benchmark suite not found")
+        return bundle
+    if not bundles:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Create a benchmark suite before uploading outputs")
+    return next(iter(bundles.values()))
+
+
 def commit_import(project_id: str, payload: BenchmarkImportCommitRequest) -> dict[str, Any]:
     bundle = build_import_bundle(project_id, payload)
     store = _persistent_store()
@@ -159,6 +179,10 @@ def commit_import(project_id: str, payload: BenchmarkImportCommitRequest) -> dic
     else:
         suite = _memory_suite_from_bundle(bundle)
         _committed_suites.setdefault(project_id, []).insert(0, suite)
+        _committed_bundles.setdefault(project_id, {})[suite["id"]] = {
+            **bundle,
+            "suite": {**bundle["suite"], "id": suite["id"]},
+        }
     return {"suite": suite, "import_preview": bundle["preview"]}
 
 
@@ -235,6 +259,7 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
 
 def clear_committed_suites() -> None:
     _committed_suites.clear()
+    _committed_bundles.clear()
 
 
 def _memory_suite_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:

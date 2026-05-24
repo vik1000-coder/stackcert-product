@@ -2,15 +2,15 @@
 
 ## Cost Product Goal
 
-Users should be able to see the cost of each guardrail configuration before and
-after running it.
+Users should be able to see the cost of each safety-check combination before
+and after running it.
 
 Cost should be visible in:
 
-- Stack Ranking.
-- Measurement Planner.
+- Options compared.
+- Test plan and cost.
 - Run detail.
-- Certificate artifact.
+- Release-evidence artifact.
 - Workspace budget.
 - Public/pricing strategy later.
 
@@ -21,7 +21,7 @@ Track:
 - Provider/model input tokens.
 - Provider/model output tokens.
 - Per-request provider costs.
-- Hosted guard costs.
+- Hosted safety-check costs.
 - Worker CPU/memory time.
 - Storage.
 - Data transfer.
@@ -32,9 +32,9 @@ Each run should have:
 - Estimated cost before execution.
 - Actual cost after execution.
 - Cost by provider.
-- Cost by guard.
-- Cost by benchmark cell.
-- Cost by measurement action.
+- Cost by safety check.
+- Cost by example group.
+- Cost by targeted test.
 
 ## Cost Schema
 
@@ -67,17 +67,17 @@ Show cost in:
 - Pre-run estimate panel.
 - Measurement planner selected-cost summary.
 - Ranking table cost/latency columns.
-- Certificate "evidence cost" section.
+- Release-evidence "evidence cost" section.
 - Workspace usage ledger.
 
 Useful metrics:
 
-- Cost to certify.
+- Cost to produce release evidence.
 - Cost avoided vs exhaustive measurement.
-- Expected value per measurement dollar.
-- Marginal welfare per dollar.
+- Expected decision help per test dollar.
+- Lift per dollar over the one-at-a-time shortcut.
 - Monthly projected cost at current traffic.
-- Latency impact of each stack.
+- Latency impact of each combination.
 
 ## Budget Controls
 
@@ -112,10 +112,10 @@ Targets:
 
 Capabilities:
 
-- Fetch latest certificate status.
-- Fail or warn when certificate is expired/provisional/revoked.
-- Attach certificate artifact to deployment record.
-- Trigger re-certification on model/guard/prompt changes.
+- Fetch latest release-evidence status.
+- Fail or warn when evidence is expired, provisional, revoked, or stale.
+- Attach release-evidence artifact to deployment record.
+- Trigger retesting on model/safety-check/prompt changes.
 
 ### Agent And LLM Observability
 
@@ -135,7 +135,7 @@ Capabilities:
 - Import traffic samples.
 - Detect prompt/model/tool changes.
 - Create drift signals.
-- Attach certificate IDs to traces.
+- Attach evidence IDs to traces.
 - Send incidents back to StackCert.
 
 ### Data And ML Platforms
@@ -218,4 +218,3 @@ Each integration needs:
 - Retry and idempotency tests.
 - Sandbox smoke tests.
 - Failure mode tests.
-

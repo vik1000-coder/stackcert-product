@@ -1,4 +1,4 @@
-# Certificate Scope And Risk Positioning
+# Release Evidence Scope And Risk Positioning
 
 ## Core Principle
 
@@ -6,11 +6,12 @@ StackCert should never imply that an AI system is absolutely safe.
 
 The product should say:
 
-- "certified for this benchmark mixture, candidate set, guard versions, welfare
-  profile, and aggregation rule";
+- "recommended for this app, example mix, safety-option set, risk profile, and
+  assumptions";
+- "scoped release evidence";
 - "evidence-backed risk mitigation";
-- "conditional certificate";
-- "current as of this run and valid until drift/expiration."
+- "current as of this run and valid until drift, expiration, or material change";
+- "retest when the model, prompt, safety check, tool, traffic, or policy changes."
 
 The product should not say:
 
@@ -18,67 +19,74 @@ The product should not say:
 - "compliance guaranteed";
 - "all attacks prevented";
 - "production risk eliminated";
-- "auditor-proof."
+- "auditor-proof";
+- "the model is certified safe."
 
 ## Recommended Value Language
 
 Use:
 
+- "Choose the right safety checks for your LLM app."
+- "Compare rules, classifiers, model judges, stronger models, context policies,
+  and combinations on app-specific examples."
+- "Measure where safety checks miss or block the same examples."
+- "Run only the targeted tests that can change the recommendation."
+- "Ship with scoped release evidence."
+- "Retest when the app or safety setup changes."
+
+Avoid in public or first-run demo UI:
+
 - "Certify the guardrail stack you actually ship."
 - "Measure correlated failures across composed controls."
-- "Issue a defensible, scoped certificate."
-- "Reduce launch risk with evidence."
-- "Find the minimum measurements needed to support the decision."
-- "Monitor drift so stale certificates do not remain trusted."
+- "Issue a defensible certificate."
+- "Welfare profile."
+- "Marginal winner."
+- "Co-failure."
+- "Recertification."
 
-Avoid:
+Those terms can remain in backend APIs, research notes, and methodology docs
+where they are explicitly explained.
 
-- "Guarantee safety."
-- "Prevent every jailbreak."
-- "Make agents compliant."
-- "Eliminate hallucinations."
-- "Certify your model is safe."
+## Release-Evidence Claim Shape
 
-## Certificate Claim Shape
-
-Every certificate should be explicit:
+Every evidence packet should be explicit:
 
 ```text
-StackCert certifies that, among the candidate guardrail stacks evaluated in
-this run, under the stated benchmark mixture, welfare profile, aggregation rule,
-guard versions, and statistical assumptions, the selected stack is preferred to
-the listed alternatives by the recorded comparison margins.
+StackCert supports the selected safety-check combination for this LLM app,
+example mix, risk weighting, candidate combinations, and stated assumptions.
+The selected combination beat the listed alternatives by the recorded comparison
+margins for this run.
 ```
 
 It should also state:
 
 ```text
-This certificate does not guarantee that the underlying AI system is safe,
+This evidence packet does not guarantee that the underlying AI system is safe,
 compliant, or free from harmful behavior. It is evidence for a scoped
-comparative risk decision and should be used with operational monitoring,
-human review, access controls, and incident response processes.
+comparative risk decision and should be used with operational monitoring, human
+review, access controls, and incident response processes.
 ```
 
-## Required Certificate Sections
+## Required Evidence Sections
 
-Each certificate should include:
+Each evidence packet should include:
 
-- Certificate ID.
-- Status: valid, provisional, expired, revoked, failed, draft.
-- Project and environment.
-- Candidate set.
-- Selected stack and versions.
-- Benchmark suite and version.
-- Benchmark cells and weights.
-- Data handling mode.
-- Welfare/risk profile.
-- Aggregation rule.
-- Measurement coverage.
+- Evidence ID.
+- Status: ready for review, needs more evidence, expired, revoked, failed, or
+  draft.
+- App, workspace, project, and environment.
+- Candidate safety-check combinations.
+- Selected combination and safety-check versions.
+- Example suite and version.
+- Example groups, labels, weights, and data-handling mode.
+- Risk profile or risk weight.
+- Combination rule.
+- Targeted-test coverage.
 - Statistical method and intervals.
-- CASS comparison proof status.
+- Comparison status.
 - Known limitations.
 - Exclusions.
-- Drift triggers.
+- Retest triggers.
 - Expiration date.
 - Signoffs.
 - Export hash.
@@ -86,44 +94,52 @@ Each certificate should include:
 
 ## Scope And Limitation Language
 
-Each certificate must include limitations such as:
+Each evidence packet must include limitations such as:
 
-- Only covers the benchmark examples, generated/custom behaviors, and traffic
-  mixture described in the certificate.
+- Only covers the examples, generated/custom behaviors, and traffic mix described
+  in the evidence packet.
 - Does not cover undiscovered attack classes.
-- Does not cover changes to prompts, model versions, guard versions, thresholds,
-  policies, tools, retrieval corpora, or traffic mixture unless re-certified.
+- Does not cover changes to prompts, model versions, safety-check versions,
+  thresholds, policies, tools, retrieval corpora, or traffic mix unless retested.
 - Does not replace legal, compliance, security, or safety review.
 - Does not guarantee that all harmful outputs or actions are prevented.
 - Does not validate the correctness of customer-provided labels unless a review
   workflow is completed.
-- May depend on third-party model/guard/provider behavior outside StackCert's
-  control.
+- May depend on third-party model/provider behavior outside StackCert's control.
 
 ## UI Language Rules
 
-Use "Certified" only with local context:
+Use "recommended" or "ready for review" in the app before using "certified."
 
-- Good: "CASS-certified for prod-risk-v4."
-- Good: "Certified winner among 12 candidate stacks."
-- Risky: "Safe."
-- Risky: "Certified AI."
+Good:
+
+- "Recommended safety combination: LG3 + Phi3."
+- "Ready for review."
+- "Release evidence for Acme Support Copilot."
+- "Retest required after safety option, model, or prompt drift."
+
+Risky:
+
+- "Safe."
+- "Certified AI."
+- "Certified winner" without naming the app scope and assumptions.
 
 Status label suggestions:
 
-- `Valid`
-- `Provisional`
-- `Needs measurement`
-- `Expired`
-- `Revoked`
-- `Out of scope`
+- `ready for review`
+- `needs more evidence`
+- `close`
+- `poor fit`
+- `expired`
+- `out of scope`
 
-Certificate buttons:
+Evidence buttons:
 
-- "Issue scoped certificate"
+- "Open release evidence"
+- "Issue release evidence"
 - "Export evidence"
 - "Request signoff"
-- "Trigger recertification"
+- "Trigger retest"
 
 Avoid buttons like:
 
@@ -146,10 +162,10 @@ Before production launch, legal/product should add:
 
 Product controls:
 
-- Require user acknowledgement when issuing a certificate.
-- Keep certificates immutable after issue.
+- Require user acknowledgement when issuing release evidence.
+- Keep issued evidence immutable after issue.
 - Use revocation/expiration instead of mutation.
-- Force re-certification after material drift.
+- Force retesting after material drift.
 - Show limitations on-screen, not only in exports.
 - Keep all signoffs auditable.
 
@@ -157,13 +173,12 @@ Product controls:
 
 CASS gives StackCert a concrete, defensible claim:
 
-- It compares candidate stacks, not absolute universal safety.
-- It measures co-failure where composition can break intuition.
-- It records the benchmark mixture and welfare profile.
-- It can explain unresolved comparisons and recommend next measurements.
-- It can produce a bounded certificate with assumptions rather than vague
+- It compares candidate combinations, not absolute universal safety.
+- It measures overlap where composition can break intuition.
+- It records the example mix and risk profile.
+- It can explain unresolved comparisons and recommend targeted tests.
+- It can produce scoped release evidence with assumptions rather than vague
   assurance language.
 
 That narrower claim is commercially useful and easier to defend than broad
 "AI safety certification."
-

@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useStackCertApp } from '../lib/appContext';
 import { Badge, Card, ErrorState, LoadingState, PageHeader } from '../components/Primitives';
 
 export function DriftPage({ lambda }: { lambda: number }) {
-  const query = useQuery({ queryKey: ['drift', lambda], queryFn: () => api.drift(lambda) });
+  const { projectId } = useStackCertApp();
+  const query = useQuery({ queryKey: ['drift', projectId, lambda], queryFn: () => api.drift(projectId, lambda) });
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const data = query.data!;

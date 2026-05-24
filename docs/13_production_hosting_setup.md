@@ -1,6 +1,6 @@
 # Production Hosting Setup
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 This is the recommended production hosting plan for StackCert after the
 temporary hosted demo. The goal is to keep costs controlled, deployment boring,
@@ -152,6 +152,134 @@ GCP_SERVICE_ACCOUNT
 Use `us-central1` initially for cost/free-tier friendliness unless there is a
 strong reason to optimize for another region.
 
+## Cloud Run First Setup Walkthrough
+
+This is the manual path to get the FastAPI service running before we automate it
+in GitHub Actions. Use staging first, then repeat for production with separate
+projects/secrets.
+
+Set shell variables:
+
+```bash
+export GCP_PROJECT_ID="stackcert-staging"
+export GCP_REGION="us-central1"
+export ARTIFACT_REPO="stackcert"
+export IMAGE_NAME="stackcert-api"
+export IMAGE_TAG="$(git rev-parse --short HEAD)"
+export IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+```
+
+Select the project and enable APIs:
+
+```bash
+gcloud config set project "$GCP_PROJECT_ID"
+
+gcloud services enable run.googleapis.com
+gcloud services enable artifactregistry.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
+gcloud services enable secretmanager.googleapis.com
+gcloud services enable iamcredentials.googleapis.com
+```
+
+Create one Artifact Registry Docker repository:
+
+```bash
+gcloud artifacts repositories create "$ARTIFACT_REPO" \
+  --repository-format=docker \
+  --location="$GCP_REGION" \
+  --description="StackCert container images"
+```
+
+Create the API runtime service account:
+
+```bash
+gcloud iam service-accounts create stackcert-api-runtime \
+  --display-name="StackCert API runtime"
+```
+
+Store runtime secrets in Secret Manager. Paste/export the values in your private
+shell first; do not commit them to the repo.
+
+```bash
+printf "%s" "$SUPABASE_URL" | gcloud secrets create stackcert-supabase-url \
+  --replication-policy=automatic \
+  --data-file=-
+
+printf "%s" "$SUPABASE_SERVICE_ROLE_KEY" | gcloud secrets create stackcert-supabase-secret-key \
+  --replication-policy=automatic \
+  --data-file=-
+
+printf "%s" "$SUPABASE_JWT_SECRET" | gcloud secrets create stackcert-supabase-jwt-secret \
+  --replication-policy=automatic \
+  --data-file=-
+```
+
+Grant the runtime service account access to those secrets:
+
+```bash
+export API_RUNTIME_SA="stackcert-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+
+for secret in \
+  stackcert-supabase-url \
+  stackcert-supabase-secret-key \
+  stackcert-supabase-jwt-secret
+do
+  gcloud secrets add-iam-policy-binding "$secret" \
+    --member="serviceAccount:${API_RUNTIME_SA}" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+Build and push the API image:
+
+```bash
+gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev"
+docker build -f Dockerfile.api -t "$IMAGE_URI" .
+docker push "$IMAGE_URI"
+```
+
+Deploy the API service:
+
+```bash
+gcloud run deploy stackcert-api \
+  --image="$IMAGE_URI" \
+  --region="$GCP_REGION" \
+  --platform=managed \
+  --allow-unauthenticated \
+  --service-account="$API_RUNTIME_SA" \
+  --cpu=1 \
+  --memory=1Gi \
+  --concurrency=40 \
+  --min-instances=0 \
+  --max-instances=5 \
+  --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_CORS_ORIGINS=https://staging.stackcert.com" \
+  --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest,SUPABASE_JWT_SECRET=stackcert-supabase-jwt-secret:latest"
+```
+
+Verify the deployed API:
+
+```bash
+export API_URL="$(gcloud run services describe stackcert-api \
+  --region="$GCP_REGION" \
+  --format='value(status.url)')"
+
+curl -fsS "${API_URL}/api/health"
+curl -i -sS "${API_URL}/api/workspaces" | head
+```
+
+The health check should return `200`; protected app routes should reject
+requests without a valid Supabase bearer token.
+
+Once the raw `run.app` URL is healthy, map `api-staging.stackcert.com` or
+`api.stackcert.com` to the service through Cloud Run custom domains or
+Cloudflare. Update `STACKCERT_CORS_ORIGINS` and frontend `VITE_API_BASE_URL`
+after the domain is active.
+
+For workers, start with Cloud Run Jobs only after the API deploy is green and
+we have a worker entrypoint command. Use the same image, a separate
+`stackcert-worker-runtime` service account, no public ingress, lower max
+parallelism, and the same Supabase secret bindings.
+
 ## Cloud Run Services
 
 Deploy the API:
@@ -258,7 +386,7 @@ deploy-prod.yml
     - deploy worker to Cloud Run production
     - deploy frontend to Cloudflare Pages production
     - run deployment smoke
-    - run certificate gate
+    - run release-evidence gate
 ```
 
 Frontend build env:
@@ -295,7 +423,8 @@ scripts/deployment_smoke.py \
   --password "<smoke test password>"
 ```
 
-Also run the certificate gate:
+Also run the release-evidence gate. The current script name remains
+`certificate_gate.py` for compatibility with existing API routes:
 
 ```bash
 python scripts/certificate_gate.py \
@@ -338,7 +467,7 @@ Before real users:
   - frontend;
   - `/api/health`;
   - auth smoke;
-  - certificate status endpoint.
+  - release-evidence status endpoint.
 - Confirm CORS only allows production/staging frontend domains.
 - Confirm service-role keys are never exposed to the browser.
 

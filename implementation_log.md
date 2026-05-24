@@ -844,3 +844,148 @@ Started: 2026-05-23
     `https://vik1000-coder.github.io/stackcert-product/?v=0ba9115` ->
     "View seeded demo" -> sign-in -> seeded overview dashboard.
   - Browser console produced no warnings or errors during that deployed flow.
+
+## Real Pilot V1: Uploaded Outputs to Release Evidence
+
+- Implemented the first non-demo pilot path: a user can create a workspace and
+  project, import a versioned example suite, upload existing safety-check
+  outputs, and generate an app-specific recommendation run.
+- Added backend pilot-run orchestration in `stackcert_service/services/pilot_runs.py`:
+  - parses JSONL/CSV uploaded outputs;
+  - reconstructs committed benchmark-suite cells and examples;
+  - runs the CASS engine over uploaded guard results;
+  - exposes overview, ranking, overlap, measurement-plan, cost, drift, and
+    release-evidence payloads for the created run.
+- Updated FastAPI routes so project pages are no longer tied to the seeded demo:
+  - `POST /api/projects/{project_id}/runs/uploaded-outputs`;
+  - `GET /api/projects/{project_id}/runs`;
+  - run-scoped overview, ranking, correlations, measurements, costs,
+    certificate JSON/Markdown, and drift dispatch to pilot runs when present.
+- Extended Supabase-store helpers enough for pilot runs to reconstruct committed
+  suite bundles from Supabase tables. Full persisted run snapshots remain a next
+  production-hardening item.
+- Updated certificate issuing so uploaded-output pilot runs can be locked into
+  scoped release evidence under the correct project.
+- Updated the Supabase Edge Function fallback so the hosted app can handle
+  project-specific runs and uploaded-output creation instead of only serving the
+  seeded demo.
+- Updated the React app flow:
+  - added project/run context in `web/src/lib/appContext.tsx`;
+  - app shell now tracks active project runs and sidebar run metadata;
+  - setup page can create suites and uploaded-output runs;
+  - overview, ranking, overlap, measurements, certificate, and drift pages use
+    the active run instead of assuming `real_main_2000`;
+  - onboarding now defaults to uploaded outputs and writes customer-facing
+    project descriptions.
+- Added service coverage for the real pilot flow:
+  - workspace/project creation;
+  - suite import;
+  - uploaded-output run creation;
+  - project run listing;
+  - overview/measurement/evidence endpoints;
+  - evidence issue path with correct project binding.
+- Verification:
+  - `.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v` -> 9
+    tests passed.
+  - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 40 tests passed.
+  - `cd web && npm run lint` -> OK.
+  - `cd web && npm test -- --run` -> 4 tests passed.
+  - `cd web && npm run build` -> OK.
+  - `deno check supabase/functions/stackcert-api/index.ts` -> OK.
+  - Local Playwright smoke: onboarding -> create project -> create versioned
+    example suite -> create uploaded-output run -> overview -> release evidence
+    -> acknowledge scope -> issue evidence snapshot.
+- Remaining production gaps:
+  - persist uploaded-output evaluation runs, guard outputs, and generated
+    certificate snapshots to Supabase tables instead of keeping pilot run objects
+    in API memory;
+  - replace the Edge Function's lightweight uploaded-output simulation with the
+    same CASS-backed computation used by FastAPI or route production to the
+    FastAPI service;
+  - add richer import templates and validation messages for user-provided
+    output schemas;
+  - add a hosted end-to-end CI smoke for the new pilot flow once persistent run
+    storage is in place.
+
+## Production-Durable Pilot V1 Persistence
+
+- Implemented durable storage for uploaded-output pilot runs using the existing
+  Supabase data model:
+  - `evaluation_runs` stores the external run id, suite id, CASS parameters,
+    status, and run summary;
+  - `guard_outputs` stores the uploaded safety-check outputs by external
+    example id and guard key, with linked example UUIDs when available;
+  - `measurement_recommendations` stores targeted follow-up test actions;
+  - issued evidence continues to persist through `certificates` and
+    `certificate_signoffs`.
+- Added `projects.setup_status` with migration
+  `20260524023733_add_project_setup_status.sql` so setup/evidence state can
+  survive reloads and Supabase-backed sessions.
+- Fixed Supabase suite creation to return the database suite UUID to the
+  frontend/API, which lets uploaded-output runs find the committed suite in
+  Supabase mode.
+- Added Supabase store methods for:
+  - persisting uploaded-output pilot runs;
+  - listing persisted pilot runs for a project;
+  - checking whether a run exists by external run id;
+  - reconstructing a pilot run source bundle from persisted run, suite, and
+    output rows.
+- Updated `pilot_runs` so API-memory state is now a cache:
+  - new runs persist immediately when Supabase persistence is configured;
+  - run summaries/listing can come from Supabase;
+  - run detail/overview/ranking/certificate paths can reconstruct the CASS
+    engine after `pilot_runs.clear_runs()` or an API restart.
+- Added persistence regression coverage:
+  - Supabase REST contract test for storing/listing/reloading uploaded-output
+    runs;
+  - service-level test proving a pilot run can be restored after memory is
+    cleared.
+- Verification:
+  - `.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v` -> 9
+    tests passed.
+  - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 42 tests passed.
+  - `cd web && npm run lint` -> OK.
+  - `cd web && npm test -- --run` -> 4 tests passed.
+  - `cd web && npm run build` -> OK.
+  - `deno check supabase/functions/stackcert-api/index.ts` -> OK.
+  - `supabase migration up --local` -> migration applied, local database up to
+    date.
+  - `supabase migration list --local` -> local migration history includes
+    `20260524023733`.
+  - `supabase db query --local --file supabase/tests/rls_smoke.sql` -> no rows,
+    meaning no public tables without RLS.
+  - `supabase db lint --local` -> no schema errors.
+  - `supabase db advisors --local` -> no issues found.
+- Remaining production gaps:
+  - route the hosted frontend to a persistent FastAPI API instead of relying on
+    the lightweight Edge Function simulation for real pilot computation;
+  - add hosted end-to-end CI smoke for onboarding -> import -> upload -> reload
+    -> issue evidence once the production API host is in place;
+  - add richer upload validation templates and customer-facing row-level import
+    errors.
+
+## Hosted Supabase Deploy Refresh
+
+- Linked the local Supabase project to hosted project
+  `cgwiwmfzpektpyquiveg`.
+- Deployed remote database migrations:
+  - `20260523151421_initial_stackcert_schema.sql`
+  - `20260523192827_add_usage_event_metadata.sql`
+  - `20260524023733_add_project_setup_status.sql`
+- Redeployed Supabase Edge Function `stackcert-api` with `--no-verify-jwt` so
+  public health/export routes can run while protected app routes still enforce
+  Supabase Auth inside the function.
+- Hosted API base:
+  `https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api`
+- Verification:
+  - `supabase db push --linked --dry-run` -> planned exactly the three expected
+    migrations.
+  - `supabase db push --linked --yes` -> applied all three migrations.
+  - `supabase migration list --linked` -> local and remote histories match.
+  - Remote `projects.setup_status` column exists with default
+    `ready_for_setup`.
+  - `GET /api/health` on the hosted Edge Function -> 200.
+  - `GET /api/workspaces` without a bearer token -> 401, preserving the app API
+    auth gate.

@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { CorrelationMatrix } from '../components/Charts';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader } from '../components/Primitives';
 import { api } from '../lib/api';
+import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { fmtNumber, fmtPercent } from '../lib/format';
 
 export function CorrelationsPage({ lambda }: { lambda: number }) {
+  const { activeRunId } = useStackCertApp();
   const [side, setSide] = useState<'adversarial' | 'benign'>('adversarial');
   const [selected, setSelected] = useState<{ row: number; column: number } | null>(null);
-  const query = useQuery({ queryKey: ['correlations', lambda, side], queryFn: () => api.correlations(lambda, side) });
+  const query = useQuery({ queryKey: ['correlations', activeRunId, lambda, side], queryFn: () => api.correlations(activeRunId!, lambda, side), enabled: Boolean(activeRunId) });
   const selectedPair = useMemo(() => {
     if (!query.data || !selected) return query.data?.top_rows[0];
     const a = query.data.guards[selected.row]?.id;
@@ -17,6 +19,7 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
     return query.data.details.find((row) => row.guard_ids.includes(a) && row.guard_ids.includes(b)) ?? query.data.top_rows[0];
   }, [query.data, selected]);
 
+  if (!activeRunId) return <NoRunState title="No overlap analysis yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const data = query.data!;

@@ -111,8 +111,8 @@ Acceptance criteria:
 
 ## Phase 3: Seeded Evidence Console
 
-Goal: Make the six designed app screens use real CASS backend data from the
-current demo dataset.
+Goal: Make the designed app screens use real CASS backend data from the current
+demo dataset while keeping user-facing labels beginner-friendly.
 
 Deliverables:
 
@@ -122,8 +122,8 @@ Deliverables:
   - ranking
   - correlations
   - measurements
-  - certificate
-  - drift
+  - release evidence
+  - drift/retest triggers
 - UI screens wired to API data.
 - JSON and Markdown export.
 
@@ -132,36 +132,36 @@ Backend tasks:
 - Wrap current `stackcert` Python core behind service functions.
 - Store run summaries in Postgres.
 - Store source JSONL and output artifacts in Supabase Storage.
-- Persist certificates as immutable snapshots.
+- Persist release evidence as immutable snapshots.
 
 Frontend tasks:
 
-- Implement Overview.
-- Implement Stack Ranking.
-- Implement Co-Failure.
-- Implement Measurements.
-- Implement Certificate.
-- Implement Drift.
+- Implement Recommendation.
+- Implement Options compared.
+- Implement Overlap analysis.
+- Implement Test plan and cost.
+- Implement Release evidence.
+- Implement When to retest.
 - Add loading, empty, error, and retry states.
 
 Tests:
 
-- Golden certificate replay test.
+- Golden release-evidence replay test.
 - API contract tests for every endpoint.
 - Frontend component tests for tables/charts.
 - Playwright path:
   - load app
   - inspect overview
   - change lambda/risk profile
-  - open ranking
-  - open co-failure
-  - export certificate
+  - open options compared
+  - open overlap analysis
+  - export release evidence
 
 Acceptance criteria:
 
-- The app shows the real certified demo stack.
+- The app shows the real recommended demo combination.
 - No core evidence is hard-coded in React.
-- Exported certificate matches backend output.
+- Exported release evidence matches backend output.
 
 ## Phase 4: Project Setup, Benchmarks, And Custom Behaviors
 
@@ -175,7 +175,7 @@ Deliverables:
 - Custom behavior/question builder.
 - Behavior taxonomy editor.
 - Validation report.
-- Candidate stack builder.
+- Candidate combination builder.
 
 Key product behaviors:
 
@@ -196,16 +196,16 @@ Tests:
 
 Acceptance criteria:
 
-- A user can create a new project, define a benchmark mixture, and prepare a
-  candidate certification run without touching the command line.
+- A user can create a new project, define an example mix, and prepare a
+  candidate evidence run without touching the command line.
 
-## Phase 5: Guard, Model, And Evaluation Runner
+## Phase 5: Safety Check, Model, And Evaluation Runner
 
 Goal: Move from uploaded outputs to managed evaluations.
 
 Deliverables:
 
-- Guard/model connector registry.
+- Safety-check/model connector registry.
 - REST adapter configuration.
 - Python/local adapter configuration.
 - Model judge adapter configuration.
@@ -225,11 +225,11 @@ Tests:
 
 Acceptance criteria:
 
-- A user can connect at least one REST guard and one local/model judge adapter.
+- A user can connect at least one REST safety check and one local/model judge adapter.
 - A worker can execute a small run and write results.
-- Measurement Planner can queue executable measurement jobs.
+- Test plan can queue executable targeted-test jobs.
 
-## Phase 6: Cost, Governance, And Certificate Workflow
+## Phase 6: Cost, Governance, And Release Evidence Workflow
 
 Goal: Make the product credible for real security and GRC review.
 
@@ -237,7 +237,7 @@ Deliverables:
 
 - Cost estimate before run.
 - Actual usage ledger after run.
-- Certificate issue flow.
+- Release-evidence issue flow.
 - Signoff workflow.
 - Reviewer comments.
 - Audit log.
@@ -247,41 +247,41 @@ Deliverables:
 Tests:
 
 - Cost estimator unit tests.
-- Certificate immutability tests.
+- Release-evidence immutability tests.
 - Audit log tests.
 - Role permission tests.
 - PDF/export smoke tests.
 
 Acceptance criteria:
 
-- A risk reviewer can approve or reject a certificate.
-- A certificate cannot be silently mutated after issue.
+- A risk reviewer can approve or reject release evidence.
+- Release evidence cannot be silently mutated after issue.
 - Users can see estimated and actual cost for each configuration.
 
-## Phase 7: Drift And Recertification
+## Phase 7: Drift And Retesting
 
 Goal: Turn StackCert into an ongoing operational tool.
 
 Deliverables:
 
 - Drift signal configuration.
-- Model/guard/prompt/version diff records.
+- Model/safety-check/prompt/version diff records.
 - Traffic mixture import.
 - Incident/manual signal creation.
-- Recertification job creation.
-- Drift-to-certificate traceability.
+- Retest job creation.
+- Drift-to-evidence traceability.
 
 Tests:
 
 - Drift trigger unit tests.
-- Recertification API tests.
-- UI flow tests for acknowledge/snooze/recertify.
+- Retest API tests.
+- UI flow tests for acknowledge/snooze/retest.
 - Audit log coverage.
 
 Acceptance criteria:
 
-- A drift signal can mark a certificate provisional or expired.
-- A user can trigger recertification and see the resulting run.
+- A drift signal can mark release evidence provisional or expired.
+- A user can trigger retesting and see the resulting run.
 
 ## Phase 8: Production Hardening And Deployment
 
@@ -319,7 +319,7 @@ Goal: Meet customers where their AI deployment pipelines already live.
 
 Candidate integrations:
 
-- GitHub Actions guardrail gate.
+- GitHub Actions release-evidence gate.
 - GitLab CI, CircleCI, Buildkite.
 - ArgoCD or deployment webhooks.
 - LangSmith, Langfuse, W&B Weave, MLflow.
@@ -338,7 +338,7 @@ Tests:
 
 Acceptance criteria:
 
-- StackCert can block or warn on risky deployments using a certificate status.
+- StackCert can block or warn on risky deployments using release-evidence status.
 - Existing customer pipelines can consume StackCert evidence without manual PDF
   handling.
 
@@ -351,4 +351,3 @@ After each meaningful slice:
 3. Verify that the app still starts locally.
 4. Keep migrations reversible or forward-fixable.
 5. Capture follow-up risks immediately, not at the end of the phase.
-

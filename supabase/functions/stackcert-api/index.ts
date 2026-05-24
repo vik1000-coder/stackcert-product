@@ -7,6 +7,21 @@ const corsHeaders = {
 
 type JsonRecord = Record<string, unknown>;
 
+type EdgeJob = {
+  id: string;
+  type: string;
+  project_id: string;
+  run_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  progress: number;
+  summary: JsonRecord;
+  artifact_preview: unknown[];
+  actions: unknown[];
+  next_steps: string[];
+};
+
 const workspace = {
   id: 'ws_demo',
   name: 'Acme AI Platform',
@@ -246,6 +261,7 @@ Key limitation: recertify after model, prompt, tool, policy, traffic, or guard-v
 let workspaces = [workspace];
 let projects = [project];
 let connectors = [...guards];
+let runsByProject: Record<string, JsonRecord[]> = { [project.id]: [run] };
 let customBehaviors = [
   {
     id: 'behavior_unauthorized_refund',
@@ -265,7 +281,7 @@ let customBehaviors = [
   }
 ];
 let signoffs: JsonRecord[] = [];
-let jobs = [
+let jobs: EdgeJob[] = [
   {
     id: 'job_demo_eval_complete',
     type: 'evaluation_run',
@@ -281,6 +297,18 @@ let jobs = [
     next_steps: ['Inspect co-failure before issuing or reissuing a certificate.']
   }
 ];
+
+function findProject(projectId: string) {
+  return projects.find((item) => item.id === projectId) ?? null;
+}
+
+function findRun(runId: string) {
+  for (const runs of Object.values(runsByProject)) {
+    const found = runs.find((item) => item.id === runId);
+    if (found) return found;
+  }
+  return null;
+}
 
 function json(body: unknown, status = 200, headers: HeadersInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -578,6 +606,8 @@ function suites() {
   ];
 }
 
+let suitesByProject: Record<string, JsonRecord[]> = { [project.id]: suites() };
+
 function previewImport(content: string, format: string) {
   const trimmed = content.trim();
   const resolved = format === 'auto' ? (trimmed.startsWith('{') ? 'jsonl' : 'csv') : format;
@@ -624,7 +654,7 @@ function previewImport(content: string, format: string) {
   };
 }
 
-function makeJob(type: string, summary: JsonRecord, status = 'complete', actions: unknown[] = []) {
+function makeJob(type: string, summary: JsonRecord, status = 'complete', actions: unknown[] = []): EdgeJob {
   const now = new Date().toISOString();
   const job = {
     id: `job_${type}_${crypto.randomUUID().slice(0, 8)}`,
@@ -678,7 +708,8 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'GET' && path === '/api/projects') return json({ projects });
-    if (req.method === 'GET' && path.match(/^\/api\/projects\/[^/]+$/)) return json({ project: projects[0] ?? project });
+    const getProjectMatch = path.match(/^\/api\/projects\/([^/]+)$/);
+    if (req.method === 'GET' && getProjectMatch) return json({ project: findProject(getProjectMatch[1]) });
     const createProjectMatch = path.match(/^\/api\/workspaces\/([^/]+)\/projects$/);
     if (req.method === 'POST' && createProjectMatch) {
       const body = await parseJson(req) as JsonRecord;
@@ -696,23 +727,76 @@ Deno.serve(async (req) => {
         created_at: new Date().toISOString()
       };
       projects = [created, ...projects];
+      runsByProject[created.id] = [];
+      suitesByProject[created.id] = [];
       return json({ project: created }, 201);
     }
 
-    if (req.method === 'GET' && path === `/api/projects/${project.id}/runs`) return json({ runs: [run] });
-    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+$/)) return json({ run });
-    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/overview$/)) return json(overviewPayload());
+    const projectRunsMatch = path.match(/^\/api\/projects\/([^/]+)\/runs$/);
+    if (req.method === 'GET' && projectRunsMatch) return json({ runs: runsByProject[projectRunsMatch[1]] ?? [] });
+    const uploadedRunMatch = path.match(/^\/api\/projects\/([^/]+)\/runs\/uploaded-outputs$/);
+    if (req.method === 'POST' && uploadedRunMatch) {
+      const projectId = uploadedRunMatch[1];
+      const body = await parseJson(req) as JsonRecord;
+      const outputLines = String(body.content ?? '').trim().split(/\r?\n/).filter(Boolean);
+      const suite = (suitesByProject[projectId] ?? suites())[0] ?? suites()[0];
+      const createdRun = {
+        ...run,
+        id: `run_${crypto.randomUUID().slice(0, 8)}`,
+        project_id: projectId,
+        workspace_id: findProject(projectId)?.workspace_id ?? workspace.id,
+        examples: (suite.cells as JsonRecord[]).reduce((sum, cell) => sum + Number(cell.examples ?? 0), 0) || 2,
+        guards: Math.max(2, new Set(outputLines.map((line) => {
+          try {
+            const row = JSON.parse(line);
+            return String(row.guard_id ?? row.guard_key ?? 'uploaded_guard');
+          } catch {
+            return 'uploaded_guard';
+          }
+        })).size),
+        outputs: outputLines.length,
+        candidate_stacks: 3,
+        benchmark_cells: (suite.cells as unknown[]).length || 2,
+        certificate_id: `cert_${crypto.randomUUID().slice(0, 8)}`,
+        certificate_status: 'provisional',
+        source: 'uploaded_outputs',
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString()
+      };
+      runsByProject[projectId] = [createdRun, ...(runsByProject[projectId] ?? [])];
+      return json({ run: createdRun }, 201);
+    }
+    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+$/)) {
+      const runId = path.split('/')[3];
+      return json({ run: findRun(runId) ?? null });
+    }
+    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/overview$/)) {
+      const runId = path.split('/')[3];
+      const activeRun = findRun(runId) ?? run;
+      const body = overviewPayload();
+      return json({ ...body, run: activeRun, project: findProject(String(activeRun.project_id)) ?? project });
+    }
     if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/ranking$/)) {
-      return json({ run, rows: rankingRows, marginal_winner: rankingRows[1], recommended: rankingRows[0] });
+      const activeRun = findRun(path.split('/')[3]) ?? run;
+      return json({ run: activeRun, rows: rankingRows, marginal_winner: rankingRows[1], recommended: rankingRows[0] });
     }
     if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/ranking\.csv$/)) return text(rankingCsv(), 200, 'text/csv; charset=utf-8');
     if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/correlations$/)) {
       return json(correlations(url.searchParams.get('side') ?? 'adversarial'));
     }
-    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/measurements$/)) return json(measurementPayload());
+    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/measurements$/)) {
+      const activeRun = findRun(path.split('/')[3]) ?? run;
+      return json({ ...measurementPayload(), run: activeRun });
+    }
     if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/costs$/)) return json(costSummary());
-    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/certificate$/)) return json(certificatePayload());
-    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/certificate\.json$/)) return json(certificatePayload());
+    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/certificate$/)) {
+      const activeRun = findRun(path.split('/')[3]) ?? run;
+      return json({ ...certificatePayload(), run_id: activeRun.id, certificate_id: activeRun.certificate_id });
+    }
+    if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/certificate\.json$/)) {
+      const activeRun = findRun(path.split('/')[3]) ?? run;
+      return json({ ...certificatePayload(), run_id: activeRun.id, certificate_id: activeRun.certificate_id });
+    }
     if (req.method === 'GET' && path.match(/^\/api\/runs\/[^/]+\/certificate\.md$/)) return text(certificateMarkdown, 200, 'text/markdown; charset=utf-8');
     if (req.method === 'POST' && path.match(/^\/api\/runs\/[^/]+\/certificate\/issue$/)) {
       const body = await parseJson(req) as JsonRecord;
@@ -783,17 +867,20 @@ Deno.serve(async (req) => {
       return json({ project_id: project.id, run_id: run.id, certificate_id: run.certificate_id, status: 'certified', gate: 'pass' });
     }
 
-    if (req.method === 'GET' && path.match(/^\/api\/projects\/[^/]+\/benchmark-suites$/)) return json({ suites: suites() });
+    const benchmarkSuitesMatch = path.match(/^\/api\/projects\/([^/]+)\/benchmark-suites$/);
+    if (req.method === 'GET' && benchmarkSuitesMatch) return json({ suites: suitesByProject[benchmarkSuitesMatch[1]] ?? [] });
     if (req.method === 'POST' && path.match(/^\/api\/projects\/[^/]+\/benchmark-suites\/preview$/)) {
       const body = await parseJson(req) as JsonRecord;
       return json({ project_id: project.id, import_preview: previewImport(String(body.content ?? ''), String(body.format ?? 'auto')) });
     }
-    if (req.method === 'POST' && path.match(/^\/api\/projects\/[^/]+\/benchmark-suites$/)) {
+    if (req.method === 'POST' && benchmarkSuitesMatch) {
+      const projectId = benchmarkSuitesMatch[1];
       const body = await parseJson(req) as JsonRecord;
       const importPreview = previewImport(String(body.content ?? ''), String(body.format ?? 'auto'));
       const suite = {
         ...suites()[0],
         id: `suite_${crypto.randomUUID().slice(0, 8)}`,
+        project_id: projectId,
         name: String(body.name ?? 'Custom benchmark suite'),
         version: String(body.version ?? 'v1'),
         source: 'user_import',
@@ -806,7 +893,8 @@ Deno.serve(async (req) => {
           examples: 1
         }))
       };
-      return json({ project_id: project.id, suite, import_preview: importPreview }, 201);
+      suitesByProject[projectId] = [suite, ...(suitesByProject[projectId] ?? [])];
+      return json({ project_id: projectId, suite, import_preview: importPreview }, 201);
     }
 
     if (req.method === 'GET' && path.match(/^\/api\/projects\/[^/]+\/guards$/)) return json({ guards: connectors });
@@ -857,7 +945,7 @@ Deno.serve(async (req) => {
     if (req.method === 'POST' && path.match(/^\/api\/projects\/[^/]+\/workers\/run-next$/)) {
       const queued = jobs.find((job) => job.status === 'queued');
       const job = queued
-        ? { ...queued, status: 'complete', progress: 1, updated_at: new Date().toISOString(), summary: { ...queued.summary, outputs: queued.summary.outputs ?? 32, errors: 0 } }
+        ? { ...queued, status: 'complete', progress: 1, updated_at: new Date().toISOString(), summary: { ...queued.summary, outputs: Number(queued.summary.outputs ?? 32), errors: 0 } }
         : makeJob('evaluation_run', { outputs: 32, errors: 0, examples: 8 });
       jobs = [job, ...jobs.filter((item) => item.id !== job.id)].slice(0, 10);
       return json({ job });

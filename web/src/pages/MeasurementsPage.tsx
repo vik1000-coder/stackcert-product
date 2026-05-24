@@ -2,18 +2,21 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
 import { api } from '../lib/api';
+import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { fmtNumber, fmtUsd } from '../lib/format';
 
 export function MeasurementsPage({ lambda }: { lambda: number }) {
+  const { activeRunId, projectId } = useStackCertApp();
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ['measurements', lambda], queryFn: () => api.measurements(lambda) });
-  const costs = useQuery({ queryKey: ['run-costs'], queryFn: api.runCosts });
-  const overview = useQuery({ queryKey: ['overview', lambda], queryFn: () => api.overview(lambda) });
+  const query = useQuery({ queryKey: ['measurements', activeRunId, lambda], queryFn: () => api.measurements(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const costs = useQuery({ queryKey: ['run-costs', activeRunId], queryFn: () => api.runCosts(activeRunId!), enabled: Boolean(activeRunId) });
+  const overview = useQuery({ queryKey: ['overview', activeRunId, lambda], queryFn: () => api.overview(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [budgetCap, setBudgetCap] = useState('');
   const queuePlan = useMutation({
     mutationFn: () =>
       api.createMeasurementPlan(
+        activeRunId!,
         {
           action_ids: selectedActions.map((action) => action.id),
           max_cost_usd: budgetCap.trim() ? Number(budgetCap) : undefined
@@ -26,7 +29,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
     }
   });
   const runNextWorker = useMutation({
-    mutationFn: api.runNextWorkerJob,
+    mutationFn: () => api.runNextWorkerJob(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['run-costs'] });
@@ -42,6 +45,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
 
   const actualCost = costs.data?.summary.actual_cost_usd ?? 0;
 
+  if (!activeRunId) return <NoRunState title="No test plan yet" />;
   if (query.isLoading || costs.isLoading || overview.isLoading) return <LoadingState />;
   if (query.error || costs.error || overview.error) return <ErrorState error={query.error || costs.error || overview.error} />;
 

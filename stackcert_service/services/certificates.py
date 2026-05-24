@@ -12,6 +12,7 @@ from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import CertificateIssueRequest, CertificateSignoffCreate
 from stackcert_service.services import demo_project
+from stackcert_service.services import pilot_runs
 
 _issued_certificates: dict[str, dict[str, Any]] = {}
 _signoffs: dict[str, list[dict[str, Any]]] = {}
@@ -34,7 +35,7 @@ def issue_certificate(run_id: str, payload: CertificateIssueRequest, lambda_cost
     store = _persistent_store()
     if store:
         try:
-            return store.issue_certificate(settings.demo_project_id, certificate)
+            return store.issue_certificate(certificate["project_id"], certificate)
         except SupabasePersistenceError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     _issued_certificates[certificate["certificate_id"]] = certificate
@@ -83,6 +84,9 @@ def clear_certificates() -> None:
 
 
 def _build_issued_certificate(run_id: str, payload: CertificateIssueRequest, lambda_cost: float) -> dict[str, Any]:
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.issue_payload(run_id, payload.expires_in_days, reviewer_note=payload.reviewer_note)
+
     cert_payload = demo_project.certificate_payload(lambda_cost)
     markdown = cert_payload["markdown"].replace(f"- Run ID: `{settings.demo_run_id}`", f"- Run ID: `{run_id}`")
     issued_at = _now()

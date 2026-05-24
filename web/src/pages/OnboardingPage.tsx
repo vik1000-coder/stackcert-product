@@ -25,7 +25,7 @@ const riskTiers = ['standard', 'high', 'critical'] as const;
 export function OnboardingPage() {
   const navigate = useNavigate();
   const [role, setRole] = useState('platform');
-  const [evidenceMode, setEvidenceMode] = useState('demo_first');
+  const [evidenceMode, setEvidenceMode] = useState('uploaded_outputs');
   const [companyName, setCompanyName] = useState('Design Partner Lab');
   const [projectName, setProjectName] = useState('Customer Support Agent');
   const [riskTier, setRiskTier] = useState<(typeof riskTiers)[number]>('high');
@@ -61,7 +61,7 @@ export function OnboardingPage() {
         environment: 'production',
         risk_tier: riskTier,
         data_mode: dataMode,
-        description: `Onboarded from marketing flow. Role=${role}; evidence_mode=${evidenceMode}.`
+        description: pilotDescription(projectName.trim(), role, evidenceMode, dataMode)
       });
       const path = `/app/${workspaceResponse.workspace.id}/${projectResponse.project.id}/setup`;
       setCreatedPath(path);
@@ -218,4 +218,18 @@ function slugify(value: string) {
 
 function titleCase(value: string) {
   return value.slice(0, 1).toUpperCase() + value.slice(1);
+}
+
+function pilotDescription(
+  projectName: string,
+  roleId: string,
+  evidenceModeId: string,
+  dataMode: 'redacted_snippets' | 'hashes_only' | 'customer_hosted'
+) {
+  const role = roles.find((item) => item.id === roleId);
+  const evidenceMode = evidenceModes.find((item) => item.id === evidenceModeId);
+  const dataHandling = dataMode.replaceAll('_', ' ');
+  return `${projectName} pilot for comparing safety-check combinations. Starting evidence: ${
+    evidenceMode?.label ?? 'Uploaded outputs'
+  }. Primary rollout owner: ${role?.label ?? 'AI platform'}. Data handling: ${dataHandling}.`;
 }

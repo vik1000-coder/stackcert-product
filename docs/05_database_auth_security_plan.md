@@ -2,9 +2,9 @@
 
 ## Security Principles
 
-StackCert will handle prompts, guard outputs, policy decisions, model/provider
-secrets, and audit artifacts. Treat customer data as sensitive from the first
-production-oriented implementation.
+StackCert will handle prompts, safety-check outputs, policy decisions,
+model/provider secrets, and audit artifacts. Treat customer data as sensitive
+from the first production-oriented implementation.
 
 Rules:
 
@@ -63,7 +63,7 @@ Projects and configuration:
 - `custom_behaviors`
 - `custom_behavior_versions`
 
-Guards and stacks:
+Safety checks and combinations:
 
 - `guard_definitions`
 - `guard_versions`
@@ -84,7 +84,7 @@ Runs and measurements:
 - `jobs`
 - `job_events`
 
-Certificates and drift:
+Release evidence and drift:
 
 - `certificates`
 - `certificate_artifacts`
@@ -104,6 +104,11 @@ Storage metadata:
 
 - `artifact_objects`
 - `upload_sessions`
+
+Some table names intentionally preserve earlier CASS/API terminology such as
+`guard_*`, `candidate_stacks`, `welfare_estimates`, and `certificates`. Product
+copy should translate these to safety checks, combinations, app scores, and
+release evidence.
 
 ## Storage Buckets
 
@@ -259,4 +264,3 @@ CI should include:
 - Dependency vulnerability scans.
 - Static analysis for Python and TypeScript.
 - Tests that frontend bundles do not contain service-role or provider secrets.
-

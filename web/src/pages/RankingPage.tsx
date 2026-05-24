@@ -3,13 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type RankingRow } from '../lib/api';
 import { fmtNumber, fmtUsd } from '../lib/format';
 import { Badge, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader } from '../components/Primitives';
+import { NoRunState, useStackCertApp } from '../lib/appContext';
 
 type SortKey = 'full_welfare' | 'first_order_welfare' | 'movement' | 'estimated_latency_ms' | 'estimated_cost_usd_per_1k';
 
 export function RankingPage({ lambda }: { lambda: number }) {
+  const { activeRunId } = useStackCertApp();
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState<SortKey>('full_welfare');
-  const query = useQuery({ queryKey: ['ranking', lambda], queryFn: () => api.ranking(lambda) });
+  const query = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const rows = useMemo(() => {
     const source = query.data?.rows ?? [];
     return source
@@ -18,6 +20,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
       .sort((a, b) => Number(b[sort]) - Number(a[sort]));
   }, [query.data?.rows, sort, status]);
 
+  if (!activeRunId) return <NoRunState title="No options to compare yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
 
@@ -26,7 +29,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
       <PageHeader
         title="Options compared"
         subtitle="Compare the safety-check combinations Acme could ship, including the one-at-a-time shortcut, final app score, confidence range, latency, and cost."
-        actions={<ExternalButton href={api.rankingCsvUrl(lambda)}>Export options CSV</ExternalButton>}
+        actions={<ExternalButton href={api.rankingCsvUrl(activeRunId, lambda)}>Export options CSV</ExternalButton>}
       />
       <Explainer title="How to read this table" tone="accent" style={{ marginBottom: 16 }}>
         <p>

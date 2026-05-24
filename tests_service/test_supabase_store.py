@@ -52,7 +52,7 @@ class SupabaseStoreTest(unittest.TestCase):
 
         self.assertEqual(workspace["slug"], "pilot-lab")
         self.assertEqual(project["workspace_id"], workspace["id"])
-        self.assertEqual(project["setup_status"], "ready_for_setup")
+        self.assertEqual(project["setup_status"], "needs_benchmark_suite")
 
     def test_create_custom_behavior_posts_redacted_contract(self) -> None:
         captured: list[httpx.Request] = []
@@ -166,9 +166,12 @@ class SupabaseStoreTest(unittest.TestCase):
                 return httpx.Response(204)
             if request.method == "GET" and "/rest/v1/jobs" in url:
                 return httpx.Response(200, json=[{"id": "00000000-0000-4000-8000-000000000901"}])
+            if request.method == "GET" and "/rest/v1/evaluation_runs" in url:
+                return httpx.Response(200, json=[])
             if request.method == "POST" and url.endswith("/rest/v1/usage_events"):
                 payload = json.loads(request.content.decode("utf-8"))
                 self.assertEqual(payload[0]["job_id"], "00000000-0000-4000-8000-000000000901")
+                self.assertIsNone(payload[0]["run_id"])
                 self.assertEqual(payload[0]["metadata"]["action_id"], "act_demo")
                 stored_events.extend(
                     {
@@ -388,6 +391,187 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(suite["artifact"]["bucket"], "uploads")
         self.assertEqual(sum(cell["examples"] for cell in suite["cells"]), 2)
         self.assertEqual([call.method for call in calls], ["POST", "POST", "POST", "POST", "POST"])
+
+    def test_uploaded_output_pilot_run_persists_and_reloads_contract(self) -> None:
+        workspace_id = "10000000-0000-4000-8000-000000000001"
+        project_id = "10000000-0000-4000-8000-000000000101"
+        suite_id = "10000000-0000-4000-8000-000000000701"
+        run_db_id = "10000000-0000-4000-8000-000000000A01"
+        cell_id = "10000000-0000-4000-8000-000000000702"
+        example_id = "10000000-0000-4000-8000-000000000703"
+        run_external_id = "run_uploaded_123"
+        stored_run: dict[str, Any] | None = None
+        stored_outputs: list[dict[str, Any]] = []
+        stored_measurements: list[dict[str, Any]] = []
+
+        project_row = {
+            "id": project_id,
+            "workspace_id": workspace_id,
+            "slug": "support-agent",
+            "name": "Support Agent",
+            "environment": "production",
+            "risk_tier": "high",
+            "data_mode": "redacted_snippets",
+            "description": "Pilot",
+            "setup_status": "evidence_ready",
+            "created_at": "2026-05-24T02:00:00+00:00",
+        }
+        suite_row = {
+            "id": suite_id,
+            "workspace_id": workspace_id,
+            "project_id": project_id,
+            "name": "Pilot suite",
+            "version": "v1",
+            "status": "draft",
+            "source": "custom_import",
+            "license": None,
+            "created_at": "2026-05-24T02:00:01+00:00",
+        }
+        cell_row = {
+            "id": cell_id,
+            "workspace_id": workspace_id,
+            "suite_id": suite_id,
+            "cell_key": "adversarial_tool_misuse",
+            "side": "adversarial",
+            "source": "custom_import",
+            "policy_category": "tool_misuse",
+            "severity": "high",
+            "weight": 1.0,
+            "description": "Imported behavior.",
+        }
+        example_row = {
+            "id": example_id,
+            "workspace_id": workspace_id,
+            "suite_id": suite_id,
+            "cell_id": cell_id,
+            "external_id": "adversarial_tool_misuse_0001",
+            "prompt_hash": "hash-demo",
+            "prompt_redacted": "Refund order 123.",
+            "metadata": {"name": "Unauthorized refund"},
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal stored_run, stored_outputs, stored_measurements
+            url = str(request.url)
+            params = request.url.params
+            if request.method == "GET" and "/rest/v1/projects" in url:
+                if params.get("select") == "id,workspace_id":
+                    return httpx.Response(200, json=[{"id": project_id, "workspace_id": workspace_id}])
+                return httpx.Response(200, json=[project_row])
+            if request.method == "GET" and "/rest/v1/evaluation_runs" in url:
+                if params.get("select") == "id":
+                    return httpx.Response(200, json=([{"id": run_db_id}] if stored_run else []))
+                return httpx.Response(200, json=([stored_run] if stored_run else []))
+            if request.method == "POST" and url.endswith("/rest/v1/evaluation_runs"):
+                payload = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(payload["external_run_id"], run_external_id)
+                self.assertEqual(payload["benchmark_suite_id"], suite_id)
+                self.assertEqual(payload["summary"]["source"], "uploaded_outputs")
+                stored_run = {**payload, "id": run_db_id, "created_at": "2026-05-24T02:00:03+00:00"}
+                return httpx.Response(201, json=[stored_run])
+            if request.method == "PATCH" and "/rest/v1/evaluation_runs" in url:
+                stored_run = {**stored_run, **json.loads(request.content.decode("utf-8"))}
+                return httpx.Response(204)
+            if request.method == "GET" and "/rest/v1/benchmark_suites" in url:
+                return httpx.Response(200, json=[suite_row])
+            if request.method == "GET" and "/rest/v1/benchmark_cells" in url:
+                return httpx.Response(200, json=[cell_row])
+            if request.method == "GET" and "/rest/v1/examples" in url:
+                if params.get("select") == "id,external_id":
+                    return httpx.Response(200, json=[{"id": example_id, "external_id": example_row["external_id"]}])
+                return httpx.Response(200, json=[example_row])
+            if request.method == "GET" and "/rest/v1/guard_definitions" in url:
+                return httpx.Response(200, json=[])
+            if request.method == "DELETE" and "/rest/v1/guard_outputs" in url:
+                stored_outputs = []
+                return httpx.Response(204)
+            if request.method == "POST" and url.endswith("/rest/v1/guard_outputs"):
+                stored_outputs = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(stored_outputs[0]["example_id"], example_id)
+                self.assertEqual(stored_outputs[0]["guard_key"], "refund_policy_guard")
+                return httpx.Response(204)
+            if request.method == "GET" and "/rest/v1/guard_outputs" in url:
+                return httpx.Response(200, json=[{**row, "id": f"out_{index}"} for index, row in enumerate(stored_outputs)])
+            if request.method == "DELETE" and "/rest/v1/measurement_recommendations" in url:
+                stored_measurements = []
+                return httpx.Response(204)
+            if request.method == "POST" and url.endswith("/rest/v1/measurement_recommendations"):
+                stored_measurements = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(stored_measurements[0]["action_key"], "measure_1")
+                return httpx.Response(204)
+            if request.method == "GET" and "/rest/v1/artifact_objects" in url:
+                return httpx.Response(200, json=[])
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        run = {
+            "id": run_external_id,
+            "project_id": project_id,
+            "workspace_id": workspace_id,
+            "status": "complete",
+            "name": "Uploaded-output pilot run",
+            "source": "uploaded_outputs",
+            "benchmark_suite_id": suite_id,
+            "benchmark_suite_name": "Pilot suite",
+            "created_at": "2026-05-24T02:00:03+00:00",
+            "completed_at": "2026-05-24T02:00:03+00:00",
+        }
+        summary = {
+            "id": run_external_id,
+            "project_id": project_id,
+            "workspace_id": workspace_id,
+            "status": "complete",
+            "k": 2,
+            "rho_prior": 0.6,
+            "lambda_cost": 5.0,
+            "examples": 1,
+            "guards": 2,
+            "candidate_stacks": 3,
+            "benchmark_cells": 1,
+            "outputs": 2,
+            "certificate_id": "evidence_demo",
+            "certificate_status": "provisional",
+            "measurement_actions": 1,
+            "created_at": run["created_at"],
+            "completed_at": run["completed_at"],
+            "source": "uploaded_outputs",
+        }
+
+        store.store_pilot_run(
+            project_id,
+            run,
+            summary,
+            [
+                {
+                    "example_id": "adversarial_tool_misuse_0001",
+                    "guard_id": "refund_policy_guard",
+                    "pass_probability": 0.1,
+                    "block_probability": 0.9,
+                    "binary_pass": False,
+                    "metadata": {"source": "test"},
+                }
+            ],
+            [
+                {
+                    "id": "measure_1",
+                    "guard_ids": ["refund_policy_guard", "pii_check"],
+                    "cell_id": "adversarial_tool_misuse",
+                    "expected_radius_reduction": 0.1,
+                    "cost_usd": 18.0,
+                    "eta_minutes": 4,
+                    "status": "recommended",
+                }
+            ],
+            {"certificate_id": "evidence_demo", "status_compact": "provisional"},
+        )
+        listed = store.list_pilot_runs(project_id)
+        source = store.get_pilot_run_source(run_external_id)
+
+        self.assertEqual(listed[0]["id"], run_external_id)
+        self.assertEqual(listed[0]["certificate_status"], "provisional")
+        self.assertEqual(source["run"]["id"], run_external_id)
+        self.assertEqual(source["suite_bundle"]["suite"]["id"], suite_id)
+        self.assertEqual(source["outputs"][0]["guard_id"], "refund_policy_guard")
 
     def test_create_guard_connector_persists_redacted_config(self) -> None:
         calls: list[httpx.Request] = []

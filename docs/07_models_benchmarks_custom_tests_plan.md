@@ -2,17 +2,17 @@
 
 ## Product Goal
 
-StackCert should become the place where a team defines what their AI system must
-not do, tests candidate guardrail stacks against that behavior, and certifies
-the best configuration with cost and risk tradeoffs visible.
+StackCert should become the place where a team defines what their LLM app must
+and must not do, tests candidate safety-check combinations against that behavior,
+and chooses the best configuration with cost and risk tradeoffs visible.
 
 The product should support:
 
 - Built-in benchmark suites.
 - Customer-provided datasets.
 - Custom questions and behaviors made in the UI.
-- Model/guard/judge connectors.
-- Cost-aware measurement planning.
+- Model/safety-check/judge connectors.
+- Cost-aware targeted-test planning.
 - Reproducible benchmark and run versions.
 
 ## Benchmark Registry
@@ -105,20 +105,21 @@ Review workflow:
 - Approved.
 - Archived.
 
-The app should prevent a certificate from depending on draft or invalid
-behaviors unless the certificate explicitly marks them provisional.
+The app should prevent release evidence from depending on draft or invalid
+behaviors unless the evidence explicitly marks them provisional.
 
-## Model And Guard Registry
+## Model And Safety Check Registry
 
 Concepts:
 
-- A model is an LLM or classifier used as a guard, judge, or target.
-- A guard is a configured decision layer with versioned thresholds/prompts.
-- A stack is an ordered composition of guards.
+- A model is an LLM or classifier used as a safety check, judge, or target.
+- A safety check is a configured decision layer with versioned thresholds,
+  prompts, rules, or provider settings.
+- A combination is an ordered composition of safety checks.
 
-Guard fields:
+Safety-check fields:
 
-- Guard ID.
+- Safety-check ID.
 - Display name.
 - Type: rules, lexical, classifier, model judge, REST, Python, hosted provider.
 - Version.
@@ -148,7 +149,7 @@ Run stages:
 4. Queued.
 5. Running.
 6. Aggregating.
-7. Certifying.
+7. Producing release evidence.
 8. Complete.
 9. Failed/canceled.
 
@@ -156,27 +157,27 @@ Every run should record:
 
 - Workspace/project.
 - Benchmark suite version.
-- Candidate stacks.
-- Guard versions.
-- Welfare/risk profile.
+- Candidate combinations.
+- Safety-check versions.
+- Risk profile.
 - Data handling mode.
 - Cost estimate.
 - Actual usage.
 - Worker/job events.
-- Certificate output if issued.
+- Release-evidence output if issued.
 
-## Measurement Planning
+## Targeted Test Planning
 
-The Measurement Planner should be tied to real execution.
+The test planner should be tied to real execution.
 
-For each recommended measurement:
+For each recommended targeted test:
 
-- Guard pair.
-- Benchmark cell.
+- Safety-check pair.
+- Example group.
 - Side.
 - Current uncertainty/radius.
 - Comparisons affected.
-- Expected radius reduction.
+- Expected decision help.
 - Estimated provider calls.
 - Estimated tokens.
 - Estimated dollar cost.
@@ -185,18 +186,18 @@ For each recommended measurement:
 
 User actions:
 
-- Select measurements.
+- Select tests.
 - Queue plan.
 - Set budget cap.
 - Set max wall time.
 - Pause/cancel.
-- Recompute certificate after results land.
+- Recompute recommendation and release evidence after results land.
 
 ## Model And Benchmark Testing Strategy
 
 Use fake adapters first:
 
-- Deterministic fake REST guard.
+- Deterministic fake REST safety check.
 - Deterministic fake model judge.
 - Erroring provider.
 - Slow provider.
@@ -204,8 +205,8 @@ Use fake adapters first:
 
 Then real adapters:
 
-- Local Python guard.
-- REST guard.
+- Local Python safety check.
+- REST safety check.
 - Local model or Ollama-style adapter if available.
 - Hosted provider adapter after secret handling is hardened.
 
@@ -223,18 +224,17 @@ Tests:
 
 The eventual ideal flow:
 
-1. User selects "New certification".
+1. User selects "New evidence run".
 2. App asks what the agent/app does and what failures matter.
 3. User selects built-in benchmark packs.
 4. User adds custom behaviors/questions on the fly.
 5. App validates and versions the suite.
-6. User connects candidate guards/models.
+6. User connects candidate safety checks/models.
 7. App estimates cost and time.
-8. Worker runs measurements.
-9. App recommends a stack or next measurements.
-10. User issues certificate.
-11. App watches drift and recertifies.
+8. Worker runs targeted tests.
+9. App recommends a combination or next targeted tests.
+10. User issues release evidence.
+11. App watches drift and prompts retesting.
 
 The core promise: no spreadsheet wrangling, no one-off scripts, no separate
-audit binder, and no blind trust in marginal scores.
-
+audit binder, and no blind trust in one-at-a-time scores.

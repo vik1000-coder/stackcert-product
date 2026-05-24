@@ -30,9 +30,9 @@ Checked on 2026-05-23:
 
 Implementation rule:
 
-- Treat Supabase as the system of record, but do not put certification business
+- Treat Supabase as the system of record, but do not put release-evidence business
   logic in the browser or in database-only functions.
-- Keep CASS math and certificate issuance in the Python backend.
+- Keep CASS math and release-evidence issuance in the Python backend.
 
 ## Repository Layout
 
@@ -96,7 +96,7 @@ Cloud Run worker service
   |
   | Python calls
   v
-StackCert CASS engine + guard/model adapters
+StackCert CASS engine + safety-check/model adapters
 ```
 
 ### Current Hosted Demo
@@ -137,7 +137,7 @@ API responsibilities:
 - Enforce workspace/project authorization.
 - Manage API contracts and write audit events.
 - Orchestrate CASS engine calls.
-- Issue certificates and export artifacts.
+- Issue release evidence and export artifacts.
 - Create jobs and manage job state.
 - Protect service-role access to Postgres and Storage.
 
@@ -238,23 +238,23 @@ Storage. Expensive aggregations should be precomputed into run summary tables.
 
 ### Seeded Demo Flow
 
-1. Load existing JSONL examples and guard outputs.
+1. Load existing JSONL examples and safety-check outputs.
 2. Persist workspace/project/run summaries into Supabase.
 3. Store source artifacts in private Storage.
-4. Compute ranking, correlations, measurements, and certificate with Python
-   core.
-5. Serve the six app screens from API endpoints.
+4. Compute recommendation, option ranking, overlap analysis, test plan, and
+   release evidence with Python core.
+5. Serve the app screens from API endpoints.
 
 ### Customer Flow
 
 1. User creates project.
-2. User picks built-in benchmarks or uploads/custom-creates behaviors.
-3. User connects candidate guards and defines candidate stacks.
+2. User picks built-in example suites or uploads/custom-creates behaviors.
+3. User connects candidate safety checks and defines candidate combinations.
 4. API estimates cost and creates an evaluation run.
-5. Worker evaluates missing guard outputs.
-6. API computes CASS summaries and certificate state.
-7. User queues next measurements or issues certificate.
-8. Drift signals trigger re-certification jobs.
+5. Worker evaluates missing safety-check outputs.
+6. API computes CASS summaries and release-evidence state.
+7. User queues targeted tests or issues release evidence.
+8. Drift signals trigger retest jobs.
 
 ## API Shape
 

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import type { StackCertAppContext } from '../lib/appContext';
 import { supabase } from '../lib/supabase';
 import { LoadingState, LogoMark } from './Primitives';
 
@@ -19,7 +20,8 @@ const routes = [
 export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaChange: (value: number) => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { projectId = 'proj_acme_copilot' } = useParams();
+  const [searchParams] = useSearchParams();
+  const { workspaceId = 'ws_demo', projectId = 'proj_acme_copilot' } = useParams();
   const [authReady, setAuthReady] = useState(!supabase);
   const [hasSession, setHasSession] = useState(!supabase);
   const project = useQuery({
@@ -27,8 +29,22 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
     queryFn: () => api.project(projectId),
     enabled: authReady && hasSession
   });
+  const runs = useQuery({
+    queryKey: ['project-runs', projectId, lambda],
+    queryFn: () => api.projectRuns(projectId, lambda),
+    enabled: authReady && hasSession
+  });
   const projectName = project.data?.project?.name ?? 'Acme Copilot';
   const projectStatus = project.data?.project?.setup_status ?? 'demo_seeded';
+  const runParam = searchParams.get('run') || undefined;
+  const activeRun = runs.data?.runs.find((run) => run.id === runParam) ?? runs.data?.runs[0];
+  const activeRunId = activeRun?.id;
+  const context: StackCertAppContext = {
+    workspaceId,
+    projectId,
+    activeRunId,
+    runs: runs.data?.runs ?? []
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -92,11 +108,13 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
         </NavLink>
         <div className="notice">
           <div style={{ color: 'var(--sc-ink)', fontWeight: 600, marginBottom: 4 }}>
-            {projectStatus === 'demo_seeded' ? 'Support-copilot demo' : 'App setup'}
+            {projectStatus === 'demo_seeded' ? 'Support-copilot demo' : activeRun ? 'Pilot evidence run' : 'App setup'}
           </div>
-          <div className="mono">{projectStatus === 'demo_seeded' ? 'real_main_2000' : projectStatus}</div>
+          <div className="mono">{activeRun?.id ?? projectStatus}</div>
           <div style={{ marginTop: 7 }}>
-            {projectStatus === 'demo_seeded' ? '8 safety options · 36 combinations · 2,000 examples' : 'Add examples, safety options, and combinations before review.'}
+            {activeRun
+              ? `${activeRun.guards} safety options · ${activeRun.candidate_stacks} combinations · ${activeRun.examples.toLocaleString()} examples`
+              : 'Add examples, safety options, and uploaded outputs before review.'}
           </div>
         </div>
         <nav className="nav-list" aria-label="StackCert app navigation">
@@ -151,7 +169,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
             <span className="chip">Risk</span>
           </div>
         </div>
-        <Outlet />
+        <Outlet context={context} />
       </main>
     </div>
   );

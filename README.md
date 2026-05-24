@@ -3,22 +3,28 @@
 This is an isolated product prototype for CASS Labs / StackCert. It is separate
 from the research apparatus in the parent directory.
 
-The current scope now includes the CASS core, a product API, a React evidence
-workbench, Supabase schema/Auth/Storage foundations, CI checks, and a hosted
-Supabase free-tier demo. The core engine includes:
+StackCert helps teams choose the right safety-check combinations for LLM apps.
+The product compares rules, classifiers, model judges, stronger-model routes,
+context policies, and other checks on examples from the application the team
+actually cares about. The goal is safer, useful results at lower test cost,
+with scoped release evidence instead of broad safety claims.
+
+The current scope includes the CASS core under the hood, a product API, a React
+LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
+and a hosted Supabase free-tier demo. The core engine includes:
 
 - data schemas and JSONL/CSV import;
-- guardrail adapters and offline evaluation runner;
-- exact K=2 serial welfare computation;
-- comparison certificates;
-- greedy measurement recommendations;
+- safety-check adapters and offline evaluation runner;
+- exact K=2 serial combination scoring;
+- comparison logic for release evidence;
+- targeted test recommendations;
 - Markdown and JSON evidence export;
-- unit tests for core certificate behavior.
+- unit tests for core evidence behavior.
 
 The product direction is now a production-oriented full-stack app:
 
-- public landing page;
-- authenticated StackCert evidence workbench;
+- public landing page that explains safety options and why combinations matter;
+- authenticated StackCert workbench for app-specific recommendations;
 - FastAPI service around the Python CASS core;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
@@ -43,6 +49,12 @@ This hosted version uses GitHub Pages for the static web app, plus Supabase
 Auth and a Supabase Edge Function API. The fuller production architecture still
 keeps the Python CASS engine, FastAPI service, and worker service as the
 provider-grade path. See `docs/12_supabase_free_tier_deployment.md`.
+
+Current hosted API base:
+
+```text
+https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api
+```
 
 ## Product App Planning
 
@@ -74,6 +86,7 @@ Planning docs for turning this into a production-ready application live in:
 - `docs/11_local_dev_and_release_runbook.md`
 - `docs/12_supabase_free_tier_deployment.md`
 - `docs/13_production_hosting_setup.md`
+- `docs/14_product_language_guide.md`
 
 Initial GitHub Actions workflow drafts live in:
 
@@ -121,5 +134,5 @@ python3 examples/paper_demo.py \
   --weights-json ../configs/cass_real.json \
   --lambda-cost 5 \
   --budget-fraction 0.5 \
-  --markdown-out /tmp/stackcert_certificate.md
+  --markdown-out /tmp/stackcert_release_evidence.md
 ```
