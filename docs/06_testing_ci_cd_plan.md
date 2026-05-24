@@ -35,7 +35,7 @@ Expected current results:
 The hosted staging path has also been verified:
 
 - Supabase remote migration history matches the local migration history.
-- Cloud Run `stackcert-api` is serving revision `stackcert-api-00003-szq`.
+- Cloud Run `stackcert-api` is serving revision `stackcert-api-00004-qv9`.
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - `scripts/deployment_smoke.py` passes against Cloudflare + Cloud Run +

@@ -1396,3 +1396,21 @@ Started: 2026-05-23
   - `npm run build` -> OK;
   - local `scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18081` against
     a local FastAPI server -> `mcp client smoke OK`.
+
+## Cloud Run API Rollout For Model-Judge Slice
+
+- Ran the read-only cost preflight before deployment:
+  - billing enabled for `project-e7840c42-f298-4bd9-bff`;
+  - visible project budget: `StackCert staging $10`;
+  - existing `stackcert-api` service retained staging-safe scale annotations.
+- Built and pushed the API image:
+  - `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:c761a3f-staging-20260524232912`
+- Deployed Cloud Run service `stackcert-api` with the existing staging caps:
+  min instances `0`, max instances `1`, CPU `1`, memory `512Mi`,
+  concurrency `40`, timeout `60s`, Supabase Secret Manager bindings, and the
+  existing Cloudflare/GitHub/local CORS origins.
+- New ready revision:
+  - `stackcert-api-00004-qv9`
+- Hosted verification:
+  - `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
+  - `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`.

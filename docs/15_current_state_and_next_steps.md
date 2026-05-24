@@ -149,9 +149,13 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00003-szq`.
+- Latest ready revision is `stackcert-api-00004-qv9`, deployed from commit
+  `c761a3f`.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
+- The current Cloud Run revision passes `scripts/cloud_run_api_smoke.py` and
+  authenticated `scripts/mcp_client_smoke.py` against the hosted `/api/mcp`
+  endpoint with the official Python MCP SDK.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,
