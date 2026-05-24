@@ -2,20 +2,33 @@
 
 Last verified: 2026-05-24
 
-This document describes the current playable hosted deployment. Supabase runs
-the free-tier Auth/API backend, while GitHub Pages serves the static Vite app.
-The fuller production path remains FastAPI plus workers on a general compute
-platform.
+This document describes the earlier free-tier hosted deployment and remains as
+the fallback/demo-preview runbook. The current playable staging deployment uses
+Cloudflare Workers static assets for the web app, Supabase Auth, and the Cloud
+Run FastAPI/CASS API. The Supabase Edge Function and GitHub Pages path still
+matter as a low-cost fallback and compatibility preview.
 
 ## Current Hosted Demo
 
-Public app:
+Current staging app:
+
+```text
+https://stackcert-staging.savikk129.workers.dev/auth/sign-in
+```
+
+Fallback GitHub Pages app:
 
 ```text
 https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
 ```
 
-API:
+Current staging API:
+
+```text
+https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+```
+
+Fallback Edge Function API:
 
 ```text
 https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api
@@ -76,25 +89,26 @@ The hosted Edge Function MCP surface is intended for demo and integration-shape
 validation. Production MCP should run through the FastAPI service on Cloud Run
 so theory cards and release evidence use the Python CASS engine directly.
 
-## What GitHub Pages Hosts Today
+## What GitHub Pages Hosts In The Fallback Path
 
-GitHub Pages serves the static Vite build from this source repository. The
-`.github/workflows/deploy-pages.yml` workflow runs tests, builds `web/dist`,
-deploys the Pages artifact, and then runs a deployed smoke test.
+GitHub Pages can still serve the static Vite build from this source repository.
+The `.github/workflows/deploy-pages.yml` workflow runs tests, builds
+`web/dist`, deploys the Pages artifact, and then runs a deployed smoke test.
 
 The build is configured with:
 
 - `VITE_ROUTER_MODE=hash`, so deep links work on a static host;
 - `VITE_PUBLIC_BASE=/stackcert-product/`, so assets resolve correctly under the
   Pages project path;
-- `VITE_API_BASE_URL` pointing at the Supabase Edge Function API;
+- `VITE_API_BASE_URL` pointing at the configured staging API;
 - `VITE_SUPABASE_URL` and a publishable/anon key for Supabase Auth.
 
 Supabase Storage was tried for the static app, but its public object endpoint
 served `index.html` as `text/plain` with sandbox headers, which made browsers
 show raw HTML. Supabase Edge Functions applied the same document sandboxing
-behavior. GitHub Pages is therefore the working public web entrypoint while
-Supabase remains the backend.
+behavior. GitHub Pages was therefore used as the first working public web
+entrypoint. The current primary staging entrypoint is Cloudflare Workers static
+assets.
 
 ## What Supabase Does Not Host
 
@@ -259,11 +273,11 @@ The test asserts that:
 - `cd web && npm run typecheck`
 - `cd web && npm test -- --run`
 - `cd web && npm run build`
-- hosted hash build with real Supabase URL and publishable key
+- fallback hosted hash build with real Supabase URL and publishable key
 - `supabase db lint --local`
 - `supabase db advisors --local`
 - `supabase functions deploy stackcert-api ...`
-- publish `web/dist` to GitHub Pages
+- publish `web/dist` to GitHub Pages for fallback hosting
 - `scripts/deployment_smoke.py ...`
 - browser-load landing and auth routes at desktop and mobile widths
 - confirm public page metadata uses safety-check and release-evidence language
@@ -272,7 +286,8 @@ The test asserts that:
 
 - Supabase Storage and Edge Functions sandbox document-shaped HTML responses on
   this project, so they are not used as the public web entrypoint.
-- GitHub Pages is the current web host; Supabase remains the Auth/API backend.
+- Cloudflare Workers static assets is the current staging web host; GitHub
+  Pages remains the fallback static host for this older free-tier path.
 - Edge Function state is demo-oriented and not a durable replacement for the
   Python API/worker path.
 - Hosted MCP is useful for contract shape and demo integration, but production

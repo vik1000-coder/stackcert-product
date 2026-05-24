@@ -72,13 +72,14 @@ Latest primary files:
 The playable hosted demo is deployed at:
 
 ```text
-https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
+https://stackcert-staging.savikk129.workers.dev/auth/sign-in
 ```
 
-It uses GitHub Pages for the static web app plus Supabase Auth and the
-`stackcert-api` Edge Function.
-See `12_supabase_free_tier_deployment.md` for deployment and verification
-details.
+It uses Cloudflare Workers static assets for the web app, Supabase Auth, and the
+Cloud Run FastAPI/CASS service. GitHub Pages plus the Supabase Edge Function
+remain available as fallback/demo-preview infrastructure. See
+`13_production_hosting_setup.md` and `15_current_state_and_next_steps.md` for
+the current deployment and verification details.
 
 ## Current Build State
 
@@ -92,10 +93,8 @@ The implementation is past planning. The working app now includes:
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts.
 
-The current priority is to deploy the real FastAPI service to Cloud Run staging
-and point a staging frontend at it. The hosted Supabase Edge Function should
-remain a demo/API-preview layer until that is done. See
-`15_current_state_and_next_steps.md`.
+The current priority is provider-grade worker execution and real pilot
+onboarding hardening. See `15_current_state_and_next_steps.md`.
 
 ## Test Cadence
 

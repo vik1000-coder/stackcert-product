@@ -63,29 +63,31 @@ using `SUPABASE_URL` and backend-only `SUPABASE_SECRET_KEY`.
 ## Hosted Demo
 
 The current playable deploy is documented in
-`docs/12_supabase_free_tier_deployment.md`.
+`docs/15_current_state_and_next_steps.md`. The older Supabase Edge Function /
+GitHub Pages path is documented in `docs/12_supabase_free_tier_deployment.md`
+as a fallback.
 
 Public app:
 
 ```text
-https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
+https://stackcert-staging.savikk129.workers.dev/auth/sign-in
 ```
 
 The hosted target uses:
 
-- GitHub Pages for the static Vite app;
-- `VITE_ROUTER_MODE=hash` for static hosting;
-- `VITE_PUBLIC_BASE=./` for relative Vite assets;
+- Cloudflare Workers static assets for the static Vite app;
+- `VITE_ROUTER_MODE=browser` for clean routes;
+- `VITE_PUBLIC_BASE=/` for root-hosted assets;
 - Supabase Auth for sign-in/sign-up;
-- Edge Function `stackcert-api` for the demo API.
+- Cloud Run FastAPI/CASS service for the API.
 
 Run this after hosted deploys:
 
 ```bash
 export STACKCERT_SMOKE_SUPABASE_ANON_KEY="<publishable-or-anon-key>"
 scripts/deployment_smoke.py \
-  --web-url "https://vik1000-coder.github.io/stackcert-product/" \
-  --api-url "https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api" \
+  --web-url "https://stackcert-staging.savikk129.workers.dev/" \
+  --api-url "https://stackcert-api-oaw2bwdgyq-uc.a.run.app" \
   --supabase-url "https://cgwiwmfzpektpyquiveg.supabase.co" \
   --email demo@stackcert.dev \
   --password stackcert-demo

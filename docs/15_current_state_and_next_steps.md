@@ -19,7 +19,8 @@ StackCert is now a usable prototype with a real product shape:
 - Hosted staging demo using Cloudflare Workers static assets for the frontend,
   Supabase Auth, and the Cloud Run FastAPI/CASS service for authenticated API
   traffic.
-- GitHub Actions workflows for CI and fallback GitHub Pages deployment.
+- GitHub Actions workflows for CI, fallback GitHub Pages deployment, and
+  Cloudflare Workers staging deployment after CI succeeds.
 - CASS core with exact K<=2 serial safety-check combination scoring,
   comparison intervals, targeted measurement recommendations, and evidence
   export.
@@ -105,12 +106,21 @@ Authenticated Cloud Run smoke with Supabase demo user
 
 Latest hosted verification:
 
-- Supabase Edge Function `stackcert-api` redeployed after the MCP update.
-- Hosted `GET /api/health` returns `200`.
-- Hosted unauthenticated `GET /api/mcp/manifest` returns `401`, which confirms
-  the app API auth gate is still active.
-- Authenticated hosted MCP smoke still needs the smoke anon key available in
-  the shell or CI secret.
+- Supabase remote migration history matches local migrations:
+  `20260523151421`, `20260523192827`, `20260524023733`.
+- Cloudflare Workers static app is live at
+  `https://stackcert-staging.savikk129.workers.dev`.
+- Cloudflare deployment list shows the latest `stackcert-staging` deployment
+  modified on 2026-05-24 after the deploy commit.
+- Cloud Run `GET /api/health` returns `200`.
+- Cloud Run unauthenticated API calls return `401`/`403` as expected.
+- Authenticated deployment smoke against Cloudflare + Cloud Run + Supabase Auth
+  returns `deployment smoke OK`.
+- Latest GitHub Actions runs for `c28b4a8` are green for `ci` and fallback
+  `deploy pages`.
+- GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
+  `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
+  browser-safe Supabase key, and the smoke-test user credentials.
 - Cloud Run staging prep now includes `.gcloudignore`,
   `scripts/gcloud_cost_preflight.py`, `scripts/cloud_run_secrets.py`, and
   `scripts/cloud_run_api_smoke.py`.
@@ -124,12 +134,15 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00002-xfx`.
+- Latest ready revision is `stackcert-api-00003-szq`.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
-- Cloudflare Workers static-assets config is present at root `wrangler.jsonc`
-  for temporary frontend hosting from repo-root Workers Builds. A secondary
-  `web/wrangler.jsonc` remains available for direct local deploys from `web`.
+- Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
+  GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
+  Cloudflare CD path. Cloudflare Workers Builds is still configured externally,
+  but the current scoped token can deploy/list Workers and returns `403` for
+  Workers Builds API introspection; add Workers Builds read/config permissions
+  if we want automated build-log polling.
 
 ## Important Boundaries
 
@@ -149,51 +162,7 @@ belong in the FastAPI plus Cloud Run worker architecture.
 
 ## What To Do Next
 
-### 1. Commit And Push Current MCP/CASS Work
-
-The current working tree contains uncommitted MCP, CASS theory-test, Edge
-Function, and documentation updates. Commit and push these changes so GitHub
-Actions can run against the same state described here.
-
-After pushing, verify:
-
-- CI passes.
-- GitHub Pages deployment still passes.
-- Hosted deployment smoke passes with `STACKCERT_SMOKE_SUPABASE_ANON_KEY`.
-
-### 2. Route A Staging Frontend To Cloud Run
-
-The FastAPI Cloud Run service is now deployed. The next deployment step is to
-point a staging frontend at it instead of the Supabase Edge Function.
-
-Build the frontend with:
-
-```text
-VITE_API_BASE_URL=<Cloud Run API or api-staging domain>
-VITE_SUPABASE_URL=<staging Supabase URL>
-VITE_SUPABASE_ANON_KEY=<staging publishable key>
-```
-
-Then smoke:
-
-- sign in;
-- create project;
-- import/commit suite;
-- upload safety-check outputs;
-- inspect recommendation;
-- read theory card through MCP;
-- issue release evidence;
-- reload and confirm persisted run state.
-
-For the current Cloudflare Workers Builds UI, use:
-
-```text
-Path: /
-Build command: npm ci && npm run build
-Deploy command: npx wrangler deploy
-```
-
-### 3. Build The Real Provider Worker Path
+### 1. Finish The Real Provider Worker Path
 
 The worker path is the most important product gap after Cloud Run API hosting.
 
@@ -211,7 +180,7 @@ Needed work:
 Start with deterministic/fake providers in staging, then add one real REST
 safety-check adapter.
 
-### 4. Harden Auth, Tenancy, And Evidence Storage
+### 2. Harden Auth, Tenancy, And Evidence Storage
 
 Before real users:
 
@@ -223,7 +192,7 @@ Before real users:
 - add audit events for evidence issue/signoff, connector changes, job runs, and
   MCP tool calls.
 
-### 5. Validate MCP With Real Agent Clients
+### 3. Validate MCP With Real Agent Clients
 
 The MCP surface is now useful, but it needs client-level proof.
 
@@ -236,13 +205,13 @@ Next MCP tasks:
   approval;
 - add audit events for tool calls that queue work or affect release decisions.
 
-### 6. Production Readiness Pass
+### 4. Production Readiness Pass
 
 After staging works end to end:
 
 - create production Supabase project;
 - configure production Auth URLs, email templates, and sender domain;
-- configure Cloudflare Pages or equivalent production frontend hosting;
+- configure production Cloudflare frontend hosting and custom domains;
 - add Sentry or equivalent error reporting;
 - add uptime checks for frontend, `/api/health`, Auth, and release-evidence
   status;
@@ -255,9 +224,10 @@ After staging works end to end:
 The next engineering milestone should be:
 
 ```text
-Cloud Run staging FastAPI + Supabase persistence + authenticated frontend smoke
+Provider-grade worker execution + real pilot onboarding hardening
 ```
 
-The API half of that milestone is complete. The remaining half is a frontend
-deployment pointed at the Cloud Run URL, followed by the authenticated
-onboarding/import/upload/evidence smoke.
+The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
+GitHub CI/CD are wired and smoke-tested. The next value milestone is moving from
+uploaded/demo outputs toward reliable provider-backed evaluation jobs that a
+pilot team can use without us hand-holding every run.

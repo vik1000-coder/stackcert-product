@@ -123,8 +123,9 @@ Acceptance criteria:
 
 ## Phase 2: Landing Page And Authenticated Shell
 
-Status: substantially implemented and hosted through GitHub Pages plus Supabase
-Auth.
+Status: substantially implemented and hosted through Cloudflare Workers static
+assets plus Supabase Auth and the Cloud Run FastAPI/CASS API. GitHub Pages plus
+the Supabase Edge Function remain available as a fallback/demo-preview path.
 
 Goal: Faithfully implement the latest public landing page and authenticated app
 chrome.

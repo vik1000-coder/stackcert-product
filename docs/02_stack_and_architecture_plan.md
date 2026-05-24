@@ -45,12 +45,14 @@ The local product stack now includes:
   pilot runs, issued evidence, and signoffs.
 - MCP routes for release-evidence status, theory cards, measurement
   recommendations, integration guides, and deployment-review prompts.
-- Supabase Edge Function demo API deployed for the temporary hosted demo.
+- Cloud Run FastAPI/CASS API deployed for staging, with the Supabase Edge
+  Function retained as a fallback/demo-preview API.
+- Cloudflare Workers static-assets frontend deployed for staging.
 
-The production target remains unchanged: deploy the Python FastAPI API and
-worker to Cloud Run, keep Supabase as system of record, and serve the frontend
-from a production static host. The hosted Supabase Edge Function should not
-become the production CASS runtime.
+The production target remains unchanged: keep the Python FastAPI API and worker
+on Cloud Run, keep Supabase as system of record, and serve the frontend from
+Cloudflare. The hosted Supabase Edge Function should not become the production
+CASS runtime.
 
 ## Repository Layout
 

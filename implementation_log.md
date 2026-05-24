@@ -1238,3 +1238,30 @@ Started: 2026-05-23
   - Playwright sign-in/demo flow -> reaches the real recommendation dashboard;
   - `scripts/deployment_smoke.py` against Cloudflare + Cloud Run + Supabase Auth
     -> `deployment smoke OK`.
+
+## CI/CD Verification And Docs Refresh
+
+- Confirmed latest GitHub Actions runs on `main` for commit `c28b4a8` are green:
+  - `ci`;
+  - fallback `deploy pages`.
+- Added GitHub secret/variables for the Cloudflare CD path:
+  - `CLOUDFLARE_API_TOKEN` as a scoped secret;
+  - `CLOUDFLARE_ACCOUNT_ID`;
+  - `VITE_API_BASE_URL` now points at Cloud Run;
+  - Supabase URL/key and smoke user remain configured.
+- Added `.github/workflows/deploy-cloudflare.yml`:
+  - runs after `ci` succeeds on `main`;
+  - builds the browser-routed Cloudflare frontend;
+  - deploys with Wrangler;
+  - smokes Cloudflare + Cloud Run + Supabase Auth.
+- Verified external services:
+  - Supabase local/remote migration history matches;
+  - Cloud Run `stackcert-api` revision is `stackcert-api-00003-szq`;
+  - Cloud Run CORS includes the Cloudflare staging origin;
+  - Cloudflare `stackcert-staging` deployments are visible with the scoped token;
+  - full deployed smoke returns `deployment smoke OK`.
+- Noted Cloudflare token limitation: the scoped token can deploy/list Workers,
+  but Workers Builds API endpoints return `403`; add Workers Builds
+  read/config permissions if build-log introspection becomes required.
+- Updated `README.md`, `.env.example`, and deployment/status docs to reflect the
+  working Supabase + Cloud Run + Cloudflare staging stack.

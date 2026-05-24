@@ -1,0 +1,65 @@
+name: deploy cloudflare
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  VITE_ROUTER_MODE: browser
+  VITE_PUBLIC_BASE: /
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: deploy workers static app
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build Cloudflare frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Smoke deployed Cloudflare app
+        env:
+          STACKCERT_SMOKE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          python scripts/deployment_smoke.py \
+            --web-url "https://stackcert-staging.savikk129.workers.dev/" \
+            --api-url "${{ vars.VITE_API_BASE_URL }}" \
+            --supabase-url "${{ vars.VITE_SUPABASE_URL }}" \
+            --email "${{ secrets.STACKCERT_SMOKE_EMAIL }}" \
+            --password "${{ secrets.STACKCERT_SMOKE_PASSWORD }}"

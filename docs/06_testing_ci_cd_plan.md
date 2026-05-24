@@ -27,14 +27,21 @@ deno check supabase/functions/stackcert-api/index.ts
 Expected current results:
 
 - 11 Python core tests pass.
-- 44 service/API tests pass.
+- 54 service/API tests pass.
 - 4 frontend tests pass.
 - Frontend production build passes.
 - Supabase Edge Function type check passes.
 
-The hosted Edge Function has also been redeployed and `GET /api/health` returns
-`200`. Authenticated hosted MCP smoke remains a next CI enhancement because it
-requires the Supabase publishable/anon key in the smoke-test environment.
+The hosted staging path has also been verified:
+
+- Supabase remote migration history matches the local migration history.
+- Cloud Run `stackcert-api` is serving revision `stackcert-api-00003-szq`.
+- Cloudflare Workers static app is live at
+  `https://stackcert-staging.savikk129.workers.dev`.
+- `scripts/deployment_smoke.py` passes against Cloudflare + Cloud Run +
+  Supabase Auth.
+- Latest GitHub Actions runs on `main` are green for `ci` and fallback
+  `deploy pages`.
 
 ## Test Pyramid
 
@@ -227,23 +234,50 @@ jobs:
         with:
           node-version: "22"
       - run: |
-          if [ -f web/package.json ]; then
-            cd web
-            npm ci
-            npm run lint
-            npm run typecheck
-            npm test -- --run
-            npm run build
-            VITE_ROUTER_MODE=hash VITE_PUBLIC_BASE=./ VITE_API_BASE_URL=https://example.invalid/functions/v1/stackcert-api VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=example npm run build
-          else
-            echo "web/package.json not present yet; skipping frontend checks"
-          fi
+          npm --prefix web ci --workspaces=false --include=optional
+          npm --prefix web run lint
+          npm --prefix web run typecheck
+          npm --prefix web test -- --run
+          npm --prefix web run build
+          VITE_ROUTER_MODE=hash VITE_PUBLIC_BASE=./ VITE_API_BASE_URL=https://example.invalid/functions/v1/stackcert-api VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=example npm --prefix web run build
 ```
+
+### `.github/workflows/deploy-cloudflare.yml`
+
+Runs after `ci` succeeds on pushes to `main`, and can also be run manually.
+
+Jobs:
+
+- Build the root Cloudflare deployment target with browser routing.
+- Deploy `web/dist` through Wrangler using the scoped
+  `CLOUDFLARE_API_TOKEN` GitHub secret.
+- Smoke the deployed Cloudflare app against the Cloud Run API and Supabase Auth.
+
+Required GitHub configuration:
+
+```text
+Secrets:
+CLOUDFLARE_API_TOKEN
+VITE_SUPABASE_ANON_KEY
+STACKCERT_SMOKE_EMAIL
+STACKCERT_SMOKE_PASSWORD
+
+Variables:
+CLOUDFLARE_ACCOUNT_ID=2f24b5308743a217ee4b4641246fd5b8
+VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
+```
+
+Cloudflare Workers Builds is also configured from the Cloudflare dashboard for
+this Worker. Until that external trigger is disabled, a push may create a
+Cloudflare dashboard deployment before the GitHub `deploy cloudflare` workflow
+runs. The GitHub workflow is the preferred auditable CD path because it is
+gated on `ci` and includes smoke tests.
 
 ### Deployment Smoke
 
 Use `scripts/deployment_smoke.py` against the hosted environment after every
-free-tier deploy. It verifies:
+staging deploy. It verifies:
 
 - public web shell;
 - public API health;
@@ -251,13 +285,13 @@ free-tier deploy. It verifies:
 - Supabase password sign-in;
 - authenticated project read.
 
-For the current hosted target:
+For the current Cloudflare + Cloud Run hosted target:
 
 ```bash
 export STACKCERT_SMOKE_SUPABASE_ANON_KEY="<publishable-or-anon-key>"
 scripts/deployment_smoke.py \
-  --web-url "https://vik1000-coder.github.io/stackcert-product/" \
-  --api-url "https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api" \
+  --web-url "https://stackcert-staging.savikk129.workers.dev/" \
+  --api-url "https://stackcert-api-oaw2bwdgyq-uc.a.run.app" \
   --supabase-url "https://cgwiwmfzpektpyquiveg.supabase.co" \
   --email demo@stackcert.dev \
   --password stackcert-demo

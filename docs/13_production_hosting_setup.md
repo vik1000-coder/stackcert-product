@@ -9,7 +9,7 @@ and the product credible for real customers.
 ## Recommended Production Stack
 
 ```text
-app.stackcert.com        -> Cloudflare Pages React app
+app.stackcert.com        -> Cloudflare Workers static assets or Pages React app
 api.stackcert.com        -> Google Cloud Run FastAPI service
 worker / jobs            -> Google Cloud Run Jobs or worker service
 Supabase                 -> Auth, Postgres, Storage, RLS
@@ -17,12 +17,15 @@ GitHub Actions           -> CI/CD, migrations, deploys, smoke tests
 Cloudflare DNS/WAF       -> domain, TLS, caching, basic protection
 ```
 
-Use Cloudflare Pages for the frontend, Supabase Pro for Auth/Postgres/Storage,
-and Google Cloud Run for the Python API plus workers.
+Use Cloudflare for the frontend, Supabase Pro for Auth/Postgres/Storage, and
+Google Cloud Run for the Python API plus workers. The current staging app uses
+Workers static assets; Pages remains a viable production option if we prefer its
+project UI and preview-deploy model.
 
 ## Why This Stack
 
-- Cloudflare Pages is cheap, global, simple, and a good fit for the Vite SPA.
+- Cloudflare Workers static assets and Pages are cheap, global, simple, and a
+  good fit for the Vite SPA.
 - Supabase keeps our Auth, Postgres, RLS, and Storage path aligned with the
   schema already in the repo.
 - Cloud Run is a strong fit for FastAPI and Python worker containers.
@@ -39,20 +42,19 @@ Set up:
 - Create DNS records:
   - `stackcert.com` -> marketing/landing, can point to the same Pages app at
     first.
-  - `app.stackcert.com` -> Cloudflare Pages.
+  - `app.stackcert.com` -> Cloudflare Workers static assets or Pages.
   - `api.stackcert.com` -> Cloud Run API.
   - `staging.stackcert.com` -> staging frontend.
   - `api-staging.stackcert.com` -> staging API.
 
-Create a Cloudflare API token for GitHub Actions with permissions to deploy
-Pages.
+Create a Cloudflare API token for GitHub Actions with permissions to deploy the
+frontend host.
 
 Required GitHub secrets or variables:
 
 ```text
 CLOUDFLARE_ACCOUNT_ID
 CLOUDFLARE_API_TOKEN
-CLOUDFLARE_PAGES_PROJECT_NAME
 ```
 
 ## Supabase
@@ -477,7 +479,7 @@ deploy-staging.yml
     - build and push API image
     - deploy API to Cloud Run staging
     - deploy worker to Cloud Run staging
-    - deploy frontend to Cloudflare Pages staging
+    - deploy frontend to Cloudflare Workers static assets staging
     - run deployment smoke
 
 deploy-prod.yml
@@ -488,7 +490,7 @@ deploy-prod.yml
     - build and push API image
     - deploy API to Cloud Run production
     - deploy worker to Cloud Run production
-    - deploy frontend to Cloudflare Pages production
+    - deploy frontend to Cloudflare Workers static assets or Pages production
     - run deployment smoke
     - run release-evidence gate
 ```
@@ -503,8 +505,8 @@ VITE_SUPABASE_URL=<production Supabase URL>
 VITE_SUPABASE_ANON_KEY=<production publishable/anon key>
 ```
 
-For a temporary Cloudflare Workers static-assets deploy from the current
-monorepo, use the repo-root build settings:
+For the current Cloudflare Workers static-assets deploy from the monorepo, use
+the repo-root build settings:
 
 ```text
 Path: /
@@ -523,17 +525,49 @@ VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
 VITE_SUPABASE_ANON_KEY=<Supabase anon/publishable key>
 ```
 
-The build command uses the root npm workspace wrapper to build `web`. The deploy
-command relies on the root `wrangler.jsonc`, which serves `./web/dist` as
-Workers static assets and uses `single-page-application` fallback routing.
+The build command uses the root wrapper to install and build `web` with its own
+lockfile. The deploy command relies on the root `wrangler.jsonc`, which serves
+`./web/dist` as Workers static assets and uses `single-page-application`
+fallback routing.
 
-Add a Cloudflare Pages redirect rule so React routes work:
+Do not add a `_redirects` SPA fallback for the Workers static-assets deploy.
+Cloudflare rejected that rule as an infinite loop; `wrangler.jsonc` already
+handles React routes with:
 
-```text
-/* /index.html 200
+```json
+"assets": {
+  "directory": "./web/dist",
+  "not_found_handling": "single-page-application"
+}
 ```
 
-For the temporary GitHub Pages source-of-truth deployment, use
+For the GitHub-controlled Cloudflare CD path, use
+`.github/workflows/deploy-cloudflare.yml`. It runs after `ci` succeeds on
+`main`, deploys with a scoped `CLOUDFLARE_API_TOKEN`, and runs
+`scripts/deployment_smoke.py` against:
+
+```text
+web: https://stackcert-staging.savikk129.workers.dev/
+api: https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+auth: https://cgwiwmfzpektpyquiveg.supabase.co
+```
+
+GitHub secrets and variables currently required:
+
+```text
+Secrets:
+CLOUDFLARE_API_TOKEN
+VITE_SUPABASE_ANON_KEY
+STACKCERT_SMOKE_EMAIL
+STACKCERT_SMOKE_PASSWORD
+
+Variables:
+CLOUDFLARE_ACCOUNT_ID=2f24b5308743a217ee4b4641246fd5b8
+VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
+```
+
+For the fallback GitHub Pages deployment, use
 `.github/workflows/deploy-pages.yml`. It builds from this repository, deploys
 `web/dist` through GitHub Pages, and runs `scripts/deployment_smoke.py` after
 publish.
@@ -587,7 +621,7 @@ differences.
 Before real users:
 
 - Use `app.stackcert.com`, no hash URLs.
-- Configure Cloudflare Pages routing fallback.
+- Configure Cloudflare SPA fallback routing.
 - Configure Supabase Auth email templates and sender domain.
 - Turn on email confirmation for production.
 - Add password reset flow.

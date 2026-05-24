@@ -30,7 +30,7 @@ The product direction is now a production-oriented full-stack app:
   agent deployment reviews;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
-- GitHub Actions CI/CD.
+- GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.
 
 For the current implementation state and next priorities, start with
 `docs/15_current_state_and_next_steps.md`.
@@ -63,6 +63,16 @@ https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 
 The Supabase Edge Function remains a lightweight demo/API-preview layer for
 comparison, but the Cloudflare-hosted app is now pointed at Cloud Run.
+
+Current CI/CD:
+
+- `ci` runs Python, frontend, and local Supabase migration checks on PRs and
+  pushes to `main`.
+- `deploy pages` publishes the fallback GitHub Pages build and runs smoke
+  tests.
+- `deploy cloudflare` runs after `ci` succeeds on `main`, deploys the
+  Cloudflare Workers static app, and smokes Cloudflare + Cloud Run + Supabase
+  Auth.
 
 ## Product App Planning
 
@@ -104,6 +114,7 @@ Initial GitHub Actions workflow drafts live in:
 - `.github/workflows/security.yml`
 - `.github/workflows/nightly.yml`
 - `.github/workflows/deploy-pages.yml`
+- `.github/workflows/deploy-cloudflare.yml`
 
 Cloud Run staging helpers live in:
 
@@ -135,8 +146,8 @@ Build command: npm ci && npm run build
 Deploy command: npx wrangler deploy
 ```
 
-The root `package.json` delegates the build to the `web` workspace, and the root
-`wrangler.jsonc` deploys `web/dist` as Workers static assets.
+The root `package.json` installs/builds the `web` package with its own lockfile,
+and the root `wrangler.jsonc` deploys `web/dist` as Workers static assets.
 
 ## Local App
 
