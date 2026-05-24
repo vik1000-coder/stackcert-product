@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import ipaddress
+import os
+import re
+import urllib.parse
 import uuid
 from collections import Counter
 from datetime import UTC, datetime, timedelta
@@ -7,9 +11,11 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from stackcert.data.schemas import BenchmarkExample, GuardOutput
 from stackcert.eval.runner import EvaluationRunner
 from stackcert.eval.sampling import sample_within_cells
 from stackcert.guards.fake_adapter import DeterministicPolicyGuardAdapter
+from stackcert.guards.rest_adapter import RESTGuardAdapter, RESTGuardAdapterError
 from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import EvaluationJobCreate, MeasurementPlanCreate
@@ -128,6 +134,8 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
 
     suite_context: dict[str, Any] = {}
     if project_id == settings.demo_project_id:
+        if payload.adapter_mode == "rest_guard":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="REST guard execution requires configured project connectors")
         engine, _, _ = demo_project.demo_bundle()
         requested_guard_ids = payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
         unknown = sorted(set(requested_guard_ids).difference(engine.guard_ids))
@@ -147,6 +155,8 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
         if len(requested_guard_ids) < 2:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
+        if payload.adapter_mode == "rest_guard":
+            _rest_guard_adapters(project_id, "preflight", requested_guard_ids)
         estimated_cost_usd = _estimate_project_evaluation_cost(project_id, requested_guard_ids, len(sampled_examples))
         if payload.max_cost_usd is not None and estimated_cost_usd > payload.max_cost_usd:
             raise HTTPException(
@@ -278,24 +288,25 @@ def retry_job(job_id: str) -> dict[str, Any]:
 
 
 def _project_guard_ids(project_id: str) -> list[str]:
+    return list(_project_connector_map(project_id).keys())
+
+
+def _project_connector_map(project_id: str) -> dict[str, dict[str, Any]]:
     seen: set[str] = set()
-    guard_ids: list[str] = []
+    connectors: dict[str, dict[str, Any]] = {}
     for connector in guard_connectors.list_connectors(project_id):
         if connector.get("status") == "draft":
             continue
         guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
         if guard_id and guard_id not in seen:
             seen.add(guard_id)
-            guard_ids.append(guard_id)
-    return guard_ids
+            connectors[guard_id] = connector
+    return connectors
 
 
 def _connector_thresholds(project_id: str) -> dict[str, float]:
     thresholds: dict[str, float] = {}
-    for connector in guard_connectors.list_connectors(project_id):
-        guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
-        if not guard_id:
-            continue
+    for guard_id, connector in _project_connector_map(project_id).items():
         threshold = connector.get("threshold")
         thresholds[guard_id] = float(threshold) if threshold is not None else 0.5
     return thresholds
@@ -303,11 +314,123 @@ def _connector_thresholds(project_id: str) -> dict[str, float]:
 
 def _connector_unit_costs(project_id: str) -> dict[str, float]:
     costs: dict[str, float] = {}
-    for connector in guard_connectors.list_connectors(project_id):
-        guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
-        if guard_id:
-            costs[guard_id] = float(connector.get("unit_cost_usd") or 0.0002)
+    for guard_id, connector in _project_connector_map(project_id).items():
+        costs[guard_id] = float(connector.get("unit_cost_usd") or 0.0002)
     return costs
+
+
+def _rest_guard_adapters(project_id: str, run_id: str, guard_ids: list[str]) -> tuple[RESTGuardAdapter, ...]:
+    connectors = _project_connector_map(project_id)
+    adapters: list[RESTGuardAdapter] = []
+    for guard_id in guard_ids:
+        connector = connectors.get(guard_id)
+        if not connector:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard id: {guard_id}")
+        adapter_type = str(connector.get("adapter_type") or connector.get("guard_type") or connector.get("type") or "")
+        if adapter_type != "rest_guard":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Guard {guard_id} is configured as {adapter_type or 'unknown'}, not rest_guard",
+            )
+        config = connector.get("config") or {}
+        endpoint_url = str(config.get("endpoint_url") or "").strip()
+        if not endpoint_url:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Guard {guard_id} is missing endpoint_url")
+        _validate_rest_guard_endpoint(endpoint_url, guard_id)
+        threshold = connector.get("threshold")
+        adapters.append(
+            RESTGuardAdapter(
+                guard_id=guard_id,
+                endpoint_url=endpoint_url,
+                run_id=run_id,
+                timeout_sec=int(config.get("timeout_sec") or 30),
+                threshold=float(threshold) if threshold is not None else 0.5,
+                headers=_connector_auth_headers(guard_id, connector),
+                metadata={
+                    "source": "worker_evaluation",
+                    "contract": "guard_adapter_v1",
+                    "adapter": "rest_guard",
+                    "vendor": connector.get("vendor"),
+                    "version": connector.get("version"),
+                },
+                raise_on_error=True,
+            )
+        )
+    return tuple(adapters)
+
+
+def _connector_auth_headers(guard_id: str, connector: dict[str, Any]) -> dict[str, str]:
+    config = connector.get("config") or {}
+    header_name = str(config.get("auth_header_name") or "Authorization").strip() or "Authorization"
+    if not bool(config.get("has_secret")):
+        return {}
+    secret = _guard_secret(guard_id, connector)
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Guard {guard_id} requires a backend secret; set {_guard_secret_env_name(guard_id)} in the worker environment.",
+        )
+    return {header_name: secret}
+
+
+def _guard_secret(guard_id: str, connector: dict[str, Any]) -> str | None:
+    config = connector.get("config") or {}
+    configured_env = str(config.get("secret_env_var") or "").strip()
+    candidates = [configured_env] if configured_env else []
+    candidates.append(_guard_secret_env_name(guard_id))
+    secret_ref = str(config.get("secret_ref") or "").strip()
+    if secret_ref.startswith("pending-vault://"):
+        candidates.append(_guard_secret_env_name(secret_ref.removeprefix("pending-vault://")))
+    for env_name in candidates:
+        if not env_name:
+            continue
+        value = os.getenv(env_name)
+        if value:
+            return value
+    return None
+
+
+def _guard_secret_env_name(guard_id: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9]+", "_", guard_id).strip("_").upper()
+    return f"STACKCERT_GUARD_SECRET_{normalized}"
+
+
+def _validate_rest_guard_endpoint(endpoint_url: str, guard_id: str) -> None:
+    parsed = urllib.parse.urlparse(endpoint_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Guard {guard_id} endpoint_url must be an HTTP(S) URL",
+        )
+    if settings.environment != "production":
+        return
+    if parsed.scheme != "https":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Guard {guard_id} endpoint_url must use HTTPS in production",
+        )
+    hostname = parsed.hostname.strip().lower()
+    blocked_hosts = {"localhost", "metadata", "metadata.google.internal"}
+    if hostname in blocked_hosts or hostname.endswith(".local"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Guard {guard_id} endpoint_url host is not allowed",
+        )
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+    if (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Guard {guard_id} endpoint_url host is not allowed",
+        )
 
 
 def _estimate_project_evaluation_cost(project_id: str, guard_ids: list[str], example_count: int) -> float:
@@ -317,15 +440,18 @@ def _estimate_project_evaluation_cost(project_id: str, guard_ids: list[str], exa
 
 def _usage_events_from_evaluation(
     job: dict[str, Any],
-    outputs: list[Any],
-    examples: list[Any],
+    outputs: list[GuardOutput],
+    examples: list[BenchmarkExample],
     guard_ids: list[str],
+    adapter_mode: str,
 ) -> list[dict[str, Any]]:
     unit_costs = _connector_unit_costs(str(job["project_id"]))
+    connectors = _project_connector_map(str(job["project_id"]))
     examples_by_id = {example.example_id: example for example in examples}
     events = []
     for guard_id in guard_ids:
         guard_outputs = [output for output in outputs if output.guard_id == guard_id]
+        connector = connectors.get(guard_id) or {}
         request_count = len(guard_outputs)
         input_tokens = 0
         for output in guard_outputs:
@@ -336,8 +462,9 @@ def _usage_events_from_evaluation(
         events.append(
             {
                 "id": f"use_{job['id']}_{guard_id}",
-                "provider": "stackcert_worker",
-                "model": "deterministic_policy_guard",
+                "provider": connector.get("vendor")
+                or ("rest_guard" if adapter_mode == "rest_guard" else "stackcert_worker"),
+                "model": "rest_guard" if adapter_mode == "rest_guard" else "deterministic_policy_guard",
                 "operation": "evaluation_guard_run",
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
@@ -348,12 +475,19 @@ def _usage_events_from_evaluation(
                 "metadata": {
                     "guard_id": guard_id,
                     "benchmark_suite_id": job.get("input", {}).get("benchmark_suite_id"),
-                    "adapter_mode": job.get("input", {}).get("payload", {}).get("adapter_mode"),
+                    "adapter_mode": adapter_mode,
+                    "adapter_type": connector.get("adapter_type"),
                     "contract": "guard_adapter_v1",
                 },
             }
         )
     return events
+
+
+def _evaluation_adapter_next_step(adapter_mode: str) -> str:
+    if adapter_mode == "rest_guard":
+        return "Review provider latency, failures, and actual spend before using this run as deployment-gate evidence."
+    return "Replace deterministic adapters with managed REST or model-judge providers before relying on the result for a real deployment gate."
 
 
 def _measurement_context(run_id: str, lambda_cost: float) -> dict[str, Any]:
@@ -495,6 +629,8 @@ def _retry_delay_seconds(attempts: int) -> int:
 
 
 def _classify_job_error(exc: Exception) -> str:
+    if isinstance(exc, RESTGuardAdapterError):
+        return exc.error_class
     if isinstance(exc, HTTPException):
         if exc.status_code in {status.HTTP_408_REQUEST_TIMEOUT, status.HTTP_504_GATEWAY_TIMEOUT}:
             return "timeout"
@@ -517,6 +653,8 @@ def _classify_job_error(exc: Exception) -> str:
 
 
 def _error_detail(exc: Exception) -> str:
+    if isinstance(exc, RESTGuardAdapterError):
+        return str(exc)
     if isinstance(exc, HTTPException):
         return str(exc.detail)
     return f"{type(exc).__name__}: {exc}"
@@ -626,16 +764,19 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
             detail=f"Estimated worker run costs ${estimated_cost:.4f}, above the ${float(budget_cap):.4f} budget cap",
         )
 
-    thresholds = _connector_thresholds(project_id)
-    adapters = tuple(
-        DeterministicPolicyGuardAdapter(
-            guard_id=guard_id,
-            run_id=job["run_id"],
-            threshold=thresholds.get(guard_id) or 0.5,
-            metadata={"source": "worker_evaluation", "contract": "guard_adapter_v1"},
+    if payload.adapter_mode == "rest_guard":
+        adapters = _rest_guard_adapters(project_id, str(job["run_id"]), requested_guard_ids)
+    else:
+        thresholds = _connector_thresholds(project_id)
+        adapters = tuple(
+            DeterministicPolicyGuardAdapter(
+                guard_id=guard_id,
+                run_id=job["run_id"],
+                threshold=thresholds.get(guard_id) or 0.5,
+                metadata={"source": "worker_evaluation", "contract": "guard_adapter_v1"},
+            )
+            for guard_id in requested_guard_ids
         )
-        for guard_id in requested_guard_ids
-    )
     outputs = EvaluationRunner(adapters).run(examples)
     blocked = sum(1 for output in outputs if not output.binary_pass)
     errors = sum(1 for output in outputs if output.error)
@@ -653,7 +794,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
         name=f"{suite_bundle['suite']['name']} worker evaluation",
         job_id=str(job["id"]),
     )
-    recorded_events = usage.record_usage_events(project_id, job, _usage_events_from_evaluation(job, outputs, examples, requested_guard_ids))
+    recorded_events = usage.record_usage_events(project_id, job, _usage_events_from_evaluation(job, outputs, examples, requested_guard_ids, payload.adapter_mode))
     actual_cost = round(sum(float(event.get("actual_cost_usd") or 0) for event in recorded_events), 4)
     preview = [
         {
@@ -695,7 +836,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
     job["artifact_preview"] = preview
     job["next_steps"] = [
         "Review the recommendation, overlap analysis, and remaining measurement plan for this evidence run.",
-        "Replace deterministic adapters with managed REST or model-judge providers before relying on the result for a real deployment gate.",
+        _evaluation_adapter_next_step(payload.adapter_mode),
         "Issue release evidence only after acknowledging scope and limitations; StackCert mitigates risk, it does not guarantee safety.",
     ]
     return job

@@ -117,6 +117,28 @@ def main() -> int:
         require(rpc_status == 200, f"MCP initialize returned {rpc_status}: {rpc_payload}")
         require(rpc_payload.get("jsonrpc") == "2.0", f"MCP initialize payload was unexpected: {rpc_payload}")
 
+        tool_status, tool_payload = post_json(
+            f"{api_base}/api/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": "smoke-release-status",
+                "method": "tools/call",
+                "params": {
+                    "name": "get_release_evidence_status",
+                    "arguments": {"project_id": "proj_acme_copilot", "lambda_cost": 5},
+                },
+            },
+            auth_headers,
+        )
+        require(tool_status == 200, f"MCP release evidence tool returned {tool_status}: {tool_payload}")
+        result = tool_payload.get("result") if isinstance(tool_payload, dict) else None
+        structured = result.get("structuredContent") if isinstance(result, dict) else None
+        require(isinstance(structured, dict), f"MCP release evidence payload lacked structuredContent: {tool_payload}")
+        require(structured.get("not_a_guarantee") is True, "MCP release evidence did not include limitations flag")
+        deploy_gate = structured.get("deploy_gate")
+        require(isinstance(deploy_gate, dict), f"MCP release evidence lacked deploy_gate: {tool_payload}")
+        require(deploy_gate.get("decision") in {"pass", "review"}, f"MCP deploy gate decision was unexpected: {deploy_gate}")
+
     print("cloud run api smoke OK")
     return 0
 

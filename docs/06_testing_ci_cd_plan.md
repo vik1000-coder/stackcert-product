@@ -283,7 +283,11 @@ staging deploy. It verifies:
 - public API health;
 - unauthenticated API denial;
 - Supabase password sign-in;
-- authenticated project read.
+- authenticated project read;
+- authenticated MCP manifest discovery;
+- authenticated MCP initialize over `/api/mcp`;
+- authenticated `get_release_evidence_status` tool call with the
+  `not_a_guarantee` limitations flag.
 
 For the current Cloudflare + Cloud Run hosted target:
 

@@ -544,7 +544,8 @@ handles React routes with:
 For the GitHub-controlled Cloudflare CD path, use
 `.github/workflows/deploy-cloudflare.yml`. It runs after `ci` succeeds on
 `main`, deploys with a scoped `CLOUDFLARE_API_TOKEN`, and runs
-`scripts/deployment_smoke.py` against:
+`scripts/deployment_smoke.py` against the web app, Cloud Run API, Supabase Auth,
+and authenticated MCP release-evidence tool path:
 
 ```text
 web: https://stackcert-staging.savikk129.workers.dev/

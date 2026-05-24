@@ -1303,3 +1303,49 @@ Started: 2026-05-23
     connectors, queued a worker dry-run from setup, ran the worker, opened the
     resulting recommendation run, and checked desktop/mobile horizontal
     overflow -> OK. Screenshot: `output/setup-worker-smoke.png`.
+
+## REST Provider Adapter And Hosted MCP Smoke Slice
+
+- Implemented the real REST safety-check adapter contract:
+  - outbound POST payload now includes guard/run/example/cell ids, prompt hash,
+    redacted prompt, source, policy category, and example metadata;
+  - accepts `binary_pass`, `safe`, `block`, `unsafe`, `binary_block`,
+    `block_probability`, `risk_score`, or `score` provider responses;
+  - applies connector thresholds for score-only responses;
+  - records adapter/endpoint/provider metadata without storing secrets;
+  - classifies HTTP timeout, rate-limit, provider, and configuration failures
+    for worker retries/dead-letter handling.
+- Added production endpoint safety checks so REST connectors must use HTTPS
+  and cannot target localhost, metadata hosts, or literal private/link-local
+  addresses when `STACKCERT_ENV=production`.
+- Wired `adapter_mode: rest_guard` into project evaluation jobs:
+  - non-demo jobs preflight configured REST connectors before queueing;
+  - backend-only secrets resolve through
+    `STACKCERT_GUARD_SECRET_<GUARD_KEY>`;
+  - worker execution calls configured connector endpoints and persists the
+    resulting `worker_evaluation` CASS run;
+  - usage events include adapter mode/type metadata.
+- Added authenticated hosted MCP smoke coverage:
+  - `scripts/deployment_smoke.py` now checks MCP manifest discovery,
+    `/api/mcp` initialize, and `get_release_evidence_status`;
+  - `scripts/cloud_run_api_smoke.py` now checks the same release-evidence tool
+    path when Supabase smoke credentials are provided;
+  - deployment readiness tests assert the smoke script covers MCP and
+    limitations flags.
+- Added regression coverage:
+  - REST adapter unit tests with an in-process fake provider;
+  - score-only response threshold/probability preservation;
+  - API worker test that starts a fake REST guard server, creates two
+    authenticated connectors, runs a queued job, and verifies persisted
+    overview/cost evidence;
+  - missing backend-secret preflight failure with the expected env var name;
+  - production URL-safety checks for local/metadata endpoints.
+- Verification:
+  - `uv run python -m py_compile stackcert/guards/rest_adapter.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py` -> OK;
+  - `uv run python -m unittest tests.test_rest_adapter` -> 3 tests passed;
+  - `uv run python -m unittest discover -s tests_service` -> 59 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 14 tests passed;
+  - `npm --prefix web run typecheck -- --pretty false` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK.

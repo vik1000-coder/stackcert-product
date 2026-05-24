@@ -52,6 +52,10 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("--api-url", smoke)
         self.assertIn("/auth/v1/token?grant_type=password", smoke)
         self.assertIn("/api/projects", smoke)
+        self.assertIn("/api/mcp/manifest", smoke)
+        self.assertIn("/api/mcp", smoke)
+        self.assertIn("get_release_evidence_status", smoke)
+        self.assertIn("not_a_guarantee", smoke)
 
 
 if __name__ == "__main__":

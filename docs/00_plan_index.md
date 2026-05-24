@@ -89,14 +89,15 @@ The implementation is past planning. The working app now includes:
 - FastAPI service around the Python CASS core.
 - Supabase-backed persistence for pilot runs and supporting records.
 - Uploaded-output pilot flow through scoped release evidence.
+- Deterministic and REST worker evaluation paths that persist
+  `worker_evaluation` evidence runs.
 - MCP endpoints for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts.
 
-The current priority is a real REST/model-provider adapter, authenticated
-hosted MCP smoke coverage, and tenancy/security hardening. The deterministic
-worker path now executes real project benchmark suites and persists
-`worker_evaluation` evidence runs. See `15_current_state_and_next_steps.md`.
+The current priority is provider secret management, model-judge execution,
+real MCP client compatibility, and tenancy/security hardening. See
+`15_current_state_and_next_steps.md`.
 
 ## Test Cadence
 

@@ -27,6 +27,9 @@ StackCert is now a usable prototype with a real product shape:
 - Uploaded-output pilot path: users can create a project, commit an example
   suite, upload safety-check outputs, generate a CASS-backed recommendation,
   inspect rankings/overlap/measurements, and issue scoped release evidence.
+- Managed worker path: users can configure REST safety-check connectors,
+  enqueue provider-style evaluation jobs against a committed suite, enforce a
+  run budget cap, and persist the resulting CASS evidence run.
 - Supabase-backed persistence for custom behaviors, benchmark suites, guard
   connectors, jobs, usage events, issued evidence, signoffs, and uploaded-output
   pilot runs.
@@ -71,24 +74,31 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
-  -> 11 tests passed
-
-.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v
-  -> 54 tests passed
-
-cd web && npm run lint
+uv run python -m py_compile stackcert/guards/rest_adapter.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py
   -> OK
 
-cd web && npm test -- --run
-  -> 4 tests passed
+uv run python -m unittest discover -s tests_service
+  -> 59 tests passed
 
-cd web && npm run build
+uv run python -m unittest discover -s tests
+  -> 14 tests passed
+
+npm --prefix web run typecheck -- --pretty false
   -> OK
 
-deno check supabase/functions/stackcert-api/index.ts
+npm --prefix web test -- --run
+  -> 6 tests passed
+
+npm --prefix web run build
   -> OK
 
+npm run build
+  -> OK
+```
+
+Recent deployment verification from the hosted staging stack:
+
+```text
 docker build -f Dockerfile.api -t stackcert-api:cloudrun-prep .
 docker run ... stackcert-api:cloudrun-prep
 .venv/bin/python scripts/cloud_run_api_smoke.py --api-url http://127.0.0.1:18080
@@ -115,7 +125,9 @@ Latest hosted verification:
 - Cloud Run `GET /api/health` returns `200`.
 - Cloud Run unauthenticated API calls return `401`/`403` as expected.
 - Authenticated deployment smoke against Cloudflare + Cloud Run + Supabase Auth
-  returns `deployment smoke OK`.
+  returns `deployment smoke OK`; the smoke script now also initializes the
+  hosted MCP endpoint and calls `get_release_evidence_status` with an
+  authenticated Supabase session.
 - Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
   `deploy cloudflare`.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
@@ -165,7 +177,11 @@ Current worker status:
 
 - queued evaluation jobs can target a real project benchmark suite;
 - deterministic provider-style adapters execute configured safety-check
-  connectors;
+  connectors for cheap dry runs;
+- REST safety-check adapters execute configured connector endpoints through the
+  worker contract using redacted prompts, connector thresholds, backend-only
+  environment secrets, and retry/dead-letter classification for HTTP timeout,
+  rate-limit, provider, and configuration failures;
 - jobs enforce a run-level budget cap before execution;
 - worker outputs create a persisted `worker_evaluation` evidence run;
 - CASS recommendation, overlap, measurement-plan, cost, and release-evidence
@@ -176,27 +192,29 @@ Current worker status:
 
 ## What To Do Next
 
-### 1. Finish The Real Provider Worker Path
+### 1. Harden The Provider Worker Path
 
-The worker path is now useful for deterministic staging runs. The next gap is
-real external provider execution.
+The worker path now has deterministic and REST adapter execution. The next gap
+is making that path comfortable for real design partners who already have
+provider endpoints and CI gates.
 
 Needed work:
 
-- REST safety-check adapter with authenticated outbound calls;
+- provider-specific retry/backoff/rate-limit policy by connector;
+- idempotent output writes across worker retries and duplicate claims;
+- managed secret storage instead of the temporary
+  `STACKCERT_GUARD_SECRET_<GUARD_KEY>` environment-variable convention;
 - model-judge adapter contract and fixture tests;
 - lease renewal for long-running jobs;
-- provider retry/backoff/rate-limit policy by connector;
 - per-workspace and per-run budget caps backed by database policy;
-- idempotent output writes across worker retries and duplicate claims;
 - dead-letter review UI;
 - Cloud Run worker deployment or scheduled Cloud Run Job using
   `scripts/worker_once.py`;
 - recompute evidence after targeted measurement outputs land, not only after
   initial evaluation runs.
 
-The deterministic/fake provider path is the staging baseline. Add one real REST
-safety-check adapter next and keep deterministic mode for CI and onboarding.
+Keep deterministic mode for CI/onboarding, but make REST mode the primary
+design-partner integration path.
 
 ### 2. Harden Auth, Tenancy, And Evidence Storage
 
@@ -217,7 +235,6 @@ The MCP surface is now useful, but it needs client-level proof.
 Next MCP tasks:
 
 - run a real MCP client against `/api/mcp`;
-- add authenticated hosted MCP smoke coverage in CI;
 - add scoped API tokens or OAuth-style access for machine users;
 - decide which tools are read-only by default and which require explicit human
   approval;
@@ -242,11 +259,11 @@ After staging works end to end:
 The next engineering milestone should be:
 
 ```text
-Real REST provider adapter + authenticated hosted MCP smoke coverage
+Provider secret management + model-judge adapter + real MCP client compatibility
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
-from uploaded outputs to a deterministic managed run. The next value milestone
-is proving the same contract against a real provider endpoint and a real MCP
-client.
+from uploaded outputs to deterministic or REST managed runs. The next value
+milestone is making the provider path resilient enough for design partners and
+proving the MCP surface with an actual agent client.

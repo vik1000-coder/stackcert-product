@@ -385,7 +385,7 @@ export type EvaluationJobInput = {
   benchmark_suite_id?: string;
   examples_per_cell: number;
   seed: number;
-  adapter_mode: 'deterministic_fixture' | 'uploaded_outputs';
+  adapter_mode: 'deterministic_fixture' | 'rest_guard' | 'uploaded_outputs';
   execution_mode?: 'immediate' | 'queued';
   lambda_cost?: number;
   rho_prior?: number;

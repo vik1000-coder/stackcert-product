@@ -19,18 +19,22 @@ Completed or substantially implemented:
 - Phase 4 first pilot path: workspace/project creation, setup flow,
   benchmark-suite import, uploaded safety-check outputs, and CASS-backed
   release evidence for user-created pilot runs.
-- Parts of Phase 5 and Phase 6: safety-check connector records, queued job
-  simulation, provider retry/dead-letter tests, cost ledgers, release-evidence
-  issue/signoff, and durable Supabase persistence for pilot runs.
+- Parts of Phase 5 and Phase 6: safety-check connector records, queued jobs,
+  deterministic and REST provider adapter execution, provider
+  retry/dead-letter tests, cost ledgers, release-evidence issue/signoff, and
+  durable Supabase persistence for pilot runs.
 - Agent/MCP integration slice: authenticated MCP endpoints, release-evidence
   status, theory cards, measurement recommendations, cost ledgers, integration
-  guides, and deployment-review prompts.
+  guides, deployment-review prompts, and authenticated hosted MCP smoke coverage.
+- Phase 8 staging deployment: Cloud Run FastAPI/CASS API, Supabase persistence,
+  Cloudflare Workers static frontend, GitHub Pages fallback, and CI-gated
+  deployment smoke are working for staging.
 
 Still not complete:
 
-- Real provider-backed worker execution.
-- Cloud Run staging/production deployment for the Python FastAPI service.
-- Production frontend host pointed at the real FastAPI API.
+- Production provider hardening: secret manager integration, provider-specific
+  rate limits/retries, idempotent output writes, and model-judge execution.
+- Production environment separate from staging.
 - Full workspace membership/RBAC enforcement beyond the current prototype
   assumptions.
 - Production observability, backups, billing/budget enforcement, and legal terms.
@@ -38,7 +42,7 @@ Still not complete:
 Current next milestone:
 
 ```text
-Cloud Run staging FastAPI + Supabase persistence + authenticated frontend smoke
+Provider secret management + model-judge adapter + real MCP client compatibility
 ```
 
 ## Phase 0: Planning And Design Ingestion
@@ -253,16 +257,17 @@ Acceptance criteria:
 ## Phase 5: Safety Check, Model, And Evaluation Runner
 
 Status: partially implemented. Connector records, redaction, queued jobs,
-leases, retries, budget checks, usage records, and deterministic provider-style
-worker execution exist. Real outbound REST/model-provider execution and long-job
-lease renewal remain the major gaps.
+leases, retries, budget checks, usage records, deterministic provider-style
+worker execution, and authenticated REST guard execution exist. Model-judge
+execution, managed secret storage, provider-specific rate limits, idempotent
+output writes, and long-job lease renewal remain the major gaps.
 
 Goal: Move from uploaded outputs to managed evaluations.
 
 Deliverables:
 
 - Safety-check/model connector registry.
-- REST adapter configuration.
+- REST adapter configuration and execution.
 - Python/local adapter configuration.
 - Model judge adapter configuration.
 - Secret handling and redaction.
@@ -272,7 +277,7 @@ Deliverables:
 
 Tests:
 
-- Adapter unit tests with fake providers.
+- Adapter unit tests with fake REST providers.
 - Worker idempotency tests.
 - Retry/dead-letter tests.
 - Rate limit tests.
@@ -283,6 +288,8 @@ Acceptance criteria:
 
 - A user can connect at least one REST safety check and one local/model judge adapter.
 - A worker can execute a small deterministic run and write CASS evidence
+  results for a real project.
+- A worker can execute a small REST safety-check run and write CASS evidence
   results for a real project.
 - Test plan can queue executable targeted-test jobs.
 - A production REST/model-provider adapter can execute with provider-specific
@@ -349,8 +356,10 @@ Acceptance criteria:
 
 ## Phase 8: Production Hardening And Deployment
 
-Status: planned. `docs/13_production_hosting_setup.md` now contains the Cloud
-Run setup walkthrough; implementation is next.
+Status: staging implemented. `docs/13_production_hosting_setup.md` contains the
+Cloud Run setup walkthrough; Cloud Run API, Cloudflare Workers static frontend,
+GitHub Pages fallback, and GitHub-hosted smoke checks are working for staging.
+Production separation, observability, backups, and rollback rehearsal remain.
 
 Goal: Prepare for design partners and early revenue.
 
