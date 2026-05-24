@@ -1349,3 +1349,50 @@ Started: 2026-05-23
   - `npm --prefix web test -- --run` -> 6 tests passed;
   - `npm --prefix web run build` -> OK;
   - `npm run build` -> OK.
+
+## Provider Secrets, Model-Judge Worker, And MCP Client Slice
+
+- Added backend-only provider secret management:
+  - connector creation now records explicit secret refs and secret status
+    without returning raw secret material to the browser;
+  - local development/test connectors can use process-memory secret refs for
+    fake providers;
+  - production connector configs point at environment-secret refs such as
+    `STACKCERT_GUARD_SECRET_<GUARD_KEY>` and fail preflight if the worker does
+    not have the secret.
+- Implemented model-judge worker execution:
+  - added an HTTP JSON model-judge adapter that supports OpenAI-compatible chat,
+    Ollama chat, and direct JSON judge endpoints;
+  - parses `block`, `safe`, `binary_pass`, `risk_score`, `score`, and
+    structured chat message JSON responses;
+  - keeps raw model output out of stored metadata by default while preserving
+    category/rationale summaries;
+  - wires `adapter_mode: model_judge` into job preflight, worker execution,
+    usage events, and persisted `worker_evaluation` CASS runs.
+- Added MCP client-level smoke coverage:
+  - added `mcp==1.27.1`;
+  - added `scripts/mcp_client_smoke.py`, which uses the official Python MCP SDK
+    `ClientSession` and `streamable_http_client` against `/api/mcp`;
+  - GitHub Pages and Cloudflare deploy workflows now run the SDK smoke after
+    the existing hosted deployment smoke.
+- Updated setup UI/API types for model-judge connector fields: model, provider
+  format, system prompt, timeout, and secret env var.
+- Added regression coverage:
+  - model-judge adapter unit tests with fake OpenAI-compatible and direct JSON
+    providers;
+  - project worker model-judge run with two connectors, persisted overview, and
+    authorization header verification;
+  - deployment-readiness assertions that hosted workflows run the MCP SDK smoke.
+- Verification:
+  - `uv run python -m py_compile stackcert/guards/model_judge_adapter.py stackcert/guards/rest_adapter.py stackcert_service/services/provider_secrets.py stackcert_service/services/guard_connectors.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/mcp_client_smoke.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py` -> OK;
+  - `uv run python -m unittest tests.test_model_judge_adapter tests.test_rest_adapter` -> 6 tests passed;
+  - targeted API/deployment-readiness tests for model judge, REST, secret
+    preflight, and MCP SDK workflow coverage -> OK;
+  - `uv run python -m unittest discover -s tests_service` -> 60 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck -- --pretty false` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - local `scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18081` against
+    a local FastAPI server -> `mcp client smoke OK`.

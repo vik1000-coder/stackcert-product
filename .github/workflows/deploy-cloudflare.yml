@@ -57,8 +57,14 @@ jobs:
         env:
           STACKCERT_SMOKE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
+          python -m pip install -e .
           python scripts/deployment_smoke.py \
             --web-url "https://stackcert-staging.savikk129.workers.dev/" \
+            --api-url "${{ vars.VITE_API_BASE_URL }}" \
+            --supabase-url "${{ vars.VITE_SUPABASE_URL }}" \
+            --email "${{ secrets.STACKCERT_SMOKE_EMAIL }}" \
+            --password "${{ secrets.STACKCERT_SMOKE_PASSWORD }}"
+          python scripts/mcp_client_smoke.py \
             --api-url "${{ vars.VITE_API_BASE_URL }}" \
             --supabase-url "${{ vars.VITE_SUPABASE_URL }}" \
             --email "${{ secrets.STACKCERT_SMOKE_EMAIL }}" \

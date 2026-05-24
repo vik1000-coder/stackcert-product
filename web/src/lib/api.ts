@@ -345,6 +345,11 @@ export type GuardConnectorInput = {
   endpoint_url?: string;
   auth_header_name: string;
   auth_secret?: string;
+  secret_env_var?: string;
+  model?: string;
+  provider_format?: 'openai_chat' | 'ollama_chat' | 'direct_json';
+  system_prompt?: string;
+  timeout_sec?: number;
   threshold?: number;
 };
 
@@ -385,7 +390,7 @@ export type EvaluationJobInput = {
   benchmark_suite_id?: string;
   examples_per_cell: number;
   seed: number;
-  adapter_mode: 'deterministic_fixture' | 'rest_guard' | 'uploaded_outputs';
+  adapter_mode: 'deterministic_fixture' | 'rest_guard' | 'model_judge' | 'uploaded_outputs';
   execution_mode?: 'immediate' | 'queued';
   lambda_cost?: number;
   rho_prior?: number;

@@ -48,6 +48,11 @@ const initialConnector: GuardConnectorInput = {
   endpoint_url: 'https://checks.example.test/refund',
   auth_header_name: 'Authorization',
   auth_secret: '',
+  secret_env_var: 'STACKCERT_GUARD_SECRET_REFUND_POLICY_GUARD',
+  provider_format: 'openai_chat',
+  model: '',
+  system_prompt: '',
+  timeout_sec: 60,
   threshold: 0.8
 };
 
@@ -252,8 +257,35 @@ export function SetupPage() {
             <div className="setup-grid-secret">
               <Field label="Auth header" value={connector.auth_header_name} onChange={(value) => setConnector((draft) => ({ ...draft, auth_header_name: value }))} />
               <Field label="Auth secret" value={connector.auth_secret ?? ''} onChange={(value) => setConnector((draft) => ({ ...draft, auth_secret: value }))} />
+              <Field label="Secret env var" value={connector.secret_env_var ?? ''} onChange={(value) => setConnector((draft) => ({ ...draft, secret_env_var: value || undefined }))} />
               <Field label="Threshold" value={String(connector.threshold ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, threshold: value ? Number(value) : undefined }))} />
             </div>
+            {connector.adapter_type === 'model_judge' ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div className="setup-grid-three">
+                  <Field label="Model" value={connector.model ?? ''} onChange={(value) => setConnector((draft) => ({ ...draft, model: value || undefined }))} />
+                  <label>
+                    <span className="stat-label">Provider format</span>
+                    <select className="btn setup-input" style={{ marginTop: 6 }} value={connector.provider_format ?? 'openai_chat'} onChange={(event) => setConnector((draft) => ({ ...draft, provider_format: event.currentTarget.value as GuardConnectorInput['provider_format'] }))}>
+                      <option value="openai_chat">OpenAI-compatible chat</option>
+                      <option value="ollama_chat">Ollama chat</option>
+                      <option value="direct_json">direct JSON</option>
+                    </select>
+                  </label>
+                  <Field label="Timeout seconds" value={String(connector.timeout_sec ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, timeout_sec: value ? Number(value) : undefined }))} />
+                </div>
+                <label>
+                  <span className="stat-label">Judge instructions</span>
+                  <textarea
+                    className="setup-input"
+                    style={{ marginTop: 6, minHeight: 88 }}
+                    value={connector.system_prompt ?? ''}
+                    onChange={(event) => setConnector((draft) => ({ ...draft, system_prompt: event.currentTarget.value || undefined }))}
+                    placeholder="Return only JSON with block, risk_score, category, rationale."
+                  />
+                </label>
+              </div>
+            ) : null}
             <button className="btn primary" type="submit" disabled={createConnector.isPending}>
               {createConnector.isPending ? 'Saving connector...' : 'Save connector'}
             </button>

@@ -27,9 +27,9 @@ StackCert is now a usable prototype with a real product shape:
 - Uploaded-output pilot path: users can create a project, commit an example
   suite, upload safety-check outputs, generate a CASS-backed recommendation,
   inspect rankings/overlap/measurements, and issue scoped release evidence.
-- Managed worker path: users can configure REST safety-check connectors,
-  enqueue provider-style evaluation jobs against a committed suite, enforce a
-  run budget cap, and persist the resulting CASS evidence run.
+- Managed worker path: users can configure REST safety-check and model-judge
+  connectors, enqueue provider-style evaluation jobs against a committed suite,
+  enforce a run budget cap, and persist the resulting CASS evidence run.
 - Supabase-backed persistence for custom behaviors, benchmark suites, guard
   connectors, jobs, usage events, issued evidence, signoffs, and uploaded-output
   pilot runs.
@@ -74,14 +74,17 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-uv run python -m py_compile stackcert/guards/rest_adapter.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py
+uv run python -m py_compile stackcert/guards/model_judge_adapter.py stackcert/guards/rest_adapter.py stackcert_service/services/provider_secrets.py stackcert_service/services/guard_connectors.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/mcp_client_smoke.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py
   -> OK
 
 uv run python -m unittest discover -s tests_service
-  -> 59 tests passed
+  -> 60 tests passed
 
 uv run python -m unittest discover -s tests
-  -> 14 tests passed
+  -> 17 tests passed
+
+uv run python scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18081
+  -> mcp client smoke OK
 
 npm --prefix web run typecheck -- --pretty false
   -> OK
@@ -182,6 +185,13 @@ Current worker status:
   worker contract using redacted prompts, connector thresholds, backend-only
   environment secrets, and retry/dead-letter classification for HTTP timeout,
   rate-limit, provider, and configuration failures;
+- model-judge adapters execute OpenAI-compatible, Ollama-style, or direct-JSON
+  judge endpoints using the same worker contract and persisted CASS evidence
+  path;
+- connector secrets now resolve through a backend-only provider-secret resolver:
+  local development can use process-memory secrets for fake providers, while
+  production connector configs point workers at explicit environment-secret
+  refs such as `STACKCERT_GUARD_SECRET_<GUARD_KEY>`;
 - jobs enforce a run-level budget cap before execution;
 - worker outputs create a persisted `worker_evaluation` evidence run;
 - CASS recommendation, overlap, measurement-plan, cost, and release-evidence
@@ -194,17 +204,17 @@ Current worker status:
 
 ### 1. Harden The Provider Worker Path
 
-The worker path now has deterministic and REST adapter execution. The next gap
-is making that path comfortable for real design partners who already have
-provider endpoints and CI gates.
+The worker path now has deterministic, REST, and model-judge adapter execution.
+The next gap is making that path comfortable for real design partners who
+already have provider endpoints and CI gates.
 
 Needed work:
 
 - provider-specific retry/backoff/rate-limit policy by connector;
 - idempotent output writes across worker retries and duplicate claims;
-- managed secret storage instead of the temporary
-  `STACKCERT_GUARD_SECRET_<GUARD_KEY>` environment-variable convention;
-- model-judge adapter contract and fixture tests;
+- managed Secret Manager/Vault storage instead of the current
+  env-ref plus local-memory resolver;
+- connector-level price cards and provider-specific token accounting;
 - lease renewal for long-running jobs;
 - per-workspace and per-run budget caps backed by database policy;
 - dead-letter review UI;
@@ -213,8 +223,8 @@ Needed work:
 - recompute evidence after targeted measurement outputs land, not only after
   initial evaluation runs.
 
-Keep deterministic mode for CI/onboarding, but make REST mode the primary
-design-partner integration path.
+Keep deterministic mode for CI/onboarding, but make REST and model-judge modes
+the primary design-partner integration paths.
 
 ### 2. Harden Auth, Tenancy, And Evidence Storage
 
@@ -230,12 +240,15 @@ Before real users:
 
 ### 3. Validate MCP With Real Agent Clients
 
-The MCP surface is now useful, but it needs client-level proof.
+The MCP surface now has client-level proof through
+`scripts/mcp_client_smoke.py`, which uses the official Python MCP SDK against
+`/api/mcp`.
 
 Next MCP tasks:
 
-- run a real MCP client against `/api/mcp`;
 - add scoped API tokens or OAuth-style access for machine users;
+- add MCP client compatibility checks for at least one desktop/agent runtime
+  beyond the Python SDK;
 - decide which tools are read-only by default and which require explicit human
   approval;
 - add audit events for tool calls that queue work or affect release decisions.
@@ -259,11 +272,11 @@ After staging works end to end:
 The next engineering milestone should be:
 
 ```text
-Provider secret management + model-judge adapter + real MCP client compatibility
+Connector price cards + idempotent worker output writes + machine auth for MCP
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
-from uploaded outputs to deterministic or REST managed runs. The next value
-milestone is making the provider path resilient enough for design partners and
-proving the MCP surface with an actual agent client.
+from uploaded outputs to deterministic, REST, or model-judge managed runs. The
+next value milestone is making provider execution resilient and auditable enough
+for design partners.

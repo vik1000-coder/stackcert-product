@@ -286,6 +286,12 @@ printf "%s" "$SUPABASE_SERVICE_ROLE_KEY" | "${GCLOUD_BIN:-gcloud}" secrets creat
   --data-file=-
 ```
 
+Provider connector secrets should follow the same pattern. For a connector
+whose guard key is `refund_policy_guard`, set the Cloud Run runtime environment
+variable `STACKCERT_GUARD_SECRET_REFUND_POLICY_GUARD` from a Secret Manager
+secret. The app stores only the env-var reference in connector config; the
+provider key itself must stay in Secret Manager or the runtime environment.
+
 Or use the helper that creates a first version or rotates a new version without
 printing secret values. It can read `SUPABASE_SECRET_KEY` /
 `SUPABASE_SERVICE_ROLE_KEY` from the shell, or the JSON file produced by
@@ -544,8 +550,9 @@ handles React routes with:
 For the GitHub-controlled Cloudflare CD path, use
 `.github/workflows/deploy-cloudflare.yml`. It runs after `ci` succeeds on
 `main`, deploys with a scoped `CLOUDFLARE_API_TOKEN`, and runs
-`scripts/deployment_smoke.py` against the web app, Cloud Run API, Supabase Auth,
-and authenticated MCP release-evidence tool path:
+`scripts/deployment_smoke.py` plus `scripts/mcp_client_smoke.py` against the web
+app, Cloud Run API, Supabase Auth, and authenticated MCP release-evidence tool
+path:
 
 ```text
 web: https://stackcert-staging.savikk129.workers.dev/

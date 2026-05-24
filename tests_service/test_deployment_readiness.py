@@ -47,6 +47,9 @@ class DeploymentReadinessTests(unittest.TestCase):
 
     def test_deployment_smoke_script_covers_web_api_and_auth(self):
         smoke = self.read("scripts/deployment_smoke.py")
+        mcp_smoke = self.read("scripts/mcp_client_smoke.py")
+        pages_workflow = self.read(".github/workflows/deploy-pages.yml")
+        cloudflare_workflow = self.read(".github/workflows/deploy-cloudflare.yml")
 
         self.assertIn("--web-url", smoke)
         self.assertIn("--api-url", smoke)
@@ -56,6 +59,11 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("/api/mcp", smoke)
         self.assertIn("get_release_evidence_status", smoke)
         self.assertIn("not_a_guarantee", smoke)
+        self.assertIn("ClientSession", mcp_smoke)
+        self.assertIn("streamable_http_client", mcp_smoke)
+        self.assertIn("get_release_evidence_status", mcp_smoke)
+        self.assertIn("scripts/mcp_client_smoke.py", pages_workflow)
+        self.assertIn("scripts/mcp_client_smoke.py", cloudflare_workflow)
 
 
 if __name__ == "__main__":

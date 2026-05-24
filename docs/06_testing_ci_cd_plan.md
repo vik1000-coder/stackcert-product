@@ -287,7 +287,8 @@ staging deploy. It verifies:
 - authenticated MCP manifest discovery;
 - authenticated MCP initialize over `/api/mcp`;
 - authenticated `get_release_evidence_status` tool call with the
-  `not_a_guarantee` limitations flag.
+  `not_a_guarantee` limitations flag;
+- official MCP Python SDK smoke through `scripts/mcp_client_smoke.py`.
 
 For the current Cloudflare + Cloud Run hosted target:
 

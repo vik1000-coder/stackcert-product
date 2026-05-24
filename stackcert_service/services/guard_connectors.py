@@ -11,6 +11,7 @@ from stackcert_service.db.supabase import SupabasePersistenceError, configured_s
 from stackcert_service.schemas import GuardConnectorCreate
 from stackcert_service.services import demo_project
 from stackcert_service.services.display import guard_label
+from stackcert_service.services import provider_secrets
 
 
 _connectors: dict[str, list[dict[str, Any]]] = {}
@@ -41,10 +42,35 @@ def create_connector(project_id: str, payload: GuardConnectorCreate) -> dict[str
 
 def clear_connectors() -> None:
     _connectors.clear()
+    provider_secrets.clear_memory_secrets()
 
 
 def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> dict[str, Any]:
-    has_secret = bool(payload.auth_secret)
+    secret_config = provider_secrets.prepare_secret_config(
+        project_id=project_id,
+        guard_id=payload.guard_key,
+        raw_secret=payload.auth_secret,
+        secret_env_var=payload.secret_env_var,
+    )
+    config: dict[str, Any] = {
+        "endpoint_url": payload.endpoint_url,
+        "auth_header_name": payload.auth_header_name,
+        "has_secret": secret_config.has_secret,
+        "secret_ref": secret_config.secret_ref,
+        "secret_env_var": secret_config.secret_env_var,
+        "secret_status": secret_config.secret_status,
+    }
+    if payload.adapter_type == "model_judge" or payload.guard_type == "model_judge":
+        config.update(
+            {
+                "model": payload.model or "gpt-4.1-mini",
+                "provider_format": payload.provider_format or "openai_chat",
+                "system_prompt": payload.system_prompt or _default_model_judge_prompt(payload.display_name),
+                "timeout_sec": payload.timeout_sec or 60,
+            }
+        )
+    elif payload.timeout_sec:
+        config["timeout_sec"] = payload.timeout_sec
     return {
         "id": f"guard_{uuid.uuid4().hex[:12]}",
         "project_id": project_id,
@@ -62,15 +88,11 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "latency_ms": 100,
         "unit_cost_usd": 0.0002,
         "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
-        "config": {
-            "endpoint_url": payload.endpoint_url,
-            "auth_header_name": payload.auth_header_name,
-            "has_secret": has_secret,
-            "secret_ref": f"pending-vault://{payload.guard_key}" if has_secret else None,
-        },
+        "config": config,
         "redaction": {
-            "auth_secret_stored": has_secret,
+            "auth_secret_stored": secret_config.has_secret,
             "auth_secret_visible": False,
+            "secret_status": secret_config.secret_status,
         },
     }
 
@@ -106,3 +128,11 @@ def _persistent_store():
         return configured_supabase_store()
     except SupabasePersistenceError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+
+def _default_model_judge_prompt(display_name: str) -> str:
+    return (
+        f"You are {display_name}, a safety-check judge for an LLM application. "
+        "Classify whether the user prompt should be blocked by this safety check. "
+        "Return only JSON with fields: block, risk_score, category, rationale."
+    )

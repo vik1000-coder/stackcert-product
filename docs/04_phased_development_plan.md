@@ -258,9 +258,10 @@ Acceptance criteria:
 
 Status: partially implemented. Connector records, redaction, queued jobs,
 leases, retries, budget checks, usage records, deterministic provider-style
-worker execution, and authenticated REST guard execution exist. Model-judge
-execution, managed secret storage, provider-specific rate limits, idempotent
-output writes, and long-job lease renewal remain the major gaps.
+worker execution, authenticated REST guard execution, model-judge execution,
+and backend-only connector secret refs exist. Managed Secret Manager/Vault
+storage, provider-specific rate limits, idempotent output writes, and long-job
+lease renewal remain the major gaps.
 
 Goal: Move from uploaded outputs to managed evaluations.
 
@@ -269,15 +270,15 @@ Deliverables:
 - Safety-check/model connector registry.
 - REST adapter configuration and execution.
 - Python/local adapter configuration.
-- Model judge adapter configuration.
-- Secret handling and redaction.
+- Model judge adapter configuration and execution.
+- Secret handling, redaction, and runtime secret resolution.
 - Async evaluation jobs.
 - Worker service.
 - Cost and latency collection.
 
 Tests:
 
-- Adapter unit tests with fake REST providers.
+- Adapter unit tests with fake REST and model-judge providers.
 - Worker idempotency tests.
 - Retry/dead-letter tests.
 - Rate limit tests.
@@ -291,6 +292,8 @@ Acceptance criteria:
   results for a real project.
 - A worker can execute a small REST safety-check run and write CASS evidence
   results for a real project.
+- A worker can execute a small model-judge run and write CASS evidence results
+  for a real project.
 - Test plan can queue executable targeted-test jobs.
 - A production REST/model-provider adapter can execute with provider-specific
   retries, rate limits, and idempotent writes.
