@@ -40,8 +40,8 @@ The hosted staging path has also been verified:
   `https://stackcert-staging.savikk129.workers.dev`.
 - `scripts/deployment_smoke.py` passes against Cloudflare + Cloud Run +
   Supabase Auth.
-- Latest GitHub Actions runs on `main` are green for `ci` and fallback
-  `deploy pages`.
+- Latest GitHub Actions runs on `main` are green for `ci`, fallback
+  `deploy pages`, and `deploy cloudflare`.
 
 ## Test Pyramid
 

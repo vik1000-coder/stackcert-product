@@ -111,13 +111,14 @@ Latest hosted verification:
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - Cloudflare deployment list shows the latest `stackcert-staging` deployment
-  modified on 2026-05-24 after the deploy commit.
+  was created by the GitHub `deploy cloudflare` workflow. The verified version
+  ID is `1f015c2e-5721-41ca-803e-2b1ac407b4d9`.
 - Cloud Run `GET /api/health` returns `200`.
 - Cloud Run unauthenticated API calls return `401`/`403` as expected.
 - Authenticated deployment smoke against Cloudflare + Cloud Run + Supabase Auth
   returns `deployment smoke OK`.
-- Latest GitHub Actions runs for `c28b4a8` are green for `ci` and fallback
-  `deploy pages`.
+- Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
+  `deploy cloudflare`.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
   browser-safe Supabase key, and the smoke-test user credentials.

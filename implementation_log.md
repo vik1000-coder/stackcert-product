@@ -1241,9 +1241,10 @@ Started: 2026-05-23
 
 ## CI/CD Verification And Docs Refresh
 
-- Confirmed latest GitHub Actions runs on `main` for commit `c28b4a8` are green:
+- Confirmed latest GitHub Actions runs on `main` are green:
   - `ci`;
-  - fallback `deploy pages`.
+  - fallback `deploy pages`;
+  - `deploy cloudflare`.
 - Added GitHub secret/variables for the Cloudflare CD path:
   - `CLOUDFLARE_API_TOKEN` as a scoped secret;
   - `CLOUDFLARE_ACCOUNT_ID`;
@@ -1259,6 +1260,8 @@ Started: 2026-05-23
   - Cloud Run `stackcert-api` revision is `stackcert-api-00003-szq`;
   - Cloud Run CORS includes the Cloudflare staging origin;
   - Cloudflare `stackcert-staging` deployments are visible with the scoped token;
+  - GitHub `deploy cloudflare` produced Worker version
+    `1f015c2e-5721-41ca-803e-2b1ac407b4d9`;
   - full deployed smoke returns `deployment smoke OK`.
 - Noted Cloudflare token limitation: the scoped token can deploy/list Workers,
   but Workers Builds API endpoints return `403`; add Workers Builds
