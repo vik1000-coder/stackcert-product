@@ -50,8 +50,8 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
   return (
     <div className="page">
       <PageHeader
-        title="Measurement planner"
-        subtitle="Queue only the measurements that can reduce comparison uncertainty and move the certificate."
+        title="Test plan and cost"
+        subtitle="Queue only the tests that can change which safety-check combination wins."
         actions={
           <>
             <button className="btn" onClick={() => setSelected(new Set(actions.map((action) => action.id)))}>
@@ -73,7 +73,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
               />
             </label>
             <button className="btn primary" disabled={selectedActions.length === 0 || queuePlan.isPending} onClick={() => queuePlan.mutate()}>
-              {queuePlan.isPending ? 'Queueing...' : 'Queue selected'}
+              {queuePlan.isPending ? 'Queueing...' : 'Queue selected tests'}
             </button>
             <button className="btn" disabled={runNextWorker.isPending} onClick={() => runNextWorker.mutate()}>
               {runNextWorker.isPending ? 'Working...' : 'Run worker'}
@@ -84,27 +84,27 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
       />
       <Explainer title="Where the cost savings happen" tone="accent" style={{ marginBottom: 16 }}>
         <p>
-          Exhaustive measurement would evaluate every guard pair across every benchmark cell. CASS has measured{' '}
-          <strong>{overviewStats.pair_cells_measured}/{overviewStats.pair_cells_total}</strong> pair-cells here, selecting
-          only bundles likely to shrink an active certificate gap and avoiding <strong>{fmtUsd(overviewStats.cost_avoided_usd)}</strong>
-          {' '}of estimated measurement spend.
+          Testing every combination and every overlap is expensive. StackCert has run{' '}
+          <strong>{overviewStats.pair_cells_measured}/{overviewStats.pair_cells_total}</strong> useful overlap tests
+          here, selecting only tests likely to change the recommendation and avoiding{' '}
+          <strong>{fmtUsd(overviewStats.cost_avoided_usd)}</strong> of estimated testing spend.
         </p>
       </Explainer>
       <div className="grid grid-3">
-        <Stat label="Selected cost" value={fmtUsd(selectedCost)} description="Estimated spend for the currently checked measurement bundles." />
+        <Stat label="Selected test cost" value={fmtUsd(selectedCost)} description="Estimated spend for the currently checked test bundles." />
         <Stat label="Actual usage" value={fmtUsd(actualCost)} tone={actualCost > 0 ? 'ok' : undefined} description="Ledgered provider and worker cost from jobs that have run." />
         <Stat label="ETA" value={`${eta} min`} description="Projected runtime for the selected queue, useful for release planning." />
       </div>
       <Card style={{ marginTop: 16 }}>
         <div className="grid grid-4" style={{ gap: 12 }}>
-          <MiniMetric label="Expected radius reduction" value={fmtNumber(radiusReduction, 5)} />
+          <MiniMetric label="Expected decision help" value={fmtNumber(radiusReduction, 5)} />
           <MiniMetric label="Provider calls" value={String(costs.data!.summary.request_count)} />
           <MiniMetric label="Input tokens" value={costs.data!.summary.input_tokens.toLocaleString()} />
           <MiniMetric label="Output tokens" value={costs.data!.summary.output_tokens.toLocaleString()} />
         </div>
         <p className="muted" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
-          Radius reduction is the expected shrinkage in comparison uncertainty. Bigger reductions are more likely to
-          turn an open comparison into a certified win.
+          Expected decision help estimates how much a test can reduce uncertainty between close combinations. Bigger
+          values are more likely to turn a close comparison into a clear recommendation.
         </p>
       </Card>
       <div className="table-wrap" style={{ marginTop: 16 }}>
@@ -113,10 +113,10 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
             <tr>
               <th />
               <th>Priority</th>
-              <th>Bundle</th>
-              <th>Cell</th>
+              <th>Test bundle</th>
+              <th>Example group</th>
               <th>Side</th>
-              <th className="right">Radius reduction</th>
+              <th className="right">Decision help</th>
               <th className="right">Cost</th>
               <th className="right">ETA</th>
             </tr>
@@ -158,7 +158,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
         {queuePlan.isSuccess ? (
           <div style={{ display: 'grid', gap: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-              <strong>Measurement job queued</strong>
+              <strong>Test job queued</strong>
               <Badge tone={queuePlan.data.job.status}>{queuePlan.data.job.status}</Badge>
             </div>
             <p className="muted" style={{ margin: 0 }}>
@@ -173,11 +173,11 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
             ) : null}
           </div>
         ) : queuePlan.isError ? (
-          <div className="notice bad">{queuePlan.error instanceof Error ? queuePlan.error.message : 'Could not queue measurement plan.'}</div>
+          <div className="notice bad">{queuePlan.error instanceof Error ? queuePlan.error.message : 'Could not queue test plan.'}</div>
         ) : (
           <p className="muted" style={{ margin: 0 }}>
-            Production workers will execute queued plans asynchronously with workspace budget checks, provider rate limits,
-            idempotent jobs, and audit events.
+            Production workers execute queued test plans asynchronously with workspace budget checks, provider rate
+            limits, idempotent jobs, and audit events.
           </p>
         )}
       </Card>

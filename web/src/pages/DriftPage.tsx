@@ -11,9 +11,9 @@ export function DriftPage({ lambda }: { lambda: number }) {
   return (
     <div className="page">
       <PageHeader
-        title="Drift and recertification"
-        subtitle="Certificates remain valid only while their benchmark mixture, guard versions, model versions, prompts, tools, and traffic assumptions stay in scope."
-        actions={<button className="btn primary">Trigger recertification</button>}
+        title="When to retest"
+        subtitle="Release evidence stays useful only while the example mix, safety options, model versions, prompts, tools, and traffic assumptions stay in scope."
+        actions={<button className="btn primary">Trigger retest</button>}
       />
       <div className="grid grid-3">
         {data.signals.map((signal) => (
@@ -33,7 +33,7 @@ export function DriftPage({ lambda }: { lambda: number }) {
         <table>
           <thead>
             <tr>
-              <th>Recertification</th>
+              <th>Retest</th>
               <th>Status</th>
               <th>Run</th>
               <th>Summary</th>
@@ -55,11 +55,10 @@ export function DriftPage({ lambda }: { lambda: number }) {
       </div>
       <Card>
         <p className="muted" style={{ margin: 0 }}>
-          Future integrations should create drift signals from LangSmith/Langfuse traces, deployment webhooks, guard
-          version changes, prompt diffs, model releases, and incident reports.
+          Future integrations should create retest signals from LangSmith/Langfuse traces, deployment webhooks, safety
+          option version changes, prompt diffs, model releases, and incident reports.
         </p>
       </Card>
     </div>
   );
 }
-

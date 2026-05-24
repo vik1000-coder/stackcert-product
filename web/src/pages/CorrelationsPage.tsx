@@ -24,24 +24,24 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
   return (
     <div className="page">
       <PageHeader
-        title="Co-failure map"
-        subtitle="Inspect whether guards fail together on adversarial behaviors or over-block together on benign behaviors."
+        title="Overlap analysis"
+        subtitle="See when two safety options miss the same risky examples or block the same normal examples."
         actions={
           <>
             <button className={`btn ${side === 'adversarial' ? 'accent' : ''}`} onClick={() => setSide('adversarial')}>
-              Adversarial
+              Unsafe examples
             </button>
             <button className={`btn ${side === 'benign' ? 'accent' : ''}`} onClick={() => setSide('benign')}>
-              Benign
+              Normal examples
             </button>
           </>
         }
       />
-      <Explainer title={side === 'adversarial' ? 'What co-miss means' : 'What false-block overlap means'} tone={side === 'adversarial' ? 'warn' : 'ok'} style={{ marginBottom: 16 }}>
+      <Explainer title={side === 'adversarial' ? 'Shared unsafe misses' : 'Shared false blocks'} tone={side === 'adversarial' ? 'warn' : 'ok'} style={{ marginBottom: 16 }}>
         <p>
           {side === 'adversarial'
-            ? 'A high positive cell means two guards are missing the same unsafe examples, so stacking them may buy less safety than their individual scores imply.'
-            : 'A high benign cell means two guards are blocking the same safe examples. That can be useful when false blocks are concentrated, but harmful if it suppresses normal users.'}
+            ? 'A high red cell means two checks are missing the same unsafe examples. Combining them may buy less safety than their one-at-a-time scores imply.'
+            : 'A high benign cell means two checks are blocking the same safe examples. That can be useful when false blocks are concentrated, but harmful if it suppresses normal users.'}
         </p>
       </Explainer>
       <div className="grid grid-2">
@@ -50,31 +50,31 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, color: 'var(--sc-ink-3)', fontSize: 12 }}>
             <span>Red cells: shared mistakes</span>
             <span>Green cells: useful disagreement</span>
-            <span>Diagonal: same guard</span>
+            <span>Diagonal: same option</span>
           </div>
         </Card>
         <Card>
           <Badge tone={side === 'adversarial' ? 'bad' : 'ok'} dot>
-            {side === 'adversarial' ? 'Co-miss focus' : 'False-block overlap'}
+            {side === 'adversarial' ? 'Shared miss focus' : 'False-block focus'}
           </Badge>
           <h2 style={{ margin: '14px 0 8px', fontSize: 22 }}>{selectedPair?.label ?? 'Select a pair'}</h2>
           {selectedPair ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <Metric label="Cell" value={selectedPair.cell_id} />
-              <Metric label="Correlation" value={fmtNumber(selectedPair.correlation)} />
-              <Metric label={selectedPair.metric_label} value={fmtPercent(selectedPair.metric)} />
+              <Metric label="Overlap score" value={fmtNumber(selectedPair.correlation)} />
+              <Metric label={displayMetricLabel(selectedPair.metric_label)} value={fmtPercent(selectedPair.metric)} />
               <Metric label="Disagreement" value={fmtPercent(selectedPair.disagreement_rate)} />
               <Metric label="Examples" value={String(selectedPair.n_examples)} />
               <div className={`notice ${side === 'adversarial' ? 'bad' : ''}`}>
                 {selectedPair.metric >= 0.5
-                  ? 'This pair is often making the same decision in this cell, so composition value depends on whether that overlap is desirable.'
-                  : 'This pair shows more disagreement in this cell, which can make the stack less redundant.'}
+                  ? 'These two checks often make the same decision on this example group, so the combination may be redundant.'
+                  : 'These two checks disagree more often on this example group, which can make the combination less redundant.'}
               </div>
             </div>
           ) : null}
           <p className="muted" style={{ lineHeight: 1.55 }}>
-            Positive adversarial correlation means the pair misses the same unsafe cases. Positive benign correlation
-            can be useful when false blocks are concentrated instead of spread across users.
+            Positive overlap on unsafe examples means the pair misses the same risky cases. Positive overlap on normal
+            examples means the pair blocks the same safe cases.
           </p>
         </Card>
       </div>
@@ -82,9 +82,9 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
         <table>
           <thead>
             <tr>
-              <th>Pair</th>
-              <th>Cell</th>
-              <th className="right">Correlation</th>
+              <th>Option pair</th>
+              <th>Example group</th>
+              <th className="right">Overlap score</th>
               <th className="right">Metric</th>
               <th className="right">Disagreement</th>
               <th className="right">N</th>
@@ -115,4 +115,8 @@ function Metric({ label, value }: { label: string; value: string }) {
       <span className="mono">{value}</span>
     </div>
   );
+}
+
+function displayMetricLabel(label: string) {
+  return label.replace('co-miss', 'shared miss').replace('false-block', 'false block');
 }

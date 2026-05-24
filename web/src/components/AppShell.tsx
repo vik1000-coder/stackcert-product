@@ -6,14 +6,14 @@ import { supabase } from '../lib/supabase';
 import { LoadingState, LogoMark } from './Primitives';
 
 const routes = [
-  { to: 'overview', label: 'Overview' },
-  { to: 'ranking', label: 'Stack ranking' },
-  { to: 'co-failure', label: 'Co-failure' },
-  { to: 'measurements', label: 'Measurements' },
-  { to: 'certificate', label: 'Certificate' },
-  { to: 'drift', label: 'Drift' },
-  { to: 'setup', label: 'Setup' },
-  { to: 'projects', label: 'Projects' }
+  { to: 'overview', label: 'Recommendation' },
+  { to: 'ranking', label: 'Options compared' },
+  { to: 'co-failure', label: 'Overlap analysis' },
+  { to: 'measurements', label: 'Test plan and cost' },
+  { to: 'certificate', label: 'Release evidence' },
+  { to: 'drift', label: 'When to retest' },
+  { to: 'setup', label: 'App setup' },
+  { to: 'projects', label: 'Apps' }
 ];
 
 export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaChange: (value: number) => void }) {
@@ -92,11 +92,11 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
         </NavLink>
         <div className="notice">
           <div style={{ color: 'var(--sc-ink)', fontWeight: 600, marginBottom: 4 }}>
-            {projectStatus === 'demo_seeded' ? 'Seeded production run' : 'Project setup'}
+            {projectStatus === 'demo_seeded' ? 'Support-copilot demo' : 'App setup'}
           </div>
           <div className="mono">{projectStatus === 'demo_seeded' ? 'real_main_2000' : projectStatus}</div>
           <div style={{ marginTop: 7 }}>
-            {projectStatus === 'demo_seeded' ? 'K=2 serial · 8 guards · 2,000 examples' : 'Add benchmarks, guards, and candidate stacks before certification.'}
+            {projectStatus === 'demo_seeded' ? '8 safety options · 36 combinations · 2,000 examples' : 'Add examples, safety options, and combinations before review.'}
           </div>
         </div>
         <nav className="nav-list" aria-label="StackCert app navigation">
@@ -124,15 +124,15 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
       <main className="app-main">
         <div className="topbar">
           <div className="search-box">
-            <span>Search evidence, stacks, cells</span>
+            <span>Search examples, options, evidence</span>
             <span className="mono" style={{ marginLeft: 'auto', color: 'var(--sc-dim)' }}>
               ⌘K
             </span>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 240 }}>
-            <span className="stat-label">λ</span>
+            <span className="stat-label">Risk weight</span>
             <input
-              aria-label="Lambda safety cost"
+              aria-label="Risk weight"
               type="range"
               min="1"
               max="10"

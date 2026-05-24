@@ -36,34 +36,50 @@ export function CertificatePage({ lambda }: { lambda: number }) {
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const cert = query.data!;
+  const evidencePreview = [
+    '# StackCert Release Evidence',
+    '',
+    `Selected combination: ${cert.certified_label ?? cert.recommended_label}`,
+    `Recommended combination: ${cert.recommended_label}`,
+    `Generated: ${cert.generated_at}`,
+    '',
+    'What this supports:',
+    'The selected safety-check combination beat the other combinations tested for this app, example mix, risk weighting, and assumptions.',
+    '',
+    'What this does not prove:',
+    'It does not guarantee universal safety, legal compliance, or future behavior after model, prompt, safety option, tool, traffic, or policy changes.',
+    '',
+    'Reviewer action:',
+    'Use this packet as release evidence, then retest if any trigger below changes.'
+  ].join('\n');
 
   return (
     <div className="page">
       <PageHeader
-        title="Scoped certificate"
-        subtitle="This artifact supports a comparative risk decision. It does not guarantee the underlying AI system is safe, compliant, or free from harmful behavior."
+        title="Release evidence"
+        subtitle="This packet supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
         actions={
           <>
             <ExternalButton href={api.certificateMarkdownUrl(lambda)} variant="primary">
-              Export Markdown
+              Export evidence Markdown
             </ExternalButton>
-            <ExternalButton href={api.certificateJsonUrl(lambda)}>Export JSON</ExternalButton>
+            <ExternalButton href={api.certificateJsonUrl(lambda)}>Export evidence JSON</ExternalButton>
           </>
         }
       />
-      <Explainer title="What the certificate means" tone="accent" style={{ marginBottom: 16 }}>
+      <Explainer title="What this evidence packet means" tone="accent" style={{ marginBottom: 16 }}>
         <div className="definition-list">
           <div className="definition-row">
-            <div className="definition-term">It proves</div>
+            <div className="definition-term">It supports</div>
             <div className="definition-copy">
-              The selected stack beat the other candidate stacks for this benchmark mixture, guard set, aggregation
-              rule, and welfare profile.
+              The selected safety-check combination beat the other combinations for this app, example mix, risk
+              weighting, and release assumptions.
             </div>
           </div>
           <div className="definition-row">
             <div className="definition-term">It does not prove</div>
             <div className="definition-copy">
-              Universal safety, legal compliance, or future performance after model, prompt, guard, or policy drift.
+              Universal safety, legal compliance, or future performance after model, prompt, safety option, or policy drift.
             </div>
           </div>
         </div>
@@ -71,15 +87,15 @@ export function CertificatePage({ lambda }: { lambda: number }) {
       <div className="grid grid-2">
         <Card>
           <Badge tone={cert.status_compact} dot>
-            {cert.status_compact}
+            {displayEvidenceStatus(cert.status_compact)}
           </Badge>
           <h2 style={{ margin: '14px 0 4px', fontSize: 28 }}>{cert.certified_label ?? cert.recommended_label}</h2>
-          <div className="mono muted">{cert.certificate_id}</div>
+          <div className="mono muted">Evidence ID {displayEvidenceId(cert.certificate_id)}</div>
           <div style={{ display: 'grid', gap: 9, marginTop: 18 }}>
-            <Fact label="Run" value={cert.run_id} />
+            <Fact label="Test run" value={cert.run_id} />
             <Fact label="Generated" value={cert.generated_at} />
             <Fact label="Recommended" value={cert.recommended_label} />
-            <Fact label="Certified" value={cert.certified_label ?? 'not fully certified'} />
+            <Fact label="Selected" value={cert.certified_label ?? 'no final selection yet'} />
           </div>
         </Card>
         <Card>
@@ -89,13 +105,13 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {Object.entries(cert.assumptions).map(([key, value]) => (
-              <Fact key={key} label={key} value={String(value)} />
+              <Fact key={key} label={displayAssumptionLabel(key)} value={displayAssumptionValue(String(value))} />
             ))}
           </div>
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Issue workflow</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Lock evidence for review</h2>
         <div className="grid grid-2">
           <div style={{ display: 'grid', gap: 12 }}>
             <label style={{ display: 'flex', gap: 10, alignItems: 'start', color: 'var(--sc-ink-3)', lineHeight: 1.45 }}>
@@ -106,15 +122,15 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 style={{ marginTop: 3 }}
               />
               <span>
-                I understand this certificate is scoped to the benchmark mixture, candidate set, guard versions, welfare profile,
-                and assumptions shown here. It is not a guarantee of safety or compliance.
+                I understand this evidence packet is scoped to the example mix, safety options, risk weighting, and
+                assumptions shown here. It is not a guarantee of safety or compliance.
               </span>
             </label>
             <button className="btn primary" disabled={!acknowledged || issueCertificate.isPending} onClick={() => issueCertificate.mutate()}>
-              {issueCertificate.isPending ? 'Issuing...' : 'Issue scoped certificate'}
+              {issueCertificate.isPending ? 'Issuing...' : 'Issue release evidence'}
             </button>
             {issueCertificate.isError ? (
-              <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue certificate.'}</div>
+              <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue release evidence.'}</div>
             ) : null}
           </div>
           <div style={{ display: 'grid', gap: 9 }}>
@@ -126,13 +142,13 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 <Fact label="Signoffs" value={String(issued.signoffs.length)} />
               </>
             ) : (
-              <p className="muted" style={{ margin: 0 }}>No issued immutable snapshot yet.</p>
+              <p className="muted" style={{ margin: 0 }}>No locked evidence snapshot yet.</p>
             )}
           </div>
         </div>
       </Card>
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Risk reviewer signoff</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Reviewer signoff</h2>
         <div style={{ display: 'grid', gap: 12 }}>
           <textarea
             className="btn"
@@ -173,15 +189,15 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Limitations</h2>
           <ul style={{ marginBottom: 0, paddingLeft: 18, color: 'var(--sc-ink-3)', lineHeight: 1.55 }}>
             {cert.limitations.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{displayScopeText(item)}</li>
             ))}
           </ul>
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Recertification triggers</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Retest triggers</h2>
           <ul style={{ marginBottom: 0, paddingLeft: 18, color: 'var(--sc-ink-3)', lineHeight: 1.55 }}>
             {cert.recertification_triggers.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{displayScopeText(item)}</li>
             ))}
           </ul>
         </Card>
@@ -202,7 +218,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             lineHeight: 1.6
           }}
         >
-          {cert.markdown}
+          {evidencePreview}
         </pre>
       </Card>
     </div>
@@ -216,4 +232,47 @@ function Fact({ label, value }: { label: string; value: string }) {
       <span className="mono">{value}</span>
     </div>
   );
+}
+
+function displayAssumptionLabel(label: string) {
+  const labels: Record<string, string> = {
+    aggregation: 'Combination rule',
+    max_k: 'Max checks',
+    rho_prior: 'Overlap prior',
+    use_feasible_bounds: 'Use feasible bounds',
+    residual_treatment: 'Residual handling',
+    certificate_scope: 'Evidence scope'
+  };
+  return labels[label] ?? label.replaceAll('_', ' ');
+}
+
+function displayAssumptionValue(value: string) {
+  if (value === 'finite benchmark mixture') return 'finite example mix';
+  return value;
+}
+
+function displayEvidenceStatus(status: string) {
+  if (status === 'valid') return 'ready for review';
+  if (status === 'certified') return 'ready for review';
+  if (status === 'open') return 'needs more evidence';
+  if (status === 'negative') return 'not recommended';
+  return status;
+}
+
+function displayEvidenceId(value: string) {
+  return value.replace(/^cert/i, 'evidence');
+}
+
+function displayScopeText(text: string) {
+  return text
+    .replaceAll('K=2 serial stack certificates', 'two-check combination evidence')
+    .replaceAll('certificate', 'evidence packet')
+    .replaceAll('Certificate', 'Evidence packet')
+    .replaceAll('Guardrail model', 'Safety option model')
+    .replaceAll('guardrail model', 'safety option model')
+    .replaceAll('benchmark mixture', 'example mix')
+    .replaceAll('candidate set', 'safety-option set')
+    .replaceAll('guard version', 'safety option version')
+    .replaceAll('guard/model/prompt drift', 'safety option, model, or prompt drift')
+    .replaceAll('re-certification', 'retesting');
 }

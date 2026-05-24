@@ -24,47 +24,52 @@ export function RankingPage({ lambda }: { lambda: number }) {
   return (
     <div className="page">
       <PageHeader
-        title="Stack ranking"
-        subtitle="Compare first-order marginal welfare against CASS full welfare, including intervals, movement, latency, and cost."
-        actions={<ExternalButton href={api.rankingCsvUrl(lambda)}>Export CSV</ExternalButton>}
+        title="Options compared"
+        subtitle="Compare the safety-check combinations Acme could ship, including the one-at-a-time shortcut, final app score, confidence range, latency, and cost."
+        actions={<ExternalButton href={api.rankingCsvUrl(lambda)}>Export options CSV</ExternalButton>}
       />
       <Explainer title="How to read this table" tone="accent" style={{ marginBottom: 16 }}>
         <p>
-          This is the flip test. <strong>1st-order</strong> is the shortcut many teams use: rank stacks from individual
-          guard pass and miss rates. <strong>Full</strong> is CASS after shared failures and false blocks are included.
-          Movement shows how much the shortcut was wrong.
+          This table answers: <strong>which combination should this app ship?</strong> The shortcut is to score each
+          safety option on its own and combine those scores. StackCert also checks whether options fail together, which
+          is why the obvious pick can move down.
         </p>
       </Explainer>
       <Card style={{ marginBottom: 14 }}>
         <div className="definition-list">
           <div className="definition-row">
-            <div className="definition-term">1st-order</div>
-            <div className="definition-copy">The estimate you would get before measuring whether guards fail together.</div>
+            <div className="definition-term">Alone</div>
+            <div className="definition-copy">The score you would expect from testing safety options one at a time.</div>
           </div>
           <div className="definition-row">
-            <div className="definition-term">Full</div>
-            <div className="definition-copy">The CASS welfare score after correlated misses, false blocks, cost, and latency are included.</div>
+            <div className="definition-term">Together</div>
+            <div className="definition-copy">The app score after shared unsafe misses, shared false blocks, cost, and latency are included.</div>
           </div>
           <div className="definition-row">
-            <div className="definition-term">Interval</div>
-            <div className="definition-copy">The uncertainty range used to decide whether the certificate can call a winner.</div>
+            <div className="definition-term">Confidence</div>
+            <div className="definition-copy">The range StackCert uses to decide whether a recommendation is clear enough for release evidence.</div>
           </div>
           <div className="definition-row">
-            <div className="definition-term">Movement</div>
-            <div className="definition-copy">How far the stack moved when composition evidence replaced the shortcut estimate.</div>
+            <div className="definition-term">Change</div>
+            <div className="definition-copy">How much the combination moved when overlap testing replaced the shortcut estimate.</div>
           </div>
         </div>
       </Card>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        {['all', 'certified', 'open', 'negative'].map((item) => (
-          <button key={item} className={`btn ${status === item ? 'accent' : ''}`} onClick={() => setStatus(item)}>
-            {item}
+        {[
+          ['all', 'all'],
+          ['certified', 'recommended'],
+          ['open', 'close'],
+          ['negative', 'poor fit']
+        ].map(([value, label]) => (
+          <button key={value} className={`btn ${status === value ? 'accent' : ''}`} onClick={() => setStatus(value)}>
+            {label}
           </button>
         ))}
         <select className="btn" value={sort} onChange={(event) => setSort(event.currentTarget.value as SortKey)}>
-          <option value="full_welfare">Sort by full welfare</option>
-          <option value="first_order_welfare">Sort by first-order welfare</option>
-          <option value="movement">Sort by movement</option>
+          <option value="full_welfare">Sort by together score</option>
+          <option value="first_order_welfare">Sort by alone score</option>
+          <option value="movement">Sort by change</option>
           <option value="estimated_latency_ms">Sort by latency</option>
           <option value="estimated_cost_usd_per_1k">Sort by cost</option>
         </select>
@@ -73,12 +78,12 @@ export function RankingPage({ lambda }: { lambda: number }) {
         <table>
           <thead>
             <tr>
-              <th>Stack</th>
-              <th>Status</th>
-              <th className="right">1st-order</th>
-              <th className="right">Full</th>
-              <th className="right">Interval</th>
-              <th className="right">Movement</th>
+              <th>Combination</th>
+              <th>Result</th>
+              <th className="right">Alone</th>
+              <th className="right">Together</th>
+              <th className="right">Confidence</th>
+              <th className="right">Change</th>
               <th className="right">Latency</th>
               <th className="right">Cost / 1k</th>
             </tr>
@@ -89,7 +94,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
                 <td className="mono">{row.label}</td>
                 <td>
                   <Badge tone={row.status} dot={row.status === 'certified'}>
-                    {row.status}
+                    {displayStatus(row.status)}
                   </Badge>
                 </td>
                 <td className="mono right">{fmtNumber(row.first_order_welfare)}</td>
@@ -109,4 +114,11 @@ export function RankingPage({ lambda }: { lambda: number }) {
       </div>
     </div>
   );
+}
+
+function displayStatus(status: string) {
+  if (status === 'certified') return 'recommended';
+  if (status === 'open') return 'close';
+  if (status === 'negative') return 'poor fit';
+  return status;
 }

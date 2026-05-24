@@ -41,34 +41,28 @@ export function LandingPage() {
       <section className="landing-hero">
         <div className="landing-container" style={{ position: 'relative' }}>
           <div style={{ display: 'grid', gap: 28, textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
-            <div style={{ justifySelf: 'center' }}>
-              <Badge tone="neutral">
-                <span style={{ color: 'var(--sc-accent)', fontWeight: 700 }}>New</span>
-                Composable guardrail certification
-              </Badge>
-            </div>
             <h1 className="hero-title">
-              Certify the
+              Choose the right
               <br />
-              guardrail stack
+              safety checks
               <br />
-              you actually ship.
+              for your LLM app.
             </h1>
             <p className="hero-copy">
-              Teams often ship safety by picking the best single guard, stacking every guard, or adding more policy
-              context until costs and latency creep up. StackCert measures how guards fail together, selects the stack
-              that actually improves risk, and produces scoped evidence your reviewers can use.
+              You can add rules, classifiers, model judges, stronger models, more context, or several checks at once.
+              StackCert helps you compare those choices on examples from the application you care about, so you can
+              improve safety and usefulness without paying to test every possibility.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
               <ButtonLink to="/onboarding" variant="primary">
                 Start a pilot
               </ButtonLink>
-              <ButtonLink to={demoSignInPath}>View seeded demo</ButtonLink>
+              <ButtonLink to={demoSignInPath}>View support-copilot demo</ButtonLink>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 12.5 }}>
-              <span>Lower evaluation spend</span>
-              <span>Less redundant latency</span>
-              <span>Scoped deploy evidence</span>
+              <span>App-specific tests</span>
+              <span>Compare combinations</span>
+              <span>Control cost and latency</span>
             </div>
           </div>
           <div className="product-preview">
@@ -77,7 +71,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <LogoStrip />
+      <SafetyOptionsSection />
       <ProblemSection />
       <AlternativesSection />
       <CassSection />
@@ -103,7 +97,7 @@ function HeroDashboard() {
             <span style={{ fontSize: 12, fontWeight: 600 }}>Acme</span>
           </div>
           <div style={{ marginTop: 14, display: 'grid', gap: 2 }}>
-            {['Overview', 'Stack ranking', 'Co-failure', 'Measurements', 'Certificate', 'Drift'].map((item, index) => (
+            {['Recommendation', 'Options', 'Overlap', 'Test plan', 'Evidence', 'Retest'].map((item, index) => (
               <div key={item} style={{ padding: '7px 8px', borderRadius: 6, background: index === 0 ? 'var(--sc-surface-3)' : 'transparent', color: index === 0 ? 'var(--sc-ink)' : 'var(--sc-ink-3)', fontSize: 12 }}>
                 {item}
               </div>
@@ -112,18 +106,18 @@ function HeroDashboard() {
         </div>
         <div style={{ padding: 22 }}>
           <Badge tone="ok" dot>
-            Certified
+            Recommended
           </Badge>
           <div style={{ marginTop: 12, fontSize: 32, fontWeight: 650 }}>LG3 + Phi3</div>
           <div className="grid grid-4" style={{ marginTop: 18 }}>
-            <MiniStat label="Welfare" value="0.1377" tone="ok" />
-            <MiniStat label="Regret avoided" value="+0.0382" tone="ok" />
-            <MiniStat label="Pair-cells" value="13/168" />
-            <MiniStat label="Cost avoided" value="$4.6k" tone="ok" />
+            <MiniStat label="Goal score" value="0.1377" tone="ok" />
+            <MiniStat label="Better than obvious pick" value="+0.0382" tone="ok" />
+            <MiniStat label="Overlap tests" value="13/168" />
+            <MiniStat label="Testing saved" value="$4.6k" tone="ok" />
           </div>
           <div className="grid grid-2" style={{ marginTop: 18 }}>
             <Card>
-              <div style={{ fontWeight: 650, fontSize: 12, marginBottom: 12 }}>Welfare by stack</div>
+              <div style={{ fontWeight: 650, fontSize: 12, marginBottom: 12 }}>Score by combination</div>
               {['LG3 + Phi3', 'L3-3B + LG3', 'Gemma + LG3', 'L3-3B + Phi3'].map((item, index) => (
                 <div key={item} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 54px', alignItems: 'center', gap: 8, marginTop: 9 }}>
                   <span className="mono" style={{ fontSize: 11 }}>
@@ -139,11 +133,11 @@ function HeroDashboard() {
             <Card>
               <div style={{ fontWeight: 650, fontSize: 12, marginBottom: 8 }}>Why this is not obvious</div>
               <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: 0 }}>
-                The marginal winner loses after co-failure is measured. Both guards miss overlapping adversarial
-                examples, so stacked welfare collapses.
+                The combination that looks best from one-at-a-time testing loses when the checks fail on the same
+                unsafe examples.
               </p>
               <div className="notice" style={{ marginTop: 12 }}>
-                CASS recommends LG3 + Phi3 and issues a scoped certificate.
+                StackCert recommends LG3 + Phi3 and prepares release evidence.
               </div>
             </Card>
           </div>
@@ -164,16 +158,35 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
   );
 }
 
-function LogoStrip() {
+function SafetyOptionsSection() {
+  const options = [
+    ['Rules', 'Block clearly disallowed actions, tools, or data access.'],
+    ['Classifiers', 'Score whether a prompt or answer matches a risk category.'],
+    ['Model judges', 'Ask another model to review the response or tool call.'],
+    ['More context', 'Add policies, retrieval, examples, or instructions to the LLM.'],
+    ['Stronger models', 'Route risky cases to a larger or more specialized model.'],
+    ['Combinations', 'Run more than one check when a single option is not enough.']
+  ];
+
   return (
-    <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '54px 0' }}>
-      <div className="landing-container" style={{ textAlign: 'center' }}>
-        <div style={{ color: 'var(--sc-ink-3)', fontSize: 12, fontWeight: 650, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 26 }}>
-          Built for teams making agent guardrails safer, cheaper, and repeatable
+    <section id="options" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '88px 0' }}>
+      <div className="landing-container">
+        <div style={{ maxWidth: 780 }}>
+          <div className="section-eyebrow">The basic building blocks</div>
+          <h2 className="section-title">An LLM app has many safety options.</h2>
+          <p className="hero-copy" style={{ margin: '16px 0 0', fontSize: 17 }}>
+            A safety check is anything you put around the LLM to make the application behave better. A combination is
+            simply the set of checks you decide to run for a real workflow.
+          </p>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 28, flexWrap: 'wrap', color: 'var(--sc-dim)', fontSize: 22, fontWeight: 650 }}>
-          {['Acme', 'Northwind', 'Helix', 'Atlas', 'Vela', 'Pillar'].map((item) => (
-            <span key={item}>{item}</span>
+        <div className="grid grid-3" style={{ marginTop: 36 }}>
+          {options.map(([title, body]) => (
+            <Card key={title}>
+              <h3 style={{ margin: '0 0 10px', fontSize: 18 }}>{title}</h3>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+                {body}
+              </p>
+            </Card>
           ))}
         </div>
       </div>
@@ -187,11 +200,10 @@ function ProblemSection() {
       <div className="landing-container">
         <div style={{ maxWidth: 740, marginBottom: 48 }}>
           <div className="section-eyebrow">The problem</div>
-          <h2 className="section-title">Stacking guardrails creates a hidden correlation tax.</h2>
+          <h2 className="section-title">Choosing the combination is the hard part.</h2>
           <p className="hero-copy" style={{ margin: '16px 0 0', fontSize: 17 }}>
-            The usual playbook is either under-measured or over-spent. Two strong guards do not necessarily compose
-            into a stronger system; if they miss the same attacks, the stack can be redundant, slow, and hard to
-            defend in review.
+            More checks can help, but they can also repeat the same mistakes, block normal users, add latency, and
+            raise model spend. The right answer depends on your app, your examples, and what failures matter most.
           </p>
         </div>
         <div className="grid grid-2">
@@ -199,15 +211,15 @@ function ProblemSection() {
             <Badge tone="bad" dot>
               Without StackCert
             </Badge>
-            <h3 style={{ fontSize: 28, margin: '18px 0 8px' }}>Wrong marginal winner</h3>
-            <p className="muted">A pair looks best on first-order scores but fails together on the same adversarial cells.</p>
+            <h3 style={{ fontSize: 28, margin: '18px 0 8px' }}>Obvious pick, hidden weakness</h3>
+            <p className="muted">A pair can look best when tested one check at a time, then fail on the same risky examples.</p>
           </Card>
           <Card>
             <Badge tone="ok" dot>
               With StackCert
             </Badge>
-            <h3 style={{ fontSize: 28, margin: '18px 0 8px' }}>Scoped certified winner</h3>
-            <p className="muted">CASS measures co-failure and certifies the winner among the actual candidate stacks.</p>
+            <h3 style={{ fontSize: 28, margin: '18px 0 8px' }}>Best fit for this app</h3>
+            <p className="muted">StackCert compares real combinations against the examples and goals that match the workflow.</p>
           </Card>
         </div>
       </div>
@@ -218,20 +230,20 @@ function ProblemSection() {
 function AlternativesSection() {
   const cards = [
     [
-      'Pick the best single guard',
-      'Fast, but it ignores how the guard behaves when paired with another guard. The demo marginal winner loses once shared misses are measured.'
+      'Pick the best single check',
+      'Fast, but it ignores how that check behaves when paired with another option. The demo’s obvious pick loses once shared misses are measured.'
     ],
     [
-      'Stack every strong guard',
-      'Looks safer on paper, but redundant guards add cost and latency while still missing the same unsafe examples.'
+      'Use the most expensive model',
+      'Sometimes it helps, but it can raise cost and latency without proving that the application handles the failures you care about.'
     ],
     [
       'Add more policy context',
-      'More prompt text can help, but it is not a certificate. It often increases token spend and still leaves composition risk unmeasured.'
+      'More prompt text can help, but it is not evidence. It often increases token spend and still leaves the actual safety tradeoff unmeasured.'
     ],
     [
-      'Run the full grid',
-      'Brute-force evidence is clean but expensive at scale. Each new guard, behavior cell, and release variant multiplies the measurement bill.'
+      'Test every combination',
+      'Brute-force testing is clean but expensive at scale. Each new check, example group, and release variant multiplies the bill.'
     ]
   ];
 
@@ -240,7 +252,7 @@ function AlternativesSection() {
       <div className="landing-container">
         <div style={{ maxWidth: 780 }}>
           <div className="section-eyebrow">What teams often do instead</div>
-          <h2 className="section-title">The shortcut choices either miss risk or buy evidence you do not need.</h2>
+          <h2 className="section-title">The shortcut choices either miss risk or buy tests you do not need.</h2>
         </div>
         <div className="grid grid-4" style={{ marginTop: 36 }}>
           {cards.map(([title, body]) => (
@@ -263,30 +275,30 @@ function CassSection() {
       <div className="landing-container">
         <div className="grid grid-2" style={{ alignItems: 'start' }}>
           <div>
-            <div className="section-eyebrow">What is CASS?</div>
-            <h2 className="section-title">Correlation-Aware Stack Selection.</h2>
+            <div className="section-eyebrow">How StackCert chooses</div>
+            <h2 className="section-title">Test the overlaps that change the decision.</h2>
             <p className="hero-copy" style={{ margin: '18px 0 0', maxWidth: 620, fontSize: 17 }}>
-              CASS is the measurement logic behind StackCert. It treats a guardrail stack as a composed system and
-              asks the practical launch question: which candidate stack gives the best scoped welfare after accounting
-              for overlapping misses, false blocks, latency, and cost?
+              StackCert looks for whether two safety options cover different failures or make the same mistake. The
+              underlying method is CASS, but the product question is simple: which combination gives the best safety,
+              usefulness, latency, and cost tradeoff for this application?
             </p>
           </div>
           <Card>
             <div className="cass-logic">
               <div>
                 <span className="mono">01</span>
-                <strong>Marginal scores</strong>
-                <p>Start with each guard's benign pass rate, adversarial miss rate, latency, and unit cost.</p>
+                <strong>Start with each option</strong>
+                <p>Measure how each safety check handles safe requests, risky requests, latency, and cost.</p>
               </div>
               <div>
                 <span className="mono">02</span>
-                <strong>Co-failure evidence</strong>
-                <p>Measure whether guards miss the same adversarial examples or block the same benign examples.</p>
+                <strong>Check overlap</strong>
+                <p>Measure whether checks miss the same unsafe examples or block the same normal examples.</p>
               </div>
               <div>
                 <span className="mono">03</span>
-                <strong>Scoped certificate</strong>
-                <p>Recommend a stack only for the declared benchmark mixture, candidate set, and risk profile.</p>
+                <strong>Recommend a combination</strong>
+                <p>Pick the best option set only for the app, examples, and goals that were actually tested.</p>
               </div>
             </div>
           </Card>
@@ -298,9 +310,9 @@ function CassSection() {
 
 function EconomicsSection() {
   const stats = [
-    ['168', 'possible pair-cells', 'Every guard pair across every benchmark cell in the seeded run.'],
-    ['13', 'measured pair-cells', 'The evidence CASS needed to certify the winner and shrink active gaps.'],
-    ['$4.6k', 'avoided in demo spend', 'Estimated saved measurement cost versus exhaustive pair-cell evidence.']
+    ['36', 'combinations compared', 'The seeded support-copilot demo compares the safety-check choices the team could ship.'],
+    ['13/168', 'overlap tests run', 'Only the overlap tests needed to decide between close combinations were measured.'],
+    ['$4.6k', 'testing spend avoided', 'Estimated saved testing cost versus checking every overlap in the demo run.']
   ];
 
   return (
@@ -311,9 +323,8 @@ function EconomicsSection() {
             <div className="section-eyebrow">Cost and scale</div>
             <h2 className="section-title">Safer decisions without measuring every combination.</h2>
             <p className="hero-copy" style={{ margin: '18px 0 0', maxWidth: 650, fontSize: 17 }}>
-              StackCert is not trying to sell a bigger evaluation bill. It spends measurement budget where uncertainty
-              can change the launch decision, then turns the result into a certificate that can be reused across review,
-              deployment gates, and drift monitoring.
+              StackCert is not trying to sell a bigger testing bill. It spends testing budget where the answer can
+              change the launch decision, then turns the result into release evidence your team can review and reuse.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
@@ -337,9 +348,9 @@ function EconomicsSection() {
 
 function HowSection() {
   const steps = [
-    ['01', 'Model the release', 'Pick the agent workflow, candidate guards, benchmark mixture, custom behaviors, and welfare profile that reflect the launch decision.'],
-    ['02', 'Measure composition', 'Run uploaded outputs or provider connectors, then let CASS target the co-failure measurements that can change the stack ranking.'],
-    ['03', 'Gate deployment', 'Issue a scoped certificate with assumptions, limitations, signoffs, usage costs, drift signals, and recertification triggers.']
+    ['01', 'Describe the app', 'Pick the LLM workflow, safety options, examples, and goals that reflect the decision you need to make.'],
+    ['02', 'Compare combinations', 'Use uploaded outputs or connectors, then let StackCert target the overlap tests that can change the recommendation.'],
+    ['03', 'Ship with evidence', 'Export a scoped evidence packet with assumptions, limitations, signoffs, costs, drift signals, and retest triggers.']
   ];
   return (
     <section id="how" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '112px 0' }}>
@@ -368,11 +379,11 @@ function HowSection() {
 
 function ProductSection() {
   const cards = [
-    ['Stack ranking', 'See every candidate, the naive marginal winner, the full CASS ranking, uncertainty interval, cost, and latency.'],
-    ['Benchmark builder', 'Import company behaviors, draft custom tests, and weight the benign/adversarial mix to match the workflow.'],
-    ['Guard connectors', 'Use uploaded outputs first, then connect REST guards, local adapters, and model judges as the integration matures.'],
-    ['Measurement queue', 'Run targeted worker jobs with leases, retries, usage tracking, and budget caps before spending on more evaluation.'],
-    ['Certificate gate', 'Export scoped JSON/Markdown evidence and wire certificate status into GitHub Actions or deployment pipelines.'],
+    ['Options compared', 'See every safety-check combination, the obvious one-at-a-time pick, the final recommendation, latency, and cost.'],
+    ['Example builder', 'Import company examples, draft custom tests, and weight safe/risky cases to match the workflow.'],
+    ['Safety option connectors', 'Use uploaded outputs first, then connect REST checks, local adapters, and model judges as the integration matures.'],
+    ['Test plan', 'Run targeted worker jobs with leases, retries, usage tracking, and budget caps before spending on more evaluation.'],
+    ['Release evidence', 'Export scoped JSON/Markdown evidence and wire the result into GitHub Actions or deployment pipelines.'],
     ['Agent surface', 'Expose tools, resources, and prompts so agent-platform jobs can read status, costs, and release-review evidence.']
   ];
   return (
@@ -397,9 +408,9 @@ function ProductSection() {
 
 function AudienceSection() {
   const users = [
-    ['AI platform lead', 'Needs a repeatable gate before agent releases and a way to compare cost, latency, and risk across guard stacks.'],
-    ['Safety engineer', 'Needs to turn policy failures into benchmark cells and inspect where guards fail together.'],
-    ['Risk or GRC reviewer', 'Needs a concise evidence packet with scope, assumptions, limitations, and signoff history.']
+    ['AI platform lead', 'Needs a repeatable release gate and a way to compare cost, latency, and risk across safety-check combinations.'],
+    ['Safety engineer', 'Needs to turn policy failures into app-specific examples and inspect where checks fail together.'],
+    ['Risk or GRC reviewer', 'Needs concise release evidence with scope, assumptions, limitations, and signoff history.']
   ];
   return (
     <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '96px 0' }}>
@@ -425,8 +436,8 @@ function AudienceSection() {
 
 function DocsSection() {
   const links = [
-    ['Documentation', '/docs', 'Setup, run, and release workflow.'],
-    ['Methodology', '/methodology-paper', 'CASS assumptions and certificate scope.'],
+    ['Documentation', '/docs', 'App setup, test plan, and release workflow.'],
+    ['Methodology', '/methodology-paper', 'Plain-English method, then CASS details.'],
     ['Security', '/security', 'Data handling, auth, and deployment posture.'],
     ['Terms', '/terms', 'Risk positioning and no-guarantee language.']
   ];
@@ -455,11 +466,11 @@ function PricingSection() {
     <section id="pricing" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '112px 0' }}>
       <div className="landing-container">
         <div className="section-eyebrow">Pricing</div>
-        <h2 className="section-title">Pay for the certificate, not the dashboard.</h2>
+        <h2 className="section-title">Pay for useful release evidence, not a giant test grid.</h2>
         <div className="grid grid-3" style={{ marginTop: 44 }}>
           {[
-            ['Starter', 'Free', 'One app, uploaded outputs, one active certificate.'],
-            ['Team', '$1,800', 'Production certification, drift monitoring, audit log, and support.'],
+            ['Starter', 'Free', 'One app, uploaded outputs, and one active evidence packet.'],
+            ['Team', '$1,800', 'Production recommendations, drift monitoring, audit log, and support.'],
             ['Enterprise', 'Talk to us', 'VPC/self-hosted, SSO, custom integrations, and evidence packages.']
           ].map(([name, price, desc], index) => (
             <Card key={name}>
@@ -483,10 +494,10 @@ function FinalCta() {
       <div className="landing-container">
         <div style={{ borderRadius: 22, background: 'var(--sc-ink)', color: '#fff', padding: '56px', display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, alignItems: 'center' }}>
           <div>
-            <h2 style={{ fontSize: 42, lineHeight: 1.1, margin: 0 }}>Stop shipping guardrails on vibes.</h2>
+            <h2 style={{ fontSize: 42, lineHeight: 1.1, margin: 0 }}>Stop guessing which safety checks to ship.</h2>
             <p style={{ color: 'rgba(255,255,255,.72)', fontSize: 16, lineHeight: 1.55 }}>
-              Get a certificate your safety team can defend, your platform team can automate, and your reviewers can
-              understand.
+              Get an app-specific recommendation your safety team can defend, your platform team can automate, and
+              your reviewers can understand.
             </p>
           </div>
           <div style={{ justifySelf: 'end' }}>
@@ -551,7 +562,7 @@ function Footer() {
               <span style={{ fontWeight: 650, fontSize: 14 }}>StackCert</span>
             </div>
             <p className="muted" style={{ lineHeight: 1.55, margin: 0, maxWidth: 290 }}>
-              Composable guardrail certification for teams shipping agent workflows into real review processes.
+              Safety-check selection and release evidence for teams shipping LLM applications into real review processes.
             </p>
           </div>
           {columns.map((column) => (
@@ -560,7 +571,7 @@ function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© 2026 StackCert Labs, Inc.</span>
-          <span>Scoped evidence, not a guarantee.</span>
+          <span>App-specific evidence, not a universal guarantee.</span>
         </div>
       </div>
     </footer>

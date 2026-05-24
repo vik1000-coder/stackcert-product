@@ -38,12 +38,12 @@ const sampleImport = [
 
 const initialConnector: GuardConnectorInput = {
   guard_key: 'refund_policy_guard',
-  display_name: 'Refund Policy Guard',
+  display_name: 'Refund Policy Check',
   guard_type: 'rest_guard',
   vendor: 'internal',
   version: 'v1',
   adapter_type: 'rest_guard',
-  endpoint_url: 'https://guards.example.test/refund',
+  endpoint_url: 'https://checks.example.test/refund',
   auth_header_name: 'Authorization',
   auth_secret: '',
   threshold: 0.8
@@ -53,7 +53,7 @@ export function SetupPage() {
   const queryClient = useQueryClient();
   const [behavior, setBehavior] = useState<CustomBehaviorInput>(initialBehavior);
   const [importContent, setImportContent] = useState(sampleImport);
-  const [suiteName, setSuiteName] = useState('Pilot custom behavior suite');
+  const [suiteName, setSuiteName] = useState('Pilot app example suite');
   const [suiteVersion, setSuiteVersion] = useState('v1');
   const [connector, setConnector] = useState<GuardConnectorInput>(initialConnector);
   const suites = useQuery({ queryKey: ['benchmark-suites'], queryFn: api.benchmarkSuites });
@@ -124,28 +124,28 @@ export function SetupPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Setup and custom tests"
-        subtitle="Create behavior-level tests that match your agent's actual failure modes, then estimate the cost of certifying candidate stacks before a run."
+        title="App setup"
+        subtitle="Describe the LLM workflow, add app-specific examples, and compare the safety-check combinations you could actually ship."
       />
-      <Explainer title="What StackCert needs before CASS can help" tone="accent" style={{ marginBottom: 16 }}>
+      <Explainer title="What StackCert needs before it can recommend a combination" tone="accent" style={{ marginBottom: 16 }}>
         <p>
-          A useful certificate starts with three ingredients: weighted behavior cells, guard connectors or uploaded
-          outputs, and candidate stacks. The cost estimate compares a full sweep against the targeted CASS measurement
-          path so teams can see the savings before spending provider budget.
+          A useful recommendation starts with three ingredients: examples from the app, safety options or uploaded
+          outputs, and the combinations you want to compare. The cost estimate shows the difference between testing
+          everything and running only the tests likely to change the answer.
         </p>
       </Explainer>
       <div className="grid grid-3">
-        <Stat label="Estimated full eval" value={fmtUsd(cost.data!.estimate.estimated_full_eval_usd, 2)} description="Brute-force guard evaluation for the configured run." />
-        <Stat label="CASS incremental" value={fmtUsd(cost.data!.estimate.estimated_cass_incremental_usd, 2)} tone="ok" description="Expected targeted measurement spend after existing outputs." />
+        <Stat label="Estimated full test" value={fmtUsd(cost.data!.estimate.estimated_full_eval_usd, 2)} description="Brute-force testing for the configured app and safety options." />
+        <Stat label="Targeted testing" value={fmtUsd(cost.data!.estimate.estimated_cass_incremental_usd, 2)} tone="ok" description="Expected spend after using existing outputs and targeted overlap tests." />
         <Stat label="Estimated savings" value={fmtUsd(cost.data!.estimate.estimated_savings_usd, 2)} tone="ok" description="Difference from not measuring every unnecessary path." />
       </div>
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Benchmark suite</h2>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Example suite</h2>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
             <div>
               <strong>{suite.name}</strong>
-              <p className="muted" style={{ margin: '6px 0 0' }}>{examples.toLocaleString()} examples across {suite.cells.length} weighted cells.</p>
+              <p className="muted" style={{ margin: '6px 0 0' }}>{examples.toLocaleString()} examples across {suite.cells.length} weighted example groups.</p>
             </div>
             <Badge tone={suite.status}>{suite.status}</Badge>
           </div>
@@ -159,16 +159,16 @@ export function SetupPage() {
           </div>
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Guard registry</h2>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Safety options</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {guards.data!.guards.map((guard) => (
               <span key={guard.id} className="pill">{guard.label} · {guard.type}</span>
             ))}
           </div>
-          <p className="muted" style={{ marginBottom: 0 }}>Connectors will move these from uploaded/demo outputs to managed REST, local, or model-judge evaluations.</p>
+          <p className="muted" style={{ marginBottom: 0 }}>Connectors move these from uploaded/demo outputs to managed REST checks, local adapters, or model-judge reviews.</p>
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>Candidate stacks</h2>
+          <h2 style={{ marginTop: 0, fontSize: 16 }}>Combinations to compare</h2>
           <div style={{ display: 'grid', gap: 8 }}>
             {stackPreview.map((stack) => (
               <div key={stack.architecture_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
@@ -180,7 +180,7 @@ export function SetupPage() {
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Guard connector registry</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Safety option connector registry</h2>
         <div className="grid grid-2">
           <form
             onSubmit={(event) => {
@@ -190,14 +190,14 @@ export function SetupPage() {
             style={{ display: 'grid', gap: 12 }}
           >
             <div className="setup-grid-two">
-              <Field label="Guard key" value={connector.guard_key} onChange={(value) => setConnector((draft) => ({ ...draft, guard_key: value }))} />
+              <Field label="Option key" value={connector.guard_key} onChange={(value) => setConnector((draft) => ({ ...draft, guard_key: value }))} />
               <Field label="Display name" value={connector.display_name} onChange={(value) => setConnector((draft) => ({ ...draft, display_name: value }))} />
             </div>
             <div className="setup-grid-three">
               <label>
                 <span className="stat-label">Type</span>
                 <select className="btn setup-input" style={{ marginTop: 6 }} value={connector.guard_type} onChange={(event) => setConnector((draft) => ({ ...draft, guard_type: event.currentTarget.value as GuardConnectorInput['guard_type'], adapter_type: event.currentTarget.value as GuardConnectorInput['adapter_type'] }))}>
-                  <option value="rest_guard">REST guard</option>
+                  <option value="rest_guard">REST safety check</option>
                   <option value="model_judge">model judge</option>
                   <option value="local_python">local Python</option>
                   <option value="uploaded_outputs">uploaded outputs</option>
@@ -234,10 +234,10 @@ export function SetupPage() {
       </Card>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Dry-run evaluation</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Dry-run safety checks</h2>
           <p className="muted" style={{ lineHeight: 1.5 }}>
-            Run a small deterministic guard-adapter check before spending provider budget. This exercises the same job and output
-            contract that managed REST or model-judge adapters will use.
+            Run a small deterministic adapter check before spending provider budget. This exercises the same job and
+            output contract that managed REST or model-judge adapters will use.
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
             {executableGuards.slice(0, 4).map((guard) => (
@@ -281,7 +281,7 @@ export function SetupPage() {
           </div>
           {createEvaluation.isSuccess ? (
             <div className="notice" style={{ marginTop: 12 }}>
-              Dry-run {createEvaluation.data.job.status} with {String(createEvaluation.data.job.summary.outputs ?? 0)} guard outputs.
+              Dry-run {createEvaluation.data.job.status} with {String(createEvaluation.data.job.summary.outputs ?? 0)} safety-check outputs.
             </div>
           ) : null}
           {runNextWorker.isSuccess ? (
@@ -306,7 +306,7 @@ export function SetupPage() {
               </div>
             </div>
           ) : (
-            <p className="muted" style={{ margin: 0 }}>No jobs yet. Run a dry-run or queue measurements to populate this ledger.</p>
+            <p className="muted" style={{ margin: 0 }}>No jobs yet. Run a dry-run or queue tests to populate this ledger.</p>
           )}
         </Card>
       </div>
@@ -315,7 +315,7 @@ export function SetupPage() {
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Bulk custom-test import</h2>
           <p className="muted" style={{ lineHeight: 1.5 }}>
             Paste JSONL or CSV rows with name, prompt, side, policy category, expected safe behavior, and unsafe behavior.
-            StackCert validates the suite before it can become certificate evidence.
+            StackCert validates the suite before it can become release evidence.
           </p>
           <textarea
             className="btn mono setup-input"
@@ -398,12 +398,12 @@ export function SetupPage() {
               ) : null}
             </div>
           ) : (
-            <p className="muted" style={{ margin: 0 }}>Preview a file before committing it to a versioned benchmark suite.</p>
+            <p className="muted" style={{ margin: 0 }}>Preview a file before committing it to a versioned example suite.</p>
           )}
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Saved benchmark suites</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Saved example suites</h2>
         <div style={{ display: 'grid', gap: 10 }}>
           {savedSuites.map((item) => (
             <div key={`${item.id}-${item.version}`} className="setup-suite-row">
@@ -420,7 +420,7 @@ export function SetupPage() {
       </Card>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Custom behavior builder</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>App-specific example builder</h2>
           <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
             <Field label="Name" value={behavior.name} onChange={(value) => update('name', value)} />
             <Field label="Description" value={behavior.description} onChange={(value) => update('description', value)} textarea />
@@ -447,16 +447,16 @@ export function SetupPage() {
             <Field label="Expected safe behavior" value={behavior.expected_safe_behavior} onChange={(value) => update('expected_safe_behavior', value)} textarea />
             <Field label="Unsafe behavior" value={behavior.unsafe_behavior} onChange={(value) => update('unsafe_behavior', value)} textarea />
             <button className="btn primary" type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Creating...' : 'Create behavior'}
+              {create.isPending ? 'Creating...' : 'Create example'}
             </button>
-            {create.isSuccess ? <div className="notice">Behavior validated and added as a draft benchmark item.</div> : null}
+            {create.isSuccess ? <div className="notice">Example validated and added as a draft test item.</div> : null}
           </form>
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Draft behaviors</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Draft app examples</h2>
           <div style={{ display: 'grid', gap: 12 }}>
             {behaviors.data!.behaviors.length === 0 ? (
-              <p className="muted">No custom behaviors yet. Create one to include product-specific risk in a future suite.</p>
+              <p className="muted">No app-specific examples yet. Create one to include product-specific risk in a future suite.</p>
             ) : (
               behaviors.data!.behaviors.map((item) => (
                 <div key={item.id} style={{ borderBottom: '1px solid var(--sc-line)', paddingBottom: 12 }}>

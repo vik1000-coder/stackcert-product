@@ -58,8 +58,8 @@ export function ProjectsPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Projects"
-        subtitle="Create pilot project records before attaching benchmark suites, guard connectors, and certification runs."
+        title="Apps"
+        subtitle="Create pilot app records before attaching example suites, safety options, test jobs, and release evidence."
       />
       <div className="grid grid-2">
         <Card>
@@ -122,7 +122,7 @@ export function ProjectsPage() {
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Workspace projects</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Workspace apps</h2>
         <div style={{ display: 'grid', gap: 10 }}>
           {projects.data!.projects.map((project) => (
             <div key={project.id} className="project-row">

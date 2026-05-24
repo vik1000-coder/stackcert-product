@@ -9,14 +9,14 @@ const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath
 const demoSetupSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoSetupPath)}`;
 
 const roles = [
-  { id: 'platform', label: 'AI platform', detail: 'I own deploy gates, agent releases, and shared guardrail services.' },
-  { id: 'safety', label: 'Safety', detail: 'I define benchmark behaviors, review failures, and track recertification.' },
-  { id: 'risk', label: 'Risk or GRC', detail: 'I need scoped evidence, limitations, and signoff records.' }
+  { id: 'platform', label: 'AI platform', detail: 'I own LLM app releases, routing, cost, latency, and deploy gates.' },
+  { id: 'safety', label: 'Safety', detail: 'I define risky and normal examples, review failures, and decide when to retest.' },
+  { id: 'risk', label: 'Risk or GRC', detail: 'I need app-specific evidence, limitations, and signoff records.' }
 ];
 
 const evidenceModes = [
-  { id: 'uploaded_outputs', label: 'Uploaded outputs', detail: 'Start with CSV or JSONL guard outputs from an existing evaluation run.' },
-  { id: 'connected_guards', label: 'Connected guards', detail: 'Register REST, local Python, model judge, or uploaded-output guard adapters.' },
+  { id: 'uploaded_outputs', label: 'Uploaded outputs', detail: 'Start with CSV or JSONL safety-check outputs from an existing test run.' },
+  { id: 'connected_guards', label: 'Connected safety options', detail: 'Register REST checks, local Python checks, model judges, or uploaded-output adapters.' },
   { id: 'demo_first', label: 'Demo first', detail: 'Use the seeded Acme Copilot project to learn the workflow before connecting production data.' }
 ];
 
@@ -90,11 +90,11 @@ export function OnboardingPage() {
           <div className="marketing-page-head">
             <Badge tone="neutral">Pilot setup</Badge>
             <h1 className="section-title" style={{ marginTop: 18, maxWidth: 760 }}>
-              Start a StackCert pilot around one agent workflow.
+              Start a StackCert pilot around one LLM app.
             </h1>
             <p className="hero-copy" style={{ margin: '16px 0 0', maxWidth: 760 }}>
-              This creates the workspace/project shell for a real certification flow: benchmark mix, guard connectors,
-              measurement jobs, scoped certificate, and deployment gate.
+              This creates the workspace for a real recommendation flow: app examples, safety options, targeted tests,
+              release evidence, and a deployment gate.
             </p>
           </div>
 
@@ -118,14 +118,14 @@ export function OnboardingPage() {
               </Card>
 
               <Card>
-                <StepHeader number="02" title="What are we certifying?" />
+                <StepHeader number="02" title="Which LLM app are we improving?" />
                 <div className="form-grid">
                   <label>
                     Company or workspace
                     <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
                   </label>
                   <label>
-                    Agent or workflow
+                    App or workflow
                     <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
                   </label>
                   <label>
@@ -177,10 +177,10 @@ export function OnboardingPage() {
                   <span style={{ width: `${readiness}%` }} />
                 </div>
                 <div className="setup-list">
-                  <span>Benchmark mixture</span>
-                  <span>Guard connectors</span>
+                  <span>Example suite</span>
+                  <span>Safety options</span>
                   <span>Cost estimate</span>
-                  <span>Certificate gate</span>
+                  <span>Release evidence</span>
                 </div>
                 <button className="btn primary full-width" type="submit" disabled={status === 'saving'}>
                   {status === 'saving' ? 'Creating pilot...' : 'Create pilot workspace'}

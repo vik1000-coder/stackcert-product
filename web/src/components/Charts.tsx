@@ -13,11 +13,11 @@ export function WelfareMovementChart({ rows }: { rows: RankingRow[] }) {
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 11 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 9, height: 9, borderRadius: 6, border: '1.5px solid var(--sc-ink-3)', background: 'var(--sc-surface)' }} />
-          first-order estimate
+          one-at-a-time estimate
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 10, height: 10, borderRadius: 6, background: 'var(--sc-ink-2)' }} />
-          CASS after co-failure
+          after overlap testing
         </span>
       </div>
       {top.map((row) => {
@@ -83,7 +83,7 @@ export function CorrelationMatrix({ payload, onSelect }: { payload: Correlations
   };
   return (
     <div style={{ overflowX: 'auto' }}>
-      <svg width={size * (labels.length + 1)} height={size * (labels.length + 1)} role="img" aria-label="Guard correlation matrix">
+      <svg width={size * (labels.length + 1)} height={size * (labels.length + 1)} role="img" aria-label="Safety option overlap matrix">
         {labels.map((guard, i) => (
           <text key={`h-${guard.id}`} x={(i + 1) * size + size / 2} y={size - 10} fill="var(--sc-ink-3)" fontSize="10" fontFamily="JetBrains Mono" textAnchor="middle">
             {guard.label}

@@ -15,39 +15,39 @@ const pages: Record<string, StaticContent> = {
   'why-stackcert': {
     eyebrow: 'Product',
     title: 'Why StackCert',
-    summary: 'StackCert exists because the most expensive guardrail mistakes are composition mistakes: redundant guards, correlated misses, hidden cost, and unclear release evidence.',
+    summary: 'StackCert exists because LLM app teams have many safety options, but few clear ways to choose the right combination for their actual workflow.',
     sections: [
-      { heading: 'The problem', body: 'A guard can look strong in isolation and still add little value to a stack when it fails on the same examples as another guard.' },
-      { heading: 'The decision', body: 'StackCert compares the actual candidate stacks a team can ship, with latency, cost, uncertainty, and scope visible in one place.' },
-      { heading: 'The outcome', body: 'Teams get a scoped certificate and deployment gate that says what was measured, what was not, and what should trigger recertification.' }
+      { heading: 'The problem', body: 'Rules, classifiers, model judges, more context, and stronger models can all help, but more checks are not automatically better.' },
+      { heading: 'The decision', body: 'StackCert compares the combinations a team can actually ship, with safety, usefulness, latency, cost, and uncertainty visible in one place.' },
+      { heading: 'The outcome', body: 'Teams get an app-specific recommendation and release evidence that says what was tested, what was not, and when to retest.' }
     ]
   },
   'how-it-works': {
     eyebrow: 'Product',
     title: 'How It Works',
-    summary: 'StackCert turns benchmark examples, guard outputs, and business risk weights into a defensible stack recommendation.',
+    summary: 'StackCert turns app examples, safety-check outputs, and launch goals into a recommendation for which combination to ship.',
     sections: [
-      { heading: 'Declare the launch context', body: 'Choose the candidate guards, benchmark mix, custom behaviors, aggregation rule, and risk profile.' },
-      { heading: 'Measure the useful uncertainty', body: 'CASS plans targeted measurements where co-failure information can change the decision.' },
-      { heading: 'Ship with a gate', body: 'Issue a certificate, collect signoffs, and use API, CLI, GitHub Actions, or MCP resources to block or warn on deployments.' }
+      { heading: 'Describe the app', body: 'Choose the workflow, safety options, example mix, custom risky behaviors, and tradeoffs that matter for release.' },
+      { heading: 'Compare combinations', body: 'StackCert tests where options overlap, where they cover different failures, and where extra testing can change the answer.' },
+      { heading: 'Ship with evidence', body: 'Export release evidence, collect signoffs, and use API, CLI, GitHub Actions, or MCP resources to block or warn on deployments.' }
     ]
   },
   pricing: {
     eyebrow: 'Product',
     title: 'Pricing',
-    summary: 'The product is designed to be economical: teams should pay for evidence, not for decorative dashboard seats.',
+    summary: 'The product is designed to be economical: teams should pay for useful release evidence, not a giant test grid.',
     sections: [
-      { heading: 'Starter', body: 'Free local/demo use for one application, uploaded outputs, and one active certificate.' },
-      { heading: 'Team', body: 'Production certification, drift monitoring, usage ledger, signoff workflow, and deploy-gate automation.' },
+      { heading: 'Starter', body: 'Free local/demo use for one application, uploaded outputs, and one active evidence packet.' },
+      { heading: 'Team', body: 'Production recommendations, retest monitoring, usage ledger, signoff workflow, and deploy-gate automation.' },
       { heading: 'Enterprise', body: 'Self-hosted or VPC deployment, SSO, custom retention, procurement support, and private integration work.' }
     ]
   },
   changelog: {
     eyebrow: 'Product',
     title: 'Changelog',
-    summary: 'Current development is focused on turning the CASS prototype into a production-ready StackCert application.',
+    summary: 'Current development is focused on turning the research prototype into a production-ready StackCert application.',
     sections: [
-      { heading: 'Current build', body: 'Supabase-backed projects, guard connectors, benchmark import, queued workers, usage ledger, certificates, signoffs, and deployment gates.' },
+      { heading: 'Current build', body: 'Supabase-backed apps, safety option connectors, example import, queued workers, usage ledger, release evidence, signoffs, and deployment gates.' },
       { heading: 'Latest slice', body: 'Provider-grade worker hardening and MCP-style agent integration endpoints.' },
       { heading: 'Next', body: 'Provider adapters, richer onboarding, hosted deployment, billing, and enterprise pipeline integrations.' }
     ]
@@ -57,29 +57,29 @@ const pages: Record<string, StaticContent> = {
     title: 'Status',
     summary: 'The local product build is suitable for demos and design-partner pilots, with clear remaining production work.',
     sections: [
-      { heading: 'API', body: 'FastAPI service with tested project, benchmark, guard, worker, cost, certificate, and MCP endpoints.' },
-      { heading: 'Database', body: 'Supabase migrations cover workspaces, projects, suites, custom behaviors, jobs, usage events, certificates, and signoffs.' },
-      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, certificate gate workflow, and local runbook are in place.' }
+      { heading: 'API', body: 'FastAPI service with tested app, example-suite, safety-option, worker, cost, release-evidence, and MCP endpoints.' },
+      { heading: 'Database', body: 'Supabase migrations cover workspaces, apps, suites, app-specific examples, jobs, usage events, evidence packets, and signoffs.' },
+      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, deploy-gate workflow, and local runbook are in place.' }
     ]
   },
   docs: {
     eyebrow: 'Resources',
     title: 'Documentation',
-    summary: 'StackCert documentation is organized around a practical certification workflow rather than a generic model-evaluation checklist.',
+    summary: 'StackCert documentation is organized around a practical LLM app workflow rather than a generic model-evaluation checklist.',
     sections: [
-      { heading: 'Setup', body: 'Create a workspace, define a project, import benchmark examples, and register guard connectors.' },
-      { heading: 'Run', body: 'Queue evaluation and measurement jobs, inspect co-failure, and compare candidate stack rankings.' },
-      { heading: 'Release', body: 'Issue a scoped certificate, collect signoffs, and connect the certificate gate to CI/CD or agent-release tooling.' }
+      { heading: 'Setup', body: 'Create a workspace, define an app, import examples, and register safety options.' },
+      { heading: 'Run', body: 'Queue evaluation and targeted test jobs, inspect overlap, and compare candidate combinations.' },
+      { heading: 'Release', body: 'Issue release evidence, collect signoffs, and connect the result to CI/CD or LLM app-release tooling.' }
     ]
   },
   'methodology-paper': {
     eyebrow: 'Resources',
     title: 'Methodology Paper',
-    summary: 'The methodology is based on CASS: Correlation-Aware Stack Selection for composable guardrail certification.',
+    summary: 'The plain-English idea: safety options should be evaluated together, because two good options can fail on the same examples.',
     sections: [
-      { heading: 'Core idea', body: 'Guard stacks should be evaluated by joint behavior, not just marginal guard scores.' },
-      { heading: 'Measurement plan', body: 'Targeted pair and cell measurements shrink the uncertainty interval around the deployment decision.' },
-      { heading: 'Certificate scope', body: 'Every result is scoped to the benchmark mixture, candidate stack set, welfare profile, and aggregation assumptions.' }
+      { heading: 'Core idea', body: 'Combinations should be evaluated by joint behavior, not just one-at-a-time safety-check scores.' },
+      { heading: 'Targeted tests', body: 'StackCert tests overlaps that can change the recommendation instead of measuring every expensive path.' },
+      { heading: 'CASS details', body: 'The underlying method is CASS: Correlation-Aware Stack Selection, scoped to the example mix, candidate combinations, goal score, and assumptions.' }
     ]
   },
   'replication-kit': {
@@ -87,7 +87,7 @@ const pages: Record<string, StaticContent> = {
     title: 'Replication Kit',
     summary: 'The repository includes fixture examples, outputs, tests, and scripts so a buyer can inspect the evidence path end to end.',
     sections: [
-      { heading: 'Artifacts', body: 'Demo JSONL examples, guard outputs, benchmark weights, and generated certificates.' },
+      { heading: 'Artifacts', body: 'Demo JSONL examples, safety-check outputs, example weights, and generated evidence packets.' },
       { heading: 'Commands', body: 'Unit tests, API smoke tests, worker runner, Supabase reset/lint/advisor checks, and web verification.' },
       { heading: 'Goal', body: 'Make the demo reproducible before a customer trusts StackCert with their own agent workflows.' }
     ]
@@ -95,21 +95,23 @@ const pages: Record<string, StaticContent> = {
   blog: {
     eyebrow: 'Resources',
     title: 'Blog',
-    summary: 'Planned essays will explain guardrail composition, agent deployment risk, benchmark design, and the economics of targeted measurement.',
+    summary: 'Planned essays will explain safety-check combinations, LLM app deployment risk, example design, and the economics of targeted testing.',
     sections: [
-      { heading: 'First posts', body: 'Why marginal guard scores fail, what a scoped certificate means, and how to decide when to recertify.' },
+      { heading: 'First posts', body: 'Why one-at-a-time safety scores fail, what release evidence means, and how to decide when to retest.' },
       { heading: 'Operator notes', body: 'Practical lessons from connecting StackCert to CI/CD and agent-release workflows.' },
-      { heading: 'Research notes', body: 'Short methodology updates as the CASS implementation matures.' }
+      { heading: 'Research notes', body: 'Short methodology updates as the overlap-testing implementation matures.' }
     ]
   },
   glossary: {
     eyebrow: 'Resources',
     title: 'Glossary',
-    summary: 'A compact vocabulary for teams using StackCert in deployment reviews.',
+    summary: 'A compact vocabulary for teams using StackCert without needing to know the research paper first.',
     sections: [
-      { heading: 'CASS', body: 'Correlation-Aware Stack Selection, the StackCert method for selecting guard stacks using co-failure evidence.' },
-      { heading: 'Certificate', body: 'A scoped evidence packet that records the selected stack, assumptions, limitations, and recertification triggers.' },
-      { heading: 'Benchmark mixture', body: 'The weighted set of benign and adversarial behavior cells used to represent the launch risk profile.' }
+      { heading: 'Safety check', body: 'A rule, classifier, model judge, context policy, stronger model route, or other step that improves LLM app behavior.' },
+      { heading: 'Combination', body: 'The set of safety checks you choose to run for an application workflow.' },
+      { heading: 'Overlap', body: 'When two checks miss the same risky examples or block the same normal examples.' },
+      { heading: 'Release evidence', body: 'A scoped packet that records the selected combination, assumptions, limitations, and retest triggers.' },
+      { heading: 'CASS', body: 'The underlying method StackCert uses to choose combinations by measuring overlap where it matters.' }
     ]
   },
   about: {
@@ -117,8 +119,8 @@ const pages: Record<string, StaticContent> = {
     title: 'About StackCert',
     summary: 'StackCert is being built for teams that have moved past AI demos and need repeatable release evidence for real agent workflows.',
     sections: [
-      { heading: 'Mission', body: 'Help companies ship useful AI agents with clearer evidence, lower measurement cost, and more honest risk language.' },
-      { heading: 'Point of view', body: 'No certificate proves universal safety. A good certificate makes scope, assumptions, and residual risk explicit.' },
+      { heading: 'Mission', body: 'Help companies ship useful AI agents with clearer evidence, lower testing cost, and more honest risk language.' },
+      { heading: 'Point of view', body: 'No evidence packet proves universal safety. Good release evidence makes scope, assumptions, and residual risk explicit.' },
       { heading: 'Audience', body: 'AI platform, safety engineering, model risk, security, and GRC teams working together on production releases.' }
     ]
   },
@@ -127,9 +129,9 @@ const pages: Record<string, StaticContent> = {
     title: 'Customers',
     summary: 'StackCert is designed for regulated or high-consequence teams deploying support, internal operations, coding, security, and research agents.',
     sections: [
-      { heading: 'Best fit', body: 'Teams with multiple guardrails, multiple candidate stacks, and enough deployment risk to need reviewable evidence.' },
-      { heading: 'Design partners', body: 'Ideal early customers can provide real benchmark behaviors, existing guard outputs, and a concrete release gate.' },
-      { heading: 'Outcome', body: 'A repeatable certificate packet that can travel between platform, safety, risk, and executive review.' }
+      { heading: 'Best fit', body: 'Teams with multiple safety options, multiple combinations, and enough deployment risk to need reviewable evidence.' },
+      { heading: 'Design partners', body: 'Ideal early customers can provide real app examples, existing safety-check outputs, and a concrete release gate.' },
+      { heading: 'Outcome', body: 'A repeatable evidence packet that can travel between platform, safety, risk, and executive review.' }
     ]
   },
   security: {
@@ -137,7 +139,7 @@ const pages: Record<string, StaticContent> = {
     title: 'Security',
     summary: 'The product is designed around minimal sensitive data, explicit retention choices, and deployable self-hosted paths.',
     sections: [
-      { heading: 'Data minimization', body: 'Projects can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths.' },
+      { heading: 'Data minimization', body: 'Apps can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths.' },
       { heading: 'Access', body: 'Supabase Auth, row-level security, server-side service role usage, and redacted connector secrets are part of the architecture.' },
       { heading: 'Operations', body: 'CI, dependency checks, migration linting, and Supabase advisors are expected release gates.' }
     ]
@@ -148,26 +150,26 @@ const pages: Record<string, StaticContent> = {
     summary: 'StackCert is early. The near-term hiring profile is people who can bridge product engineering, AI safety, statistics, and enterprise trust.',
     sections: [
       { heading: 'Engineering', body: 'Backend, frontend, infra, and integrations for teams that ship production agents.' },
-      { heading: 'Research', body: 'Measurement planning, benchmark design, uncertainty intervals, and safety-evaluation methodology.' },
+      { heading: 'Research', body: 'Test planning, example design, uncertainty intervals, and safety-evaluation methodology.' },
       { heading: 'Go to market', body: 'Design-partner discovery with platform, safety, security, and model-risk buyers.' }
     ]
   },
   press: {
     eyebrow: 'Company',
     title: 'Press',
-    summary: 'StackCert is a developing product built from the CASS thesis: guardrail stacks need evidence about composition, not just isolated scores.',
+    summary: 'StackCert is a developing product for choosing safety-check combinations for production LLM applications.',
     sections: [
-      { heading: 'Short description', body: 'StackCert certifies composable guardrail stacks for production AI agents.' },
-      { heading: 'Long description', body: 'StackCert measures correlated guardrail failures, ranks candidate stacks, and produces scoped evidence packets for release review.' },
+      { heading: 'Short description', body: 'StackCert helps teams choose which safety checks to combine for production AI agents.' },
+      { heading: 'Long description', body: 'StackCert measures where safety options overlap, ranks candidate combinations, and produces scoped evidence packets for release review.' },
       { heading: 'Contact', body: 'For now, use the demo/contact flow while the company presence is formalized.' }
     ]
   },
   privacy: {
     eyebrow: 'Legal',
     title: 'Privacy',
-    summary: 'StackCert should collect only what is needed to create, operate, and audit a scoped certification workflow.',
+    summary: 'StackCert should collect only what is needed to create, operate, and audit a scoped release-evidence workflow.',
     sections: [
-      { heading: 'Product data', body: 'The preferred production path stores redacted prompts, hashes, metadata, outputs, and certificate evidence rather than raw sensitive conversations.' },
+      { heading: 'Product data', body: 'The preferred production path stores redacted prompts, hashes, metadata, outputs, and release evidence rather than raw sensitive conversations.' },
       { heading: 'Account data', body: 'Workspace, project, billing, auth, and activity metadata are used to operate the service.' },
       { heading: 'Retention', body: 'Enterprise customers should be able to configure retention, deletion, and customer-hosted evidence paths.' }
     ]
@@ -177,8 +179,8 @@ const pages: Record<string, StaticContent> = {
     title: 'Terms of Service',
     summary: 'These product terms are a placeholder for counsel review, but the product posture is already clear: StackCert mitigates risk; it does not guarantee outcomes.',
     sections: [
-      { heading: 'Use of service', body: 'Customers are responsible for lawful data handling, truthful benchmark configuration, and human review of deployment decisions.' },
-      { heading: 'No guarantee', body: 'A StackCert certificate is scoped evidence over specified data, guards, model versions, assumptions, and time. It is not a guarantee of real-world safety.' },
+      { heading: 'Use of service', body: 'Customers are responsible for lawful data handling, truthful example configuration, and human review of deployment decisions.' },
+      { heading: 'No guarantee', body: 'StackCert release evidence is scoped over specified data, safety options, model versions, assumptions, and time. It is not a guarantee of real-world safety.' },
       { heading: 'Production review', body: 'High-risk deployments should combine StackCert with security review, monitoring, incident response, and organization-specific approvals.' }
     ]
   },
@@ -195,9 +197,9 @@ const pages: Record<string, StaticContent> = {
   dpa: {
     eyebrow: 'Legal',
     title: 'Data Processing Addendum',
-    summary: 'The DPA page records the intended posture for handling customer benchmark and guard-output data.',
+    summary: 'The DPA page records the intended posture for handling customer examples and safety-check output data.',
     sections: [
-      { heading: 'Processing purpose', body: 'Process customer-provided benchmark, guard-output, and project metadata for certification, monitoring, and support.' },
+      { heading: 'Processing purpose', body: 'Process customer-provided examples, safety-check outputs, and app metadata for recommendations, monitoring, and support.' },
       { heading: 'Data modes', body: 'Support raw-allowed, redacted-snippet, hashes-only, and customer-hosted configurations.' },
       { heading: 'Enterprise review', body: 'A formal DPA should be completed with counsel before production customer processing.' }
     ]
@@ -205,11 +207,11 @@ const pages: Record<string, StaticContent> = {
   subprocessors: {
     eyebrow: 'Legal',
     title: 'Subprocessors',
-    summary: 'The intended hosted stack is intentionally small: Supabase, hosting/runtime infrastructure, observability, and payment/vendor tooling as needed.',
+    summary: 'The intended hosted system is intentionally small: Supabase, hosting/runtime infrastructure, observability, and payment/vendor tooling as needed.',
     sections: [
       { heading: 'Core infrastructure', body: 'Supabase can provide Postgres, Auth, Storage, and row-level security for hosted deployments.' },
       { heading: 'Optional services', body: 'Observability, email, payments, and support vendors should be listed here before public launch.' },
-      { heading: 'Customer-hosted option', body: 'Enterprise customers may choose a deployment mode that keeps sensitive benchmark artifacts in their environment.' }
+      { heading: 'Customer-hosted option', body: 'Enterprise customers may choose a deployment mode that keeps sensitive example artifacts in their environment.' }
     ]
   }
 };

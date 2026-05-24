@@ -76,8 +76,8 @@ export function AuthPage() {
                 {mode === 'sign-in' && isDemoDestination
                   ? 'Continue with the seeded demo account'
                   : mode === 'sign-in'
-                    ? 'Sign in to the certification workbench'
-                    : 'Create a certification workspace'}
+                    ? 'Sign in to the StackCert workbench'
+                    : 'Create an LLM app workspace'}
               </div>
             </div>
           </div>
