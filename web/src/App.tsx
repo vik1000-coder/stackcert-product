@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { useState } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { AuthPage } from './pages/AuthPage';
+import { BlogIndexPage, BlogPostPage } from './pages/BlogPage';
 import { CertificatePage } from './pages/CertificatePage';
 import { CorrelationsPage } from './pages/CorrelationsPage';
 import { DriftPage } from './pages/DriftPage';
@@ -28,8 +29,11 @@ export function App() {
   const [lambda, setLambda] = useState(5);
   return (
     <QueryClientProvider client={queryClient}>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/blog" element={<BlogIndexPage />} />
+        <Route path="/blog/:postSlug" element={<BlogPostPage />} />
         <Route path="/auth/sign-in" element={<AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/app/:workspaceId/:projectId" element={<AppShell lambda={lambda} onLambdaChange={setLambda} />}>
@@ -48,4 +52,14 @@ export function App() {
       </Routes>
     </QueryClientProvider>
   );
+}
+
+function ScrollToTop() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [location.pathname]);
+
+  return null;
 }

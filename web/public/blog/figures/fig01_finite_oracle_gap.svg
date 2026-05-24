@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="650" viewBox="0 0 1050 650" role="img">
+<defs>
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; fill: #172033; }
+.title { font-size: 26px; font-weight: 700; }
+.subtitle { font-size: 15px; fill: #475569; }
+.axis { font-size: 13px; fill: #475569; }
+.tick { font-size: 12px; fill: #64748b; }
+.label { font-size: 13px; font-weight: 600; }
+.small { font-size: 12px; fill: #475569; }
+</style>
+</defs>
+<rect x="0" y="0" width="1050" height="650" fill="white"/>
+<text x="46" y="48" class="title" text-anchor="start">Finite oracle: marginal choice only fails when safety penalty is high</text>
+<text x="46" y="76" class="subtitle" text-anchor="start">At lambda 5, top-marginal selection picks the wrong pair; the full pairwise oracle improves welfare by 0.025318.</text>
+<line x1="46" y1="96" x2="1004" y2="96" stroke="#d8dee9" stroke-width="1"/>
+<line x1="110" y1="478.9473684210526" x2="910" y2="478.9473684210526" stroke="#d8dee9" stroke-width="1"/>
+<text x="100" y="482.9473684210526" class="tick" text-anchor="end">0.10</text>
+<line x1="110" y1="376.3157894736842" x2="910" y2="376.3157894736842" stroke="#d8dee9" stroke-width="1"/>
+<text x="100" y="380.3157894736842" class="tick" text-anchor="end">0.15</text>
+<line x1="110" y1="273.6842105263157" x2="910" y2="273.6842105263157" stroke="#d8dee9" stroke-width="1"/>
+<text x="100" y="277.6842105263157" class="tick" text-anchor="end">0.20</text>
+<line x1="110" y1="171.0526315789474" x2="910" y2="171.0526315789474" stroke="#d8dee9" stroke-width="1"/>
+<text x="100" y="175.0526315789474" class="tick" text-anchor="end">0.25</text>
+<line x1="110" y1="130" x2="110" y2="520" stroke="#172033" stroke-width="1.2"/>
+<line x1="110" y1="520" x2="910" y2="520" stroke="#172033" stroke-width="1.2"/>
+<line x1="110.0" y1="130" x2="110.0" y2="520" stroke="#d8dee9" stroke-width="1" stroke-dasharray="3 6"/>
+<text x="110.0" y="554" class="axis" text-anchor="middle">1</text>
+<line x1="510.0" y1="130" x2="510.0" y2="520" stroke="#d8dee9" stroke-width="1" stroke-dasharray="3 6"/>
+<text x="510.0" y="554" class="axis" text-anchor="middle">2</text>
+<line x1="910.0" y1="130" x2="910.0" y2="520" stroke="#d8dee9" stroke-width="1" stroke-dasharray="3 6"/>
+<text x="910.0" y="554" class="axis" text-anchor="middle">5</text>
+<text x="510.0" y="592" class="axis" text-anchor="middle">lambda: adversarial miss penalty</text>
+<text x="28" y="325.0" class="axis" text-anchor="middle" font-size="13">welfare</text>
+<polyline points="110.0,186.6385417371643 510.0,254.08834947717338 910.0,456.4377726972007" fill="none" stroke="#d97706" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="110.0,186.6385417371643 510.0,254.08834947717338 910.0,404.46855323129694" fill="none" stroke="#059669" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="110.0" cy="186.6385417371643" r="7" fill="#d97706" stroke="white" stroke-width="2"/>
+<text x="110.0" y="172.6385417371643" class="small" text-anchor="middle">0.242</text>
+<circle cx="510.0" cy="254.08834947717338" r="7" fill="#d97706" stroke="white" stroke-width="2"/>
+<text x="510.0" y="240.08834947717338" class="small" text-anchor="middle">0.210</text>
+<circle cx="910.0" cy="456.4377726972007" r="7" fill="#d97706" stroke="white" stroke-width="2"/>
+<text x="910.0" y="442.4377726972007" class="small" text-anchor="middle">0.111</text>
+<circle cx="110.0" cy="186.6385417371643" r="7" fill="#059669" stroke="white" stroke-width="2"/>
+<text x="110.0" y="212.6385417371643" class="small" text-anchor="middle">0.242</text>
+<circle cx="510.0" cy="254.08834947717338" r="7" fill="#059669" stroke="white" stroke-width="2"/>
+<text x="510.0" y="280.0883494771734" class="small" text-anchor="middle">0.210</text>
+<circle cx="910.0" cy="404.46855323129694" r="7" fill="#059669" stroke="white" stroke-width="2"/>
+<text x="910.0" y="430.46855323129694" class="small" text-anchor="middle">0.136</text>
+<line x1="944.0" y1="404.46855323129694" x2="944.0" y2="456.4377726972007" stroke="#dc2626" stroke-width="3"/>
+<line x1="934.0" y1="404.46855323129694" x2="954.0" y2="404.46855323129694" stroke="#dc2626" stroke-width="3"/>
+<line x1="934.0" y1="456.4377726972007" x2="954.0" y2="456.4377726972007" stroke="#dc2626" stroke-width="3"/>
+<text x="962.0" y="426.4531629642488" class="label" text-anchor="start" fill="#dc2626">regret avoided</text>
+<text x="962.0" y="447.4531629642488" class="small" text-anchor="start" fill="#dc2626">+0.025318</text>
+<rect x="705" y="126" width="240" height="72" fill="#f8fafc" stroke="#d8dee9" rx="6"/>
+<circle cx="728" cy="150" r="6" fill="#059669" stroke="white" stroke-width="2"/>
+<text x="744" y="155" class="small" text-anchor="start">Full pairwise oracle</text>
+<circle cx="728" cy="176" r="6" fill="#d97706" stroke="white" stroke-width="2"/>
+<text x="744" y="181" class="small" text-anchor="start">Top-marginal baseline</text>
+<text x="46" y="610" class="subtitle" text-anchor="start">Message: CASS is most valuable where marginal rates and pairwise co-failures disagree.</text>
+</svg>

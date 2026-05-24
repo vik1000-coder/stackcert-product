@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="660" viewBox="0 0 1120 660" role="img">
+<defs>
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; fill: #172033; }
+.title { font-size: 26px; font-weight: 700; }
+.subtitle { font-size: 15px; fill: #475569; }
+.axis { font-size: 13px; fill: #475569; }
+.tick { font-size: 12px; fill: #64748b; }
+.label { font-size: 13px; font-weight: 600; }
+.small { font-size: 12px; fill: #475569; }
+</style>
+</defs>
+<rect x="0" y="0" width="1120" height="660" fill="white"/>
+<text x="46" y="48" class="title" text-anchor="start">Budgeted lambda 5: CASS certifies the right winner with less joint work</text>
+<text x="46" y="76" class="subtitle" text-anchor="start">At 50% budget, CASS certifies the zero-regret lambda 5 winner using 13 pair-cells, while broad measurement spends many more pair-cells without certifying.</text>
+<line x1="46" y1="96" x2="1074" y2="96" stroke="#d8dee9" stroke-width="1"/>
+<text x="100" y="109" class="label" text-anchor="start">Regret lower is better</text>
+<line x1="100" y1="495.0" x2="530" y2="495.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="90" y="499.0" class="tick" text-anchor="end">0.00</text>
+<line x1="100" y1="375.0" x2="530" y2="375.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="90" y="379.0" class="tick" text-anchor="end">0.01</text>
+<line x1="100" y1="254.99999999999997" x2="530" y2="254.99999999999997" stroke="#d8dee9" stroke-width="1"/>
+<text x="90" y="259.0" class="tick" text-anchor="end">0.02</text>
+<line x1="100" y1="135.0" x2="530" y2="135.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="90" y="139.0" class="tick" text-anchor="end">0.03</text>
+<line x1="100" y1="135" x2="100" y2="495" stroke="#172033" stroke-width="1.2"/>
+<line x1="100" y1="495" x2="530" y2="495" stroke="#172033" stroke-width="1.2"/>
+<rect x="116.0" y="191.17994773779333" width="54" height="303.8200522622067" fill="#dc2626" rx="3"/>
+<text x="143.0" y="183.17994773779333" class="small" text-anchor="middle">0.025</text>
+<text x="143.0" y="521" class="tick" text-anchor="middle">Top marginal</text>
+<rect x="202.0" y="495.0" width="54" height="0.0" fill="#059669" rx="3"/>
+<text x="229.0" y="487.0" class="small" text-anchor="middle">0.000</text>
+<text x="229.0" y="521" class="tick" text-anchor="middle">CASS</text>
+<text x="229.0" y="465.0" class="small" text-anchor="middle" fill="#059669" font-weight="700">certified</text>
+<rect x="288.0" y="495.0" width="54" height="0.0" fill="#2563eb" rx="3"/>
+<text x="315.0" y="487.0" class="small" text-anchor="middle">0.000</text>
+<text x="315.0" y="521" class="tick" text-anchor="middle">Uncertainty</text>
+<rect x="374.0" y="495.0" width="54" height="0.0" fill="#94a3b8" rx="3"/>
+<text x="401.0" y="487.0" class="small" text-anchor="middle">0.000</text>
+<text x="401.0" y="521" class="tick" text-anchor="middle">Uniform</text>
+<rect x="460.0" y="458.5415937285352" width="54" height="36.4584062714648" fill="#7c3aed" rx="3"/>
+<text x="487.0" y="450.5415937285352" class="small" text-anchor="middle">0.003</text>
+<text x="487.0" y="521" class="tick" text-anchor="middle">Random</text>
+<text x="315.0" y="555" class="axis" text-anchor="middle">regret</text>
+<text x="620" y="109" class="label" text-anchor="start">Pair-cells measured lower is better</text>
+<line x1="620" y1="495.0" x2="1050" y2="495.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="610" y="499.0" class="tick" text-anchor="end">0.00</text>
+<line x1="620" y1="375.0" x2="1050" y2="375.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="610" y="379.0" class="tick" text-anchor="end">30.00</text>
+<line x1="620" y1="255.0" x2="1050" y2="255.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="610" y="259.0" class="tick" text-anchor="end">60.00</text>
+<line x1="620" y1="135.0" x2="1050" y2="135.0" stroke="#d8dee9" stroke-width="1"/>
+<text x="610" y="139.0" class="tick" text-anchor="end">90.00</text>
+<line x1="620" y1="135" x2="620" y2="495" stroke="#172033" stroke-width="1.2"/>
+<line x1="620" y1="495" x2="1050" y2="495" stroke="#172033" stroke-width="1.2"/>
+<rect x="636.0" y="495.0" width="54" height="0.0" fill="#dc2626" rx="3"/>
+<text x="663.0" y="487.0" class="small" text-anchor="middle">0.0</text>
+<text x="663.0" y="521" class="tick" text-anchor="middle">Top marginal</text>
+<rect x="722.0" y="443.0" width="54" height="51.99999999999999" fill="#059669" rx="3"/>
+<text x="749.0" y="435.0" class="small" text-anchor="middle">13.0</text>
+<text x="749.0" y="521" class="tick" text-anchor="middle">CASS</text>
+<rect x="808.0" y="227.0" width="54" height="268.0" fill="#2563eb" rx="3"/>
+<text x="835.0" y="219.0" class="small" text-anchor="middle">67.0</text>
+<text x="835.0" y="521" class="tick" text-anchor="middle">Uncertainty</text>
+<rect x="894.0" y="159.0" width="54" height="336.0" fill="#94a3b8" rx="3"/>
+<text x="921.0" y="151.0" class="small" text-anchor="middle">84.0</text>
+<text x="921.0" y="521" class="tick" text-anchor="middle">Uniform</text>
+<rect x="980.0" y="329.64" width="54" height="165.36" fill="#7c3aed" rx="3"/>
+<text x="1007.0" y="321.64" class="small" text-anchor="middle">41.3</text>
+<text x="1007.0" y="521" class="tick" text-anchor="middle">Random</text>
+<text x="835.0" y="555" class="axis" text-anchor="middle">pair-cells</text>
+<text x="46" y="610" class="subtitle" text-anchor="start">Message: CASS spends measurements on decision-relevant pair-cells, not broad uncertainty reduction.</text>
+</svg>

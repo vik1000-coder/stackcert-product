@@ -26,6 +26,9 @@ export function LandingPage() {
             <a href="#pricing" style={{ textDecoration: 'none' }}>
               Pricing
             </a>
+            <Link to="/blog" style={{ textDecoration: 'none' }}>
+              Blog
+            </Link>
             <Link to="/docs" style={{ textDecoration: 'none' }}>
               Docs
             </Link>
@@ -438,8 +441,9 @@ function DocsSection() {
   const links = [
     ['Documentation', '/docs', 'App setup, test plan, and release workflow.'],
     ['Methodology', '/methodology-paper', 'Plain-English method, then CASS details.'],
+    ['Blog', '/blog', 'Product, theory, method, and empirical posts.'],
     ['Security', '/security', 'Data handling, auth, and deployment posture.'],
-    ['Terms', '/terms', 'Risk positioning and no-guarantee language.']
+    ['Replication kit', '/replication-kit', 'Artifacts and commands for review.']
   ];
   return (
     <section id="docs" style={{ padding: '96px 0' }}>

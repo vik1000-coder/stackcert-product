@@ -57,4 +57,33 @@ describe('StackCert app', () => {
     expect(screen.getByText(/Terms of Service/i)).toBeInTheDocument();
     expect(screen.getByText(/does not guarantee outcomes/i)).toBeInTheDocument();
   });
+
+  it('renders the blog index and full empirical article route', () => {
+    render(
+      <MemoryRouter initialEntries={['/blog']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /Evidence-backed safety decisions/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /A 2,000-Example Test/i })).toHaveAttribute(
+      'href',
+      '/blog/two-thousand-example-test'
+    );
+  });
+
+  it('renders blog post figures and scoped limitations', () => {
+    render(
+      <MemoryRouter initialEntries={['/blog/two-thousand-example-test']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /When Marginal Selection Fails/i })).toBeInTheDocument();
+    expect(screen.getByAltText(/Finite oracle gap/i)).toHaveAttribute(
+      'src',
+      '/blog/figures/fig01_finite_oracle_gap.svg'
+    );
+    expect(screen.getByText(/What this does not prove/i)).toBeInTheDocument();
+  });
 });
