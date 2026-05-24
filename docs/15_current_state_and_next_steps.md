@@ -125,8 +125,9 @@ Latest hosted verification:
 - Latest ready revision is `stackcert-api-00002-xfx`.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
-- Cloudflare Workers static-assets config is present at `web/wrangler.jsonc`
-  for temporary frontend hosting from the `web` path.
+- Cloudflare Workers static-assets config is present at root `wrangler.jsonc`
+  for temporary frontend hosting from repo-root Workers Builds. A secondary
+  `web/wrangler.jsonc` remains available for direct local deploys from `web`.
 
 ## Important Boundaries
 
@@ -185,7 +186,7 @@ Then smoke:
 For the current Cloudflare Workers Builds UI, use:
 
 ```text
-Path: web
+Path: /
 Build command: npm ci && npm run build
 Deploy command: npx wrangler deploy
 ```

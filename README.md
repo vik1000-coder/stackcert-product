@@ -133,15 +133,17 @@ The current staging budget is `StackCert staging $10` on
 `project-e7840c42-f298-4bd9-bff`, scoped to gross Google Cloud usage before
 free-trial credits are applied.
 
-Cloudflare temporary frontend hosting can use Workers Builds with:
+Cloudflare temporary frontend hosting can use Workers Builds from the repo root
+with:
 
 ```text
-Path: web
+Path: /
 Build command: npm ci && npm run build
 Deploy command: npx wrangler deploy
 ```
 
-The required Workers static-assets config lives at `web/wrangler.jsonc`.
+The root `package.json` delegates the build to the `web` workspace, and the root
+`wrangler.jsonc` deploys `web/dist` as Workers static assets.
 
 ## Local App
 

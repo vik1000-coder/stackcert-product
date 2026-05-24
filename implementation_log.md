@@ -329,6 +329,10 @@ Started: 2026-05-23
 
 ## Cloudflare Temporary Frontend Prep
 
+- Added root `package.json` and `package-lock.json` so Cloudflare Workers Builds
+  can run `npm ci && npm run build` from the repository root.
+- Added root `wrangler.jsonc` so `npx wrangler deploy` from the repository root
+  deploys `web/dist` as Workers static assets with SPA fallback routing.
 - Added `web/wrangler.jsonc` for Cloudflare Workers static-assets hosting:
   - project name: `stackcert-staging`
   - compatibility date: `2026-05-24`
@@ -338,10 +342,14 @@ Started: 2026-05-23
   SPA fallback behavior.
 - Verified the frontend build still succeeds after adding the Cloudflare files:
   `cd web && npm run build` -> OK.
-- Verified the Workers static-assets deploy config locally:
+- Verified the Workers static-assets deploy config locally from `web`:
   `cd web && npx wrangler deploy --dry-run` -> OK.
+- Verified the root Workers Builds commands locally:
+  - `npm ci` -> OK.
+  - `npm run build` -> OK.
+  - `npx wrangler deploy --dry-run` -> OK.
 - Cloudflare Workers Builds settings to use:
-  - Path: `web`
+  - Path: `/`
   - Build command: `npm ci && npm run build`
   - Deploy command: `npx wrangler deploy`
   - Environment variables:

@@ -504,10 +504,10 @@ VITE_SUPABASE_ANON_KEY=<production publishable/anon key>
 ```
 
 For a temporary Cloudflare Workers static-assets deploy from the current
-monorepo, use:
+monorepo, use the repo-root build settings:
 
 ```text
-Path: web
+Path: /
 Build command: npm ci && npm run build
 Deploy command: npx wrangler deploy
 Non-production branch deploy command: leave blank, or keep the Cloudflare default
@@ -523,7 +523,8 @@ VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
 VITE_SUPABASE_ANON_KEY=<Supabase anon/publishable key>
 ```
 
-The deploy command relies on `web/wrangler.jsonc`, which serves `./dist` as
+The build command uses the root npm workspace wrapper to build `web`. The deploy
+command relies on the root `wrangler.jsonc`, which serves `./web/dist` as
 Workers static assets and uses `single-page-application` fallback routing.
 
 Add a Cloudflare Pages redirect rule so React routes work:

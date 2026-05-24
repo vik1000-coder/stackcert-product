@@ -9,6 +9,7 @@ __pycache__/
 venv/
 
 # Node / frontend
+node_modules/
 web/node_modules/
 web/dist/
 web/.vite/
