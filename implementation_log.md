@@ -1210,3 +1210,31 @@ Started: 2026-05-23
   - local `npx wrangler deploy --dry-run` -> OK;
   - clean Docker `linux/amd64` `npm ci && npm run build &&
     npm --prefix web test -- --run` -> OK.
+
+## Cloudflare Workers Staging Deployment
+
+- Deployed the Cloudflare Workers static-assets app:
+  `https://stackcert-staging.savikk129.workers.dev`.
+- Built the frontend with:
+  - `VITE_ROUTER_MODE=browser`;
+  - `VITE_PUBLIC_BASE=/`;
+  - `VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app`;
+  - `VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co`;
+  - browser-safe Supabase publishable key.
+- Removed `web/public/_redirects` because Cloudflare Workers Assets already
+  uses `not_found_handling: "single-page-application"` and rejected the
+  `_redirects` SPA fallback as an infinite loop.
+- Updated Cloud Run service `stackcert-api` to revision `stackcert-api-00003-szq`
+  with `https://stackcert-staging.savikk129.workers.dev` in
+  `STACKCERT_CORS_ORIGINS`; max instances remains `1`.
+- Updated `scripts/deployment_smoke.py` to send a small user agent so
+  Cloudflare does not reject Python urllib requests with error `1010`.
+- Verification:
+  - Cloudflare index route -> 200 StackCert app shell;
+  - Cloudflare SPA fallback route -> 200 app shell;
+  - Cloud Run health -> 200 production;
+  - CORS preflight from Cloudflare origin to Cloud Run API -> allowed;
+  - Playwright landing-page render -> OK;
+  - Playwright sign-in/demo flow -> reaches the real recommendation dashboard;
+  - `scripts/deployment_smoke.py` against Cloudflare + Cloud Run + Supabase Auth
+    -> `deployment smoke OK`.

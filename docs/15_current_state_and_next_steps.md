@@ -16,9 +16,10 @@ StackCert is now a usable prototype with a real product shape:
 - FastAPI service around the Python CASS engine.
 - Supabase schema, Auth integration, RLS smoke coverage, and remote free-tier
   migration history.
-- Hosted demo using GitHub Pages for the static frontend and a Supabase Edge
-  Function API for authenticated demo traffic.
-- GitHub Actions workflows for CI and GitHub Pages deployment.
+- Hosted staging demo using Cloudflare Workers static assets for the frontend,
+  Supabase Auth, and the Cloud Run FastAPI/CASS service for authenticated API
+  traffic.
+- GitHub Actions workflows for CI and fallback GitHub Pages deployment.
 - CASS core with exact K<=2 serial safety-check combination scoring,
   comparison intervals, targeted measurement recommendations, and evidence
   export.
@@ -37,31 +38,32 @@ StackCert is now a usable prototype with a real product shape:
 Current public app:
 
 ```text
-https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
+https://stackcert-staging.savikk129.workers.dev/auth/sign-in
 ```
 
 Current hosted API:
 
 ```text
-https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api
-```
-
-Current Cloud Run staging API:
-
-```text
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-The hosted demo is useful for product walkthroughs. It is not the final runtime:
+Fallback GitHub Pages app:
 
-- GitHub Pages serves the static web app.
+```text
+https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
+```
+
+The hosted demo is useful for product walkthroughs. It is still staging:
+
+- Cloudflare Workers serves the static web app.
 - Supabase Auth handles sign-in/sign-up.
 - Supabase Edge Function `stackcert-api` mirrors the product API enough for
-  demos, including MCP discovery/RPC routes.
+  fallback demos, including MCP discovery/RPC routes.
 - The Edge Function remains a lightweight demo/API-preview layer, not the
   provider-grade Python CASS runtime.
 - Cloud Run staging now runs the real FastAPI/CASS API with
-  `STACKCERT_PERSISTENCE_BACKEND=supabase`.
+  `STACKCERT_PERSISTENCE_BACKEND=supabase` and allows the Cloudflare staging
+  origin in CORS.
 
 ## Current Verification Baseline
 

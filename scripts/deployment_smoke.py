@@ -11,8 +11,11 @@ import urllib.error
 import urllib.request
 
 
+DEFAULT_HEADERS = {"User-Agent": "StackCertDeploymentSmoke/1.0"}
+
+
 def read_url(url: str, headers: dict[str, str] | None = None) -> tuple[int, str]:
-    request = urllib.request.Request(url, headers=headers or {})
+    request = urllib.request.Request(url, headers={**DEFAULT_HEADERS, **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             return response.status, response.read().decode("utf-8", errors="replace")
@@ -25,7 +28,7 @@ def post_json(url: str, body: dict[str, object], headers: dict[str, str] | None 
     request = urllib.request.Request(
         url,
         data=payload,
-        headers={"Content-Type": "application/json", **(headers or {})},
+        headers={**DEFAULT_HEADERS, "Content-Type": "application/json", **(headers or {})},
         method="POST",
     )
     try:

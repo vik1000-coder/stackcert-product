@@ -40,7 +40,7 @@ For the current implementation state and next priorities, start with
 The current hosted demo is live at:
 
 ```text
-https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
+https://stackcert-staging.savikk129.workers.dev/auth/sign-in
 ```
 
 Demo login:
@@ -50,26 +50,19 @@ Email: demo@stackcert.dev
 Password: stackcert-demo
 ```
 
-This hosted version uses GitHub Pages for the static web app, plus Supabase
-Auth and a Supabase Edge Function API. The fuller production architecture still
-keeps the Python CASS engine, FastAPI service, and worker service as the
-provider-grade path. See `docs/12_supabase_free_tier_deployment.md`.
+This hosted version uses Cloudflare Workers static assets for the web app,
+Supabase Auth, and the Cloud Run FastAPI/CASS service as the API runtime.
+GitHub Pages remains configured as a temporary fallback static deployment. See
+`docs/13_production_hosting_setup.md`.
 
 Current hosted API base:
-
-```text
-https://cgwiwmfzpektpyquiveg.supabase.co/functions/v1/stackcert-api
-```
-
-Current Cloud Run staging API:
 
 ```text
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-The Cloud Run service is the real FastAPI/CASS runtime. The Supabase Edge
-Function remains the lightweight hosted-demo API until the frontend deployment
-is repointed to Cloud Run.
+The Supabase Edge Function remains a lightweight demo/API-preview layer for
+comparison, but the Cloudflare-hosted app is now pointed at Cloud Run.
 
 ## Product App Planning
 
