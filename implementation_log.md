@@ -218,6 +218,138 @@ Started: 2026-05-23
   - job external ID/status round trip.
 - Created a local `.venv` and installed the package in editable mode for
   repeatable verification in this workspace.
+
+## Cloud Run Staging Prep
+
+- Confirmed the Google Cloud SDK is installed at
+  `/Users/vik/Developer/google-cloud-sdk/bin/gcloud` and the active account is
+  `savikk129@gmail.com`.
+- Confirmed no active GCP project is selected yet. Available projects from
+  `gcloud projects list` are:
+  - `creatorconsulting`
+  - `friendlychat-8ed89`
+  - `project-e7840c42-f298-4bd9-bff`
+- Checked project billing status without creating resources:
+  - `creatorconsulting`: billing disabled.
+  - `friendlychat-8ed89`: billing disabled.
+  - `project-e7840c42-f298-4bd9-bff`: billing enabled on
+    `billingAccounts/0131D0-CA89B4-158E59`.
+- Attempted to list billing budgets, but the Billing Budgets API/quota project
+  path was not available from the current CLI setup. Treat budget verification
+  as a deployment blocker until the selected project has a visible budget.
+- Added `scripts/gcloud_budget_setup.py` to create an initial project-scoped
+  budget before Cloud Run deployment.
+- Enabled the Cloud Billing Budget API on quota project
+  `project-e7840c42-f298-4bd9-bff`.
+- Created `StackCert staging $10`:
+  - billing account: `0131D0-CA89B4-158E59`
+  - budget resource:
+    `billingAccounts/0131D0-CA89B4-158E59/budgets/f863e81b-cd71-4e24-8968-77b2e4dc150d`
+  - amount: `$10/month`
+  - project scope: `project-e7840c42-f298-4bd9-bff`
+  - credit handling: `exclude-all-credits`, so alerts track gross usage before
+    free-trial credits are applied
+  - thresholds: 50%, 90%, 100%, and forecasted 100%
+- Re-ran `scripts/gcloud_cost_preflight.py` after budget creation. It passed:
+  billing enabled, project-scoped budget visible, and no existing `stackcert-api`
+  Cloud Run service in `us-central1`.
+- Confirmed the linked Supabase project is still `cgwiwmfzpektpyquiveg`.
+- Pulled Supabase API key metadata to a temporary local JSON file without
+  printing secret values, and confirmed publishable plus backend-only secret
+  keys are available for staging setup.
+- Added `.gcloudignore` so source-based Google Cloud builds do not upload local
+  virtualenvs, frontend build output, private env files, or generated artifacts.
+- Added `scripts/gcloud_cost_preflight.py`, a read-only guardrail check that:
+  - confirms billing is enabled on the selected project;
+  - verifies a visible project-scoped budget when permissions/API setup allow
+    it;
+  - checks existing Cloud Run scale annotations if the service already exists;
+  - fails closed before deployment when budget verification is missing.
+- Added `scripts/cloud_run_secrets.py` to create or rotate the two required
+  Cloud Run runtime secrets:
+  - `stackcert-supabase-url`
+  - `stackcert-supabase-secret-key`
+- Hardened `scripts/cloud_run_secrets.py` to reject masked/non-ASCII Supabase
+  CLI secret values and fall back to the legacy `service_role` key when the
+  current `sb_secret` value is not retrievable.
+- Added `scripts/cloud_run_api_smoke.py` to verify a deployed FastAPI Cloud Run
+  service, including:
+  - `/api/health`
+  - unauthenticated app-route rejection
+  - optional Supabase sign-in
+  - authenticated `/api/projects`
+  - authenticated MCP manifest and initialize call
+- Updated the hosting docs and README with the Cloud Run helper scripts.
+- Ran the current verification baseline after Cloud Run prep:
+  - `.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v` -> 11 tests OK.
+  - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v` -> 54 tests OK.
+  - `cd web && npm run lint && npm test -- --run && npm run build` -> OK.
+  - `deno check supabase/functions/stackcert-api/index.ts` -> OK.
+  - `docker build -f Dockerfile.api -t stackcert-api:cloudrun-prep .` -> OK.
+  - Local Dockerized API smoke with `scripts/cloud_run_api_smoke.py` -> OK.
+
+## Cloud Run Staging Deploy
+
+- Enabled only the APIs needed for the capped staging runtime:
+  - `run.googleapis.com`
+  - `artifactregistry.googleapis.com`
+  - `secretmanager.googleapis.com`
+  - `iamcredentials.googleapis.com`
+- Created Artifact Registry Docker repository:
+  `projects/project-e7840c42-f298-4bd9-bff/locations/us-central1/repositories/stackcert`.
+- Created Cloud Run runtime service account:
+  `stackcert-api-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`.
+- Created Secret Manager secrets:
+  - `stackcert-supabase-url`
+  - `stackcert-supabase-secret-key`
+- First authenticated Cloud Run smoke failed because the Supabase CLI returned a
+  masked current `sb_secret` value. Rotated `stackcert-supabase-secret-key` to
+  the backend-only legacy `service_role` key, then redeployed a fresh revision.
+- Hardened `scripts/cloud_run_secrets.py` to reject masked/non-ASCII Supabase
+  CLI secret values and fall back to the legacy `service_role` key when the
+  current `sb_secret` value is not retrievable.
+- Built and pushed one local `linux/amd64` Docker image:
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:7286c3f-staging-20260524182106`.
+- Deployed Cloud Run service `stackcert-api`:
+  - URL: `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`
+  - latest ready revision: `stackcert-api-00002-xfx`
+  - min scale: default `0`
+  - max scale: `1`
+  - CPU: `1`
+  - memory: `512Mi`
+  - timeout: `60s`
+  - concurrency: `40`
+  - service account:
+    `stackcert-api-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`
+- Verified Cloud Run staging:
+  - unauthenticated `/api/health` and auth-gate smoke -> OK.
+  - authenticated Supabase demo-user smoke -> OK.
+  - authenticated MCP manifest and initialize smoke -> OK.
+  - post-deploy cost preflight -> OK.
+
+## Cloudflare Temporary Frontend Prep
+
+- Added `web/wrangler.jsonc` for Cloudflare Workers static-assets hosting:
+  - project name: `stackcert-staging`
+  - compatibility date: `2026-05-24`
+  - assets directory: `./dist`
+  - SPA fallback: `single-page-application`
+- Added `web/public/_redirects` for compatibility with Cloudflare Pages-style
+  SPA fallback behavior.
+- Verified the frontend build still succeeds after adding the Cloudflare files:
+  `cd web && npm run build` -> OK.
+- Verified the Workers static-assets deploy config locally:
+  `cd web && npx wrangler deploy --dry-run` -> OK.
+- Cloudflare Workers Builds settings to use:
+  - Path: `web`
+  - Build command: `npm ci && npm run build`
+  - Deploy command: `npx wrangler deploy`
+  - Environment variables:
+    - `VITE_ROUTER_MODE=browser`
+    - `VITE_PUBLIC_BASE=/`
+    - `VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app`
+    - `VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co`
+    - `VITE_SUPABASE_ANON_KEY=<Supabase anon/publishable key>`
 - Verification:
   - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v`
     -> 14 tests OK.
@@ -989,3 +1121,59 @@ Started: 2026-05-23
   - `GET /api/health` on the hosted Edge Function -> 200.
   - `GET /api/workspaces` without a bearer token -> 401, preserving the app API
     auth gate.
+
+## MCP And CASS Theory Hardening
+
+- Upgraded the FastAPI MCP surface from an app-specific JSON-RPC helper into a
+  closer MCP-shaped remote HTTP contract:
+  - `POST /api/mcp` handles JSON-RPC requests and initialization for protocol
+    version `2025-06-18`;
+  - `POST /api/mcp/rpc` remains as a compatibility endpoint;
+  - notifications such as `notifications/initialized` return `202`;
+  - `GET /api/mcp` returns `405` because this implementation does not expose
+    an SSE stream.
+- Expanded MCP discovery:
+  - tool metadata now includes titles, schemas, annotations, and structured
+    outputs;
+  - resources include release-evidence status, release evidence packets, theory
+    cards, measurement recommendations, integration guides, and cost ledgers;
+  - resource templates expose project/run URI patterns;
+  - prompts include deployment-gate review, CASS theory audit, and custom
+    behavior drafting.
+- Added release-evidence-focused tools:
+  - `get_release_evidence_status`;
+  - `get_run_theory_card`;
+  - `get_measurement_recommendations`;
+  - legacy `get_certificate_status` remains as an alias.
+- Added a CASS theory card payload that records:
+  - K<=2 serial aggregation;
+  - `P(pair passes cell) = q_a * q_b + rho_ab * sigma_a * sigma_b`;
+  - benign utility and adversarial miss definitions;
+  - `welfare = benign_pass - lambda_cost * adversarial_miss`;
+  - feasible/rho-prior interval assumptions;
+  - comparison-certificate semantics;
+  - measured vs unmeasured pair-cell accounting and diagnostics.
+- Updated the Supabase Edge Function demo MCP routes with the same release
+  evidence/theory-card concepts so hosted demos do not expose stale MCP copy.
+- Redeployed Supabase Edge Function `stackcert-api` to project
+  `cgwiwmfzpektpyquiveg` after the MCP update.
+- Added theory regression coverage:
+  - unmeasured K=2 pair intervals use `rho_prior` inside feasible Bernoulli
+    bounds;
+  - comparison gap centers match differences between CASS welfare estimates;
+  - measured pair-cell comparisons have zero comparison radius.
+- Verification:
+  - `.venv/bin/python -m unittest tests.test_k2_exact -v` -> 3 tests passed.
+  - Targeted MCP API tests -> 5 tests passed.
+  - `.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v` -> 11
+    tests passed.
+  - `.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 44 tests passed.
+  - `cd web && npm run lint` -> OK.
+  - `cd web && npm test -- --run` -> 4 tests passed.
+  - `cd web && npm run build` -> OK.
+  - `deno check supabase/functions/stackcert-api/index.ts` -> OK.
+  - Hosted `GET /api/health` on the Supabase Edge Function -> 200.
+  - Hosted unauthenticated `GET /api/mcp/manifest` -> 401, preserving the app
+    API auth gate. Authenticated MCP smoke still needs the smoke anon key in the
+    shell or CI secret.

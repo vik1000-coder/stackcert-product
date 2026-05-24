@@ -587,6 +587,366 @@ function costSummary() {
   };
 }
 
+const mcpProtocolVersion = '2025-06-18';
+const mcpInstructions = 'Use StackCert to inspect scoped release evidence for LLM apps. Treat every status as conditional on benchmark mix, safety-check versions, model/prompt/tool configuration, and traffic assumptions. StackCert reduces deployment uncertainty; it does not guarantee safety.';
+const mcpServerInfo = {
+  name: 'stackcert',
+  title: 'StackCert Release Evidence MCP',
+  version: '0.1.0',
+  description: 'Agent-friendly StackCert surface for CASS evidence, deploy gates, cost estimates, and measurement planning.'
+};
+const mcpCapabilities = {
+  tools: { listChanged: false },
+  resources: { subscribe: false, listChanged: false },
+  prompts: { listChanged: false }
+};
+const mcpTheoryFormulae = {
+  binary_observation: 'Each safety-check output is reduced to binary_block = not binary_pass for the finite benchmark example.',
+  serial_pair_pass: 'P(pair passes cell) = q_a * q_b + rho_ab * sigma_a * sigma_b.',
+  benign_utility: 'Benign utility is the benchmark-weighted probability that the serial stack passes benign examples.',
+  adversarial_miss: 'Adversarial miss is the benchmark-weighted probability that the serial stack passes adversarial examples.',
+  welfare: 'welfare = benign_pass - lambda_cost * adversarial_miss.',
+  uncertainty_interval: 'Unmeasured pair-cell correlations are bounded by feasible Bernoulli correlation limits and rho_prior.',
+  comparison_certificate: 'A stack is certified only when its lower-bound welfare gap is positive against every competitor in the candidate set.'
+};
+const mcpRecertificationTriggers = [
+  'safety_check_version_change',
+  'model_change',
+  'prompt_or_policy_change',
+  'tool_or_retrieval_change',
+  'traffic_mix_drift',
+  'new_attack_family',
+  'evidence_expiration'
+];
+
+function releaseEvidenceStatus() {
+  const overview = overviewPayload();
+  return {
+    project_id: project.id,
+    project_name: project.name,
+    run_id: run.id,
+    release_evidence_id: run.certificate_id,
+    certificate_id: run.certificate_id,
+    status: overview.certificate.status,
+    scope: overview.certificate.scope,
+    deploy_gate: {
+      decision: 'pass',
+      blocking_reasons: [],
+      recommended_stack: rankingRows[0],
+      marginal_stack: rankingRows[1]
+    },
+    blocking_reasons: [],
+    not_a_guarantee: true,
+    theory: {
+      method: 'CASS K<=2 serial safety-check comparison',
+      aggregation: 'serial',
+      max_k: run.k,
+      lambda_cost: run.lambda_cost,
+      rho_prior: run.rho_prior,
+      candidate_stacks: rankingRows.length,
+      pair_cells_measured: overview.stats.pair_cells_measured,
+      pair_cells_total: overview.stats.pair_cells_total,
+      comparison_count: overview.stats.comparison_count,
+      certified_comparison_count: overview.stats.certified_comparison_count
+    },
+    recertification_required_on: mcpRecertificationTriggers,
+    resources: [
+      `stackcert://projects/${project.id}/release-evidence-status`,
+      `stackcert://runs/${run.id}/release-evidence`,
+      `stackcert://runs/${run.id}/theory-card`
+    ]
+  };
+}
+
+function theoryCard() {
+  const overview = overviewPayload();
+  const evidence = certificatePayload();
+  return {
+    run_id: run.id,
+    method: 'CASS K<=2 serial safety-check comparison',
+    theory_version: 'cass-k2-serial-v1',
+    status: overview.certificate.status,
+    not_a_guarantee: true,
+    formulae: mcpTheoryFormulae,
+    assumptions: evidence.assumptions,
+    limitations: evidence.limitations,
+    recertification_triggers: evidence.recertification_triggers,
+    welfare_profile: { lambda_cost: run.lambda_cost },
+    candidate_architectures: { count: rankingRows.length, max_k: run.k, aggregation: 'serial' },
+    benchmark_mixture: benchmarkMix,
+    interval_accounting: {
+      rho_prior: run.rho_prior,
+      pair_cells_total: overview.stats.pair_cells_total,
+      pair_cells_measured: overview.stats.pair_cells_measured,
+      pair_cells_unmeasured: overview.stats.pair_cells_total - overview.stats.pair_cells_measured,
+      comparison_count: overview.stats.comparison_count,
+      certified_comparison_count: overview.stats.certified_comparison_count
+    },
+    recommendation: rankingRows[0],
+    marginal_winner: rankingRows[1],
+    top_ranking_rows: rankingRows.slice(0, 5),
+    diagnostics: {
+      adversarial_co_miss_top_rows: correlations('adversarial').top_rows.slice(0, 5),
+      benign_false_block_overlap_top_rows: correlations('benign').top_rows.slice(0, 5),
+      measurement_summary: measurementPayload().summary
+    }
+  };
+}
+
+function mcpTools() {
+  return [
+    {
+      name: 'list_projects',
+      title: 'List StackCert Projects',
+      description: 'List StackCert projects visible to the caller.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true, destructiveHint: false }
+    },
+    {
+      name: 'get_release_evidence_status',
+      title: 'Get Release Evidence Status',
+      description: 'Return deploy-gate status, scope, blocking reasons, theory assumptions, and MCP resources for a project.',
+      inputSchema: {
+        type: 'object',
+        required: ['project_id'],
+        properties: { project_id: { type: 'string' }, lambda_cost: { type: 'number', default: 5 } },
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false }
+    },
+    {
+      name: 'get_certificate_status',
+      title: 'Get Legacy Certificate Status',
+      description: 'Compatibility alias for get_release_evidence_status.',
+      inputSchema: {
+        type: 'object',
+        required: ['project_id'],
+        properties: { project_id: { type: 'string' }, lambda_cost: { type: 'number', default: 5 } },
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false }
+    },
+    {
+      name: 'get_run_theory_card',
+      title: 'Get CASS Theory Card',
+      description: 'Explain the CASS K<=2 serial-stack math, assumptions, interval accounting, and diagnostics for a run.',
+      inputSchema: {
+        type: 'object',
+        required: ['run_id'],
+        properties: { run_id: { type: 'string' }, lambda_cost: { type: 'number', default: 5 } },
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false }
+    },
+    {
+      name: 'get_measurement_recommendations',
+      title: 'Get Measurement Recommendations',
+      description: 'Return targeted CASS measurement actions for a run.',
+      inputSchema: {
+        type: 'object',
+        required: ['run_id'],
+        properties: { run_id: { type: 'string' }, lambda_cost: { type: 'number', default: 5 } },
+        additionalProperties: false
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false }
+    }
+  ];
+}
+
+function mcpResources() {
+  return [
+    {
+      uri: `stackcert://projects/${project.id}/release-evidence-status`,
+      name: 'Demo project release evidence status',
+      title: 'Release evidence status',
+      description: 'Machine-readable deploy-gate state, scope, blocking reasons, and limitation flags.',
+      mimeType: 'application/json'
+    },
+    {
+      uri: `stackcert://projects/${project.id}/certificate-status`,
+      name: 'Demo project legacy certificate status',
+      title: 'Legacy certificate status',
+      description: 'Compatibility alias for release-evidence status.',
+      mimeType: 'application/json'
+    },
+    {
+      uri: `stackcert://projects/${project.id}/integration-guide`,
+      name: 'Agent deployment integration guide',
+      title: 'Agent deployment integration guide',
+      description: 'How to wire StackCert evidence into CI/CD and agent deploy pipelines.',
+      mimeType: 'application/json'
+    },
+    {
+      uri: `stackcert://runs/${run.id}/release-evidence`,
+      name: 'Demo run release evidence packet',
+      title: 'Release evidence packet',
+      description: 'Release-evidence payload for the seeded demo run.',
+      mimeType: 'application/json'
+    },
+    {
+      uri: `stackcert://runs/${run.id}/theory-card`,
+      name: 'Demo run CASS theory card',
+      title: 'CASS theory card',
+      description: 'CASS formulas, assumptions, interval accounting, and diagnostics for this run.',
+      mimeType: 'application/json'
+    },
+    {
+      uri: `stackcert://runs/${run.id}/measurement-recommendations`,
+      name: 'Demo run measurement recommendations',
+      title: 'Measurement recommendations',
+      description: 'Targeted follow-up measurements selected by CASS.',
+      mimeType: 'application/json'
+    }
+  ];
+}
+
+function mcpResourceTemplates() {
+  return [
+    { uriTemplate: 'stackcert://projects/{project_id}/release-evidence-status', name: 'Project release evidence status', title: 'Project release evidence status', mimeType: 'application/json' },
+    { uriTemplate: 'stackcert://projects/{project_id}/integration-guide', name: 'Project integration guide', title: 'Project integration guide', mimeType: 'application/json' },
+    { uriTemplate: 'stackcert://runs/{run_id}/release-evidence', name: 'Run release evidence packet', title: 'Run release evidence packet', mimeType: 'application/json' },
+    { uriTemplate: 'stackcert://runs/{run_id}/theory-card', name: 'Run CASS theory card', title: 'Run CASS theory card', mimeType: 'application/json' },
+    { uriTemplate: 'stackcert://runs/{run_id}/measurement-recommendations', name: 'Run measurement recommendations', title: 'Run measurement recommendations', mimeType: 'application/json' }
+  ];
+}
+
+function mcpPrompts() {
+  return [
+    {
+      name: 'deployment_gate_review',
+      title: 'Deployment Gate Review',
+      description: 'Produce a deploy-gate review prompt grounded in StackCert scope, limitations, and recertification triggers.',
+      arguments: [
+        { name: 'project_id', description: 'StackCert project id.', required: false },
+        { name: 'run_id', description: 'Evaluation run id.', required: false }
+      ]
+    },
+    {
+      name: 'cass_theory_audit',
+      title: 'CASS Theory Audit',
+      description: 'Ask an agent to audit whether a release decision stays inside the CASS evidence scope.',
+      arguments: [{ name: 'run_id', description: 'StackCert run id.', required: false }]
+    }
+  ];
+}
+
+function mcpManifest() {
+  return {
+    protocolVersion: mcpProtocolVersion,
+    serverInfo: mcpServerInfo,
+    capabilities: mcpCapabilities,
+    instructions: mcpInstructions,
+    transport: {
+      kind: 'streamable_http_json_rpc',
+      endpoint: '/api/mcp',
+      legacy_endpoint: '/api/mcp/rpc'
+    },
+    tools: mcpTools(),
+    resources: mcpResources(),
+    resourceTemplates: mcpResourceTemplates(),
+    prompts: mcpPrompts()
+  };
+}
+
+function mcpToolResult(payload: JsonRecord, resourceLinks: JsonRecord[] = []) {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload) }, ...resourceLinks],
+    structuredContent: payload,
+    isError: false
+  };
+}
+
+function mcpResourceResult(uri: string, payload: JsonRecord) {
+  return { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(payload) }] };
+}
+
+function mcpPromptResult(description: string, text: string) {
+  return { description, messages: [{ role: 'user', content: { type: 'text', text } }] };
+}
+
+function mcpIntegrationGuide() {
+  return {
+    project_id: project.id,
+    recommended_integrations: [
+      'call get_release_evidence_status before production deploys',
+      'fail or warn CI/CD based on status and risk tier',
+      'read release-evidence and theory-card resources into agent-release review jobs',
+      'queue targeted measurement plans when evidence is provisional or stale'
+    ],
+    risk_positioning: 'StackCert reduces deployment uncertainty with scoped evidence over a finite benchmark mixture; it does not guarantee real-world safety.',
+    recertification_required_on: mcpRecertificationTriggers
+  };
+}
+
+function mcpReadResource(uri: string) {
+  if (uri.endsWith('/release-evidence-status') || uri.endsWith('/certificate-status')) return mcpResourceResult(uri, releaseEvidenceStatus());
+  if (uri.endsWith('/integration-guide')) return mcpResourceResult(uri, mcpIntegrationGuide());
+  if (uri.endsWith('/release-evidence') || uri.endsWith('/certificate')) return mcpResourceResult(uri, { ...certificatePayload(), not_a_guarantee: true });
+  if (uri.endsWith('/theory-card')) return mcpResourceResult(uri, theoryCard());
+  if (uri.endsWith('/measurement-recommendations')) return mcpResourceResult(uri, measurementPayload());
+  if (uri.endsWith('/costs')) return mcpResourceResult(uri, costSummary());
+  throw new Error(`Unknown MCP resource: ${uri}`);
+}
+
+function mcpGetPrompt(name: string, argumentsValue: JsonRecord) {
+  if (name === 'deployment_gate_review') {
+    return mcpPromptResult(
+      'Review StackCert release evidence before deployment.',
+      `Review this StackCert result as a scoped deployment gate, not a guarantee. Status payload: ${JSON.stringify(releaseEvidenceStatus())}. Call out blocking reasons, evidence scope, recertification triggers, and residual risk before approving deployment.`
+    );
+  }
+  if (name === 'cass_theory_audit') {
+    return mcpPromptResult(
+      'Audit CASS release-evidence assumptions.',
+      `Audit whether this release decision stays inside the CASS evidence scope. Theory card: ${JSON.stringify(theoryCard())}`
+    );
+  }
+  throw new Error(`Unknown MCP prompt: ${name}`);
+}
+
+function mcpHandleTool(name: string, argumentsValue: JsonRecord) {
+  if (name === 'list_projects') return mcpToolResult({ projects });
+  if (name === 'get_release_evidence_status' || name === 'get_certificate_status') {
+    const payload = releaseEvidenceStatus();
+    return mcpToolResult(payload, [
+      { type: 'resource_link', uri: `stackcert://projects/${project.id}/release-evidence-status`, name: 'release-evidence-status', mimeType: 'application/json' },
+      { type: 'resource_link', uri: `stackcert://runs/${run.id}/theory-card`, name: 'theory-card', mimeType: 'application/json' }
+    ]);
+  }
+  if (name === 'get_run_theory_card') return mcpToolResult(theoryCard());
+  if (name === 'get_measurement_recommendations') return mcpToolResult(measurementPayload());
+  if (name === 'get_run_costs') return mcpToolResult(costSummary());
+  if (name === 'estimate_run_cost') {
+    const examples = Number(argumentsValue.examples ?? 2000);
+    const guardsCount = Number(argumentsValue.guards ?? 8);
+    const candidateStacks = Number(argumentsValue.candidate_stacks ?? 36);
+    const full = examples * guardsCount * Math.max(candidateStacks, 1) * 0.00018;
+    const cass = full * 0.22;
+    return mcpToolResult({ project_id: project.id, estimate: { estimated_full_eval_usd: full, estimated_cass_incremental_usd: cass, estimated_savings_usd: full - cass } });
+  }
+  throw new Error(`Unknown MCP tool: ${name}`);
+}
+
+function mcpHandleRpc(body: JsonRecord) {
+  const id = body.id ?? null;
+  const method = String(body.method ?? '');
+  try {
+    if (method === 'initialize') return { jsonrpc: '2.0', id, result: { protocolVersion: mcpProtocolVersion, capabilities: mcpCapabilities, serverInfo: mcpServerInfo, instructions: mcpInstructions } };
+    if (method === 'ping') return { jsonrpc: '2.0', id, result: {} };
+    if (method === 'tools/list') return { jsonrpc: '2.0', id, result: { tools: mcpTools() } };
+    if (method === 'resources/list') return { jsonrpc: '2.0', id, result: { resources: mcpResources() } };
+    if (method === 'resources/templates/list') return { jsonrpc: '2.0', id, result: { resourceTemplates: mcpResourceTemplates() } };
+    if (method === 'prompts/list') return { jsonrpc: '2.0', id, result: { prompts: mcpPrompts() } };
+    const params = (body.params ?? {}) as JsonRecord;
+    if (method === 'tools/call') return { jsonrpc: '2.0', id, result: mcpHandleTool(String(params.name ?? ''), (params.arguments ?? {}) as JsonRecord) };
+    if (method === 'resources/read') return { jsonrpc: '2.0', id, result: mcpReadResource(String(params.uri ?? '')) };
+    if (method === 'prompts/get') return { jsonrpc: '2.0', id, result: mcpGetPrompt(String(params.name ?? ''), (params.arguments ?? {}) as JsonRecord) };
+    return { jsonrpc: '2.0', id, error: { code: -32601, message: `Unknown MCP method: ${method}` } };
+  } catch (error) {
+    return { jsonrpc: '2.0', id, error: { code: -32602, message: error instanceof Error ? error.message : 'MCP request failed' } };
+  }
+}
+
 function suites() {
   return [
     {
@@ -1002,23 +1362,17 @@ Deno.serve(async (req) => {
       });
     }
     if (req.method === 'GET' && path === '/api/mcp/manifest') {
-      return json({
-        name: 'StackCert',
-        description: 'Scoped guardrail-stack certification and CASS evidence workbench.',
-        tools: [
-          { name: 'get_certificate_status', description: 'Read current certificate status for a project.' },
-          { name: 'estimate_cost', description: 'Estimate CASS incremental evaluation cost.' }
-        ],
-        resources: [{ uri: 'stackcert://projects/proj_acme_copilot/certificate', name: 'Current certificate' }]
-      });
+      return json(mcpManifest());
     }
-    if (req.method === 'POST' && path === '/api/mcp/rpc') {
+    if (req.method === 'GET' && path === '/api/mcp') {
+      return new Response(null, { status: 405, headers: corsHeaders });
+    }
+    if (req.method === 'POST' && (path === '/api/mcp/rpc' || path === '/api/mcp')) {
       const body = await parseJson(req) as JsonRecord;
-      const method = String(body.method ?? '');
-      if (method === 'tools/call') {
-        return json({ result: { content: [{ type: 'text', text: JSON.stringify({ status: 'certified', certificate_id: run.certificate_id }) }] } });
+      if (path === '/api/mcp' && !Object.hasOwn(body, 'id') && String(body.method ?? '').startsWith('notifications/')) {
+        return new Response(null, { status: 202, headers: corsHeaders });
       }
-      return json({ result: { capabilities: { tools: true, resources: true } } });
+      return json(mcpHandleRpc(body));
     }
 
     return json({ error: `No route for ${req.method} ${path}` }, 404);

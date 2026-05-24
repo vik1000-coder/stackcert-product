@@ -3,9 +3,47 @@
 This plan is intentionally iterative. Each phase should produce a usable slice,
 run tests, and leave the codebase deployable.
 
+## Implementation Status As Of 2026-05-24
+
+The project has moved beyond the original planning pass.
+
+Completed or substantially implemented:
+
+- Phase 0 planning/design ingestion.
+- Phase 1 app foundation: React/Vite app, FastAPI service, Supabase migrations,
+  local/CI checks, Dockerfiles, and GitHub Actions.
+- Phase 2 landing/auth shell: public pages, auth routes, app shell, and hosted
+  GitHub Pages demo with Supabase Auth.
+- Phase 3 seeded evidence console: overview, ranking, overlap, measurements,
+  release evidence, drift, JSON/Markdown export, and CASS-backed demo data.
+- Phase 4 first pilot path: workspace/project creation, setup flow,
+  benchmark-suite import, uploaded safety-check outputs, and CASS-backed
+  release evidence for user-created pilot runs.
+- Parts of Phase 5 and Phase 6: safety-check connector records, queued job
+  simulation, provider retry/dead-letter tests, cost ledgers, release-evidence
+  issue/signoff, and durable Supabase persistence for pilot runs.
+- Agent/MCP integration slice: authenticated MCP endpoints, release-evidence
+  status, theory cards, measurement recommendations, cost ledgers, integration
+  guides, and deployment-review prompts.
+
+Still not complete:
+
+- Real provider-backed worker execution.
+- Cloud Run staging/production deployment for the Python FastAPI service.
+- Production frontend host pointed at the real FastAPI API.
+- Full workspace membership/RBAC enforcement beyond the current prototype
+  assumptions.
+- Production observability, backups, billing/budget enforcement, and legal terms.
+
+Current next milestone:
+
+```text
+Cloud Run staging FastAPI + Supabase persistence + authenticated frontend smoke
+```
+
 ## Phase 0: Planning And Design Ingestion
 
-Status: current planning pass.
+Status: complete.
 
 Deliverables:
 
@@ -29,6 +67,9 @@ supabase --version
 ```
 
 ## Phase 1: Production Foundation
+
+Status: substantially implemented locally and in CI. Production Cloud Run
+deployment remains in Phase 8.
 
 Goal: Create the real app skeleton with CI and local Supabase before feature
 work accelerates.
@@ -82,6 +123,9 @@ Acceptance criteria:
 
 ## Phase 2: Landing Page And Authenticated Shell
 
+Status: substantially implemented and hosted through GitHub Pages plus Supabase
+Auth.
+
 Goal: Faithfully implement the latest public landing page and authenticated app
 chrome.
 
@@ -110,6 +154,9 @@ Acceptance criteria:
 - Auth state controls navigation.
 
 ## Phase 3: Seeded Evidence Console
+
+Status: substantially implemented. The hosted Edge Function mirrors this for
+demo use; the real CASS-backed FastAPI service still needs Cloud Run hosting.
 
 Goal: Make the designed app screens use real CASS backend data from the current
 demo dataset while keeping user-facing labels beginner-friendly.
@@ -165,6 +212,9 @@ Acceptance criteria:
 
 ## Phase 4: Project Setup, Benchmarks, And Custom Behaviors
 
+Status: partially implemented. The uploaded-output pilot flow is usable; richer
+editing/versioning and customer-facing validation UX remain.
+
 Goal: Make StackCert useful for a real pilot without code edits.
 
 Deliverables:
@@ -201,6 +251,10 @@ Acceptance criteria:
 
 ## Phase 5: Safety Check, Model, And Evaluation Runner
 
+Status: partially implemented. Connector records, redaction, queued jobs,
+leases, retries, and cost records exist; real provider-backed worker execution
+is the major remaining gap.
+
 Goal: Move from uploaded outputs to managed evaluations.
 
 Deliverables:
@@ -231,6 +285,9 @@ Acceptance criteria:
 
 ## Phase 6: Cost, Governance, And Release Evidence Workflow
 
+Status: partially implemented. Cost estimates/ledgers, issue flow, signoff, and
+evidence exports exist; immutability/audit hardening remains.
+
 Goal: Make the product credible for real security and GRC review.
 
 Deliverables:
@@ -260,6 +317,8 @@ Acceptance criteria:
 
 ## Phase 7: Drift And Retesting
 
+Status: prototype UI/API only. Real drift signals and retest automation remain.
+
 Goal: Turn StackCert into an ongoing operational tool.
 
 Deliverables:
@@ -284,6 +343,9 @@ Acceptance criteria:
 - A user can trigger retesting and see the resulting run.
 
 ## Phase 8: Production Hardening And Deployment
+
+Status: planned. `docs/13_production_hosting_setup.md` now contains the Cloud
+Run setup walkthrough; implementation is next.
 
 Goal: Prepare for design partners and early revenue.
 

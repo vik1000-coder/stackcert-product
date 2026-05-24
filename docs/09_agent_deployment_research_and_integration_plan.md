@@ -158,19 +158,39 @@ Agent-facing interfaces:
 - Pollable job status.
 - Webhooks for completion/drift/evidence status.
 - CLI for CI and local agents.
-- Optional MCP server later.
+- Remote authenticated MCP endpoint for agent platforms.
 
-Candidate agent/MCP tools:
+Current agent/MCP endpoints:
+
+- `GET /api/mcp/manifest` for discovery by the web app, CI, and simple agents.
+- `POST /api/mcp` for streamable-HTTP-style JSON-RPC requests.
+- `POST /api/mcp/rpc` as a compatibility JSON-RPC endpoint.
+
+Current agent/MCP tools:
 
 - `list_projects`
-- `get_evidence_status`
-- `create_benchmark_suite`
-- `add_custom_behavior`
-- `estimate_run_cost`
-- `create_evidence_run`
-- `get_run_status`
+- `get_release_evidence_status`
+- `get_certificate_status` as a compatibility alias
+- `get_run_theory_card`
 - `get_measurement_recommendations`
-- `export_release_evidence`
+- `estimate_run_cost`
+- `get_run_costs`
+- `create_measurement_plan`
+
+Current resources:
+
+- `stackcert://projects/{project_id}/release-evidence-status`
+- `stackcert://projects/{project_id}/integration-guide`
+- `stackcert://runs/{run_id}/release-evidence`
+- `stackcert://runs/{run_id}/theory-card`
+- `stackcert://runs/{run_id}/measurement-recommendations`
+- `stackcert://runs/{run_id}/costs`
+
+Current prompts:
+
+- `deployment_gate_review`
+- `cass_theory_audit`
+- `draft_custom_behavior`
 
 Safety defaults for agent access:
 
@@ -182,6 +202,9 @@ Safety defaults for agent access:
 - No raw prompt/resource exposure unless project data mode permits it.
 - Avoid local stdio MCP as a production default; prefer remote HTTP with auth,
   scoped permissions, and rate limits.
+- MCP tool results include structured JSON plus text content; release-evidence
+  status returns links to the evidence packet and theory card so agents can
+  fetch context before making a deploy recommendation.
 
 ## How CASS Maps To Agent Workflows
 

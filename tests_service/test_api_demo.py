@@ -344,11 +344,46 @@ class DemoApiTest(unittest.TestCase):
         body = response.json()
         tool_names = {tool["name"] for tool in body["tools"]}
         resource_uris = {resource["uri"] for resource in body["resources"]}
+        resource_templates = {resource["uriTemplate"] for resource in body["resourceTemplates"]}
         prompt_names = {prompt["name"] for prompt in body["prompts"]}
+        self.assertEqual(body["protocolVersion"], "2025-06-18")
         self.assertIn("get_certificate_status", tool_names)
+        self.assertIn("get_release_evidence_status", tool_names)
+        self.assertIn("get_run_theory_card", tool_names)
         self.assertIn("create_measurement_plan", tool_names)
-        self.assertIn("stackcert://projects/proj_acme_copilot/certificate-status", resource_uris)
+        self.assertIn("stackcert://projects/proj_acme_copilot/release-evidence-status", resource_uris)
+        self.assertIn("stackcert://runs/{run_id}/theory-card", resource_templates)
         self.assertIn("deployment_gate_review", prompt_names)
+        self.assertIn("cass_theory_audit", prompt_names)
+
+    def test_mcp_streamable_http_initialize_and_notification(self) -> None:
+        response = self.client.post(
+            "/api/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": "init-1",
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "unit-test", "version": "0.1"},
+                },
+            },
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+        self.assertEqual(response.status_code, 200)
+        result = response.json()["result"]
+        self.assertEqual(result["protocolVersion"], "2025-06-18")
+        self.assertIn("tools", result["capabilities"])
+        self.assertIn("does not guarantee safety", result["instructions"])
+
+        notification = self.client.post(
+            "/api/mcp",
+            json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+            headers={"Accept": "application/json, text/event-stream"},
+        )
+        self.assertEqual(notification.status_code, 202)
+        self.assertEqual(notification.content, b"")
 
     def test_mcp_tool_call_returns_certificate_status(self) -> None:
         response = self.client.post(
@@ -370,6 +405,29 @@ class DemoApiTest(unittest.TestCase):
         self.assertEqual(structured["project_id"], "proj_acme_copilot")
         self.assertTrue(structured["not_a_guarantee"])
         self.assertIn(structured["status"], {"valid", "provisional", "needs_measurement"})
+        self.assertFalse(body["result"]["isError"])
+
+    def test_mcp_release_evidence_tool_returns_resource_links(self) -> None:
+        response = self.client.post(
+            "/api/mcp/rpc",
+            json={
+                "jsonrpc": "2.0",
+                "id": "release-status-1",
+                "method": "tools/call",
+                "params": {
+                    "name": "get_release_evidence_status",
+                    "arguments": {"project_id": "proj_acme_copilot", "lambda_cost": 5},
+                },
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        result = response.json()["result"]
+        structured = result["structuredContent"]
+        self.assertIn(structured["deploy_gate"]["decision"], {"pass", "review"})
+        self.assertEqual(structured["theory"]["method"], "CASS K<=2 serial safety-check comparison")
+        links = {item["uri"] for item in result["content"] if item["type"] == "resource_link"}
+        self.assertIn("stackcert://projects/proj_acme_copilot/release-evidence-status", links)
+        self.assertIn("stackcert://runs/real_main_2000/theory-card", links)
 
     def test_mcp_resource_and_prompt_are_agent_readable(self) -> None:
         resource_response = self.client.post(
@@ -384,6 +442,21 @@ class DemoApiTest(unittest.TestCase):
         self.assertEqual(resource_response.status_code, 200)
         text = resource_response.json()["result"]["contents"][0]["text"]
         self.assertIn("not guarantee", text)
+
+        theory_response = self.client.post(
+            "/api/mcp/rpc",
+            json={
+                "jsonrpc": "2.0",
+                "id": "theory-1",
+                "method": "resources/read",
+                "params": {"uri": "stackcert://runs/real_main_2000/theory-card"},
+            },
+        )
+        self.assertEqual(theory_response.status_code, 200)
+        theory_text = theory_response.json()["result"]["contents"][0]["text"]
+        self.assertIn("serial_pair_pass", theory_text)
+        self.assertIn("comparison_certificate", theory_text)
+        self.assertIn("not_a_guarantee", theory_text)
 
         prompt_response = self.client.post(
             "/api/mcp/rpc",

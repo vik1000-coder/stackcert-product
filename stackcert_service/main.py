@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from stackcert_service.config import settings
 from stackcert_service.observability import configure_logging, request_middleware
@@ -229,6 +230,19 @@ def get_mcp_manifest(_: PrincipalDep) -> dict[str, object]:
 @app.post("/api/mcp/rpc")
 def mcp_rpc(payload: McpRpcRequest, _: PrincipalDep) -> dict[str, object]:
     return mcp.handle_rpc(payload.method, payload.params, payload.id)
+
+
+@app.post("/api/mcp")
+async def mcp_streamable_http(request: Request, _: PrincipalDep) -> Response:
+    status_code, body = mcp.handle_http_message(await request.json())
+    if body is None:
+        return Response(status_code=status_code)
+    return JSONResponse(content=body, status_code=status_code)
+
+
+@app.get("/api/mcp")
+def mcp_sse_not_supported(_: PrincipalDep) -> Response:
+    return Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @app.get("/api/runs/{run_id}/overview")

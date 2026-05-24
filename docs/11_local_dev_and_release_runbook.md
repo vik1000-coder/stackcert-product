@@ -56,6 +56,9 @@ python -m uvicorn stackcert_service.main:app --host 127.0.0.1 --port 8000 --relo
 
 Use `SUPABASE_SECRET_KEY` only in backend/server environments. The frontend
 should receive only the publishable/anon key through `VITE_SUPABASE_ANON_KEY`.
+In production mode, the API validates bearer tokens with `SUPABASE_JWT_SECRET`
+when provided. If it is not provided, it validates tokens through Supabase Auth
+using `SUPABASE_URL` and backend-only `SUPABASE_SECRET_KEY`.
 
 ## Hosted Demo
 
@@ -126,6 +129,19 @@ python scripts/certificate_gate.py \
   --mode fail
 ```
 
+MCP-compatible clients should use `/api/mcp`; `/api/mcp/rpc` remains available
+for compatibility with the app's JSON-RPC tests.
+
+```bash
+curl http://127.0.0.1:8000/api/mcp/manifest
+curl -X POST http://127.0.0.1:8000/api/mcp \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"init-1","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"local"}}}'
+curl -X POST http://127.0.0.1:8000/api/mcp/rpc \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"theory-1","method":"resources/read","params":{"uri":"stackcert://runs/real_main_2000/theory-card"}}'
+```
+
 The managed-run foundation exposes local job endpoints:
 
 ```bash
@@ -149,7 +165,9 @@ docker build -f web/Dockerfile -t stackcert-web:local web
 
 The API image includes the portable fixture data and expects production
 deployments to provide Supabase and artifact storage settings through
-environment variables. The web image serves the static Vite build through nginx.
+environment variables. The API image listens on `PORT`, defaulting to `8080`,
+which matches Cloud Run. The web image serves the static Vite build through
+nginx.
 
 ## Release Gates
 

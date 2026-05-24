@@ -1,6 +1,6 @@
 # StackCert Production Plan Index
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 This directory is the living implementation plan for turning the CASS prototype
 into a production-ready StackCert company product.
@@ -64,6 +64,8 @@ Latest primary files:
 - `13_production_hosting_setup.md`: recommended Cloudflare Pages, Supabase,
   Cloud Run, and GitHub Actions production setup checklist.
 - `14_product_language_guide.md`: current public/demo vocabulary and copy rules.
+- `15_current_state_and_next_steps.md`: concise current implementation status,
+  known boundaries, verification baseline, and next engineering priorities.
 
 ## Current Hosted Demo
 
@@ -77,6 +79,23 @@ It uses GitHub Pages for the static web app plus Supabase Auth and the
 `stackcert-api` Edge Function.
 See `12_supabase_free_tier_deployment.md` for deployment and verification
 details.
+
+## Current Build State
+
+The implementation is past planning. The working app now includes:
+
+- React/Vite public and authenticated app screens.
+- FastAPI service around the Python CASS core.
+- Supabase-backed persistence for pilot runs and supporting records.
+- Uploaded-output pilot flow through scoped release evidence.
+- MCP endpoints for release-evidence status, theory cards, measurement
+  recommendations, cost ledgers, integration guides, and deployment-review
+  prompts.
+
+The current priority is to deploy the real FastAPI service to Cloud Run staging
+and point a staging frontend at it. The hosted Supabase Edge Function should
+remain a demo/API-preview layer until that is done. See
+`15_current_state_and_next_steps.md`.
 
 ## Test Cadence
 

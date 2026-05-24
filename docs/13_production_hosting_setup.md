@@ -90,7 +90,6 @@ SUPABASE_PROJECT_REF
 SUPABASE_URL
 SUPABASE_ANON_KEY or publishable key
 SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_JWT_SECRET
 SUPABASE_DB_PASSWORD
 ```
 
@@ -99,7 +98,9 @@ Rules:
 - `SUPABASE_ANON_KEY` or publishable key can be used in the frontend.
 - `SUPABASE_SERVICE_ROLE_KEY` must only live in backend/server/GitHub/GCP
   secrets.
-- `SUPABASE_JWT_SECRET` must only live in backend/server secrets.
+- `SUPABASE_JWT_SECRET` is optional for the FastAPI service. If present, the
+  API validates JWTs locally. If absent, the API validates bearer tokens through
+  Supabase Auth using backend-only `SUPABASE_SECRET_KEY`.
 
 ## Google Cloud
 
@@ -152,6 +153,63 @@ GCP_SERVICE_ACCOUNT
 Use `us-central1` initially for cost/free-tier friendliness unless there is a
 strong reason to optimize for another region.
 
+## Cost Guardrails
+
+The first Cloud Run staging deploy must stay intentionally small. Do not deploy
+until a project-scoped budget/alert exists for the selected GCP project.
+
+Staging defaults:
+
+```text
+region: us-central1
+min instances: 0
+max instances: 1
+memory: 512Mi
+cpu: 1
+timeout: 60s
+workers/jobs: disabled until API staging is healthy
+Cloud SQL/GKE/GPU/VPC connector: not used
+```
+
+Run the read-only preflight before enabling APIs or deploying:
+
+```bash
+python scripts/gcloud_cost_preflight.py \
+  --project-id "$GCP_PROJECT_ID" \
+  --region "$GCP_REGION" \
+  --gcloud "${GCLOUD_BIN:-gcloud}"
+```
+
+If the script cannot verify a billing budget, create one in Google Cloud
+Billing first. Use a small monthly project budget, for example `$10` or `$25`,
+with alert thresholds at 50%, 90%, and 100%. Budget alerts are notification
+guardrails, not a hard spending cap, so keep Cloud Run max instances low too.
+
+Use this helper to create the initial StackCert staging budget through `gcloud`:
+
+```bash
+python scripts/gcloud_budget_setup.py \
+  --project-id "$GCP_PROJECT_ID" \
+  --amount-usd 10 \
+  --gcloud "${GCLOUD_BIN:-gcloud}"
+```
+
+This creates a monthly budget using `exclude-all-credits`, so alerts track gross
+usage before the free-trial credit is subtracted. That is the right behavior for
+staging because we want to notice when the project has consumed roughly `$10` of
+Google Cloud resources, even when the trial credit is covering it.
+
+For the current account check on 2026-05-24:
+
+```text
+creatorconsulting: billing disabled
+friendlychat-8ed89: billing disabled
+project-e7840c42-f298-4bd9-bff: billing enabled, StackCert staging $10 budget visible
+stackcert-api Cloud Run staging URL: https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+```
+
+Only deploy to a project the user explicitly selects.
+
 ## Cloud Run First Setup Walkthrough
 
 This is the manual path to get the FastAPI service running before we automate it
@@ -169,22 +227,38 @@ export IMAGE_TAG="$(git rev-parse --short HEAD)"
 export IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 ```
 
+If `gcloud` is installed but not on `PATH`, either add it to `PATH` or export a
+helper variable and substitute it in the commands below:
+
+```bash
+export GCLOUD_BIN="/path/to/google-cloud-sdk/bin/gcloud"
+```
+
+Run the cost preflight:
+
+```bash
+python scripts/gcloud_cost_preflight.py \
+  --project-id "$GCP_PROJECT_ID" \
+  --region "$GCP_REGION" \
+  --gcloud "${GCLOUD_BIN:-gcloud}"
+```
+
 Select the project and enable APIs:
 
 ```bash
-gcloud config set project "$GCP_PROJECT_ID"
+"${GCLOUD_BIN:-gcloud}" config set project "$GCP_PROJECT_ID"
 
-gcloud services enable run.googleapis.com
-gcloud services enable artifactregistry.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-gcloud services enable secretmanager.googleapis.com
-gcloud services enable iamcredentials.googleapis.com
+"${GCLOUD_BIN:-gcloud}" services enable run.googleapis.com
+"${GCLOUD_BIN:-gcloud}" services enable artifactregistry.googleapis.com
+"${GCLOUD_BIN:-gcloud}" services enable cloudbuild.googleapis.com
+"${GCLOUD_BIN:-gcloud}" services enable secretmanager.googleapis.com
+"${GCLOUD_BIN:-gcloud}" services enable iamcredentials.googleapis.com
 ```
 
 Create one Artifact Registry Docker repository:
 
 ```bash
-gcloud artifacts repositories create "$ARTIFACT_REPO" \
+"${GCLOUD_BIN:-gcloud}" artifacts repositories create "$ARTIFACT_REPO" \
   --repository-format=docker \
   --location="$GCP_REGION" \
   --description="StackCert container images"
@@ -193,7 +267,7 @@ gcloud artifacts repositories create "$ARTIFACT_REPO" \
 Create the API runtime service account:
 
 ```bash
-gcloud iam service-accounts create stackcert-api-runtime \
+"${GCLOUD_BIN:-gcloud}" iam service-accounts create stackcert-api-runtime \
   --display-name="StackCert API runtime"
 ```
 
@@ -201,17 +275,28 @@ Store runtime secrets in Secret Manager. Paste/export the values in your private
 shell first; do not commit them to the repo.
 
 ```bash
-printf "%s" "$SUPABASE_URL" | gcloud secrets create stackcert-supabase-url \
+printf "%s" "$SUPABASE_URL" | "${GCLOUD_BIN:-gcloud}" secrets create stackcert-supabase-url \
   --replication-policy=automatic \
   --data-file=-
 
-printf "%s" "$SUPABASE_SERVICE_ROLE_KEY" | gcloud secrets create stackcert-supabase-secret-key \
+printf "%s" "$SUPABASE_SERVICE_ROLE_KEY" | "${GCLOUD_BIN:-gcloud}" secrets create stackcert-supabase-secret-key \
   --replication-policy=automatic \
   --data-file=-
+```
 
-printf "%s" "$SUPABASE_JWT_SECRET" | gcloud secrets create stackcert-supabase-jwt-secret \
-  --replication-policy=automatic \
-  --data-file=-
+Or use the helper that creates a first version or rotates a new version without
+printing secret values. It can read `SUPABASE_SECRET_KEY` /
+`SUPABASE_SERVICE_ROLE_KEY` from the shell, or the JSON file produced by
+`supabase projects api-keys --output json`.
+When the Supabase CLI returns a masked current `sb_secret` value, the helper
+falls back to the legacy `service_role` key for backend-only Cloud Run use.
+
+```bash
+python scripts/cloud_run_secrets.py \
+  --project-id "$GCP_PROJECT_ID" \
+  --gcloud "${GCLOUD_BIN:-gcloud}" \
+  --supabase-project-ref "$SUPABASE_PROJECT_REF" \
+  --service-account-email "stackcert-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
 ```
 
 Grant the runtime service account access to those secrets:
@@ -221,10 +306,9 @@ export API_RUNTIME_SA="stackcert-api-runtime@${GCP_PROJECT_ID}.iam.gserviceaccou
 
 for secret in \
   stackcert-supabase-url \
-  stackcert-supabase-secret-key \
-  stackcert-supabase-jwt-secret
+  stackcert-supabase-secret-key
 do
-  gcloud secrets add-iam-policy-binding "$secret" \
+  "${GCLOUD_BIN:-gcloud}" secrets add-iam-policy-binding "$secret" \
     --member="serviceAccount:${API_RUNTIME_SA}" \
     --role="roles/secretmanager.secretAccessor"
 done
@@ -233,7 +317,7 @@ done
 Build and push the API image:
 
 ```bash
-gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev"
+"${GCLOUD_BIN:-gcloud}" auth configure-docker "${GCP_REGION}-docker.pkg.dev"
 docker build -f Dockerfile.api -t "$IMAGE_URI" .
 docker push "$IMAGE_URI"
 ```
@@ -241,25 +325,27 @@ docker push "$IMAGE_URI"
 Deploy the API service:
 
 ```bash
-gcloud run deploy stackcert-api \
+"${GCLOUD_BIN:-gcloud}" run deploy stackcert-api \
   --image="$IMAGE_URI" \
   --region="$GCP_REGION" \
   --platform=managed \
   --allow-unauthenticated \
   --service-account="$API_RUNTIME_SA" \
   --cpu=1 \
-  --memory=1Gi \
+  --memory=512Mi \
   --concurrency=40 \
+  --timeout=60 \
+  --cpu-throttling \
   --min-instances=0 \
-  --max-instances=5 \
+  --max-instances=1 \
   --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_CORS_ORIGINS=https://staging.stackcert.com" \
-  --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest,SUPABASE_JWT_SECRET=stackcert-supabase-jwt-secret:latest"
+  --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest"
 ```
 
 Verify the deployed API:
 
 ```bash
-export API_URL="$(gcloud run services describe stackcert-api \
+export API_URL="$("${GCLOUD_BIN:-gcloud}" run services describe stackcert-api \
   --region="$GCP_REGION" \
   --format='value(status.url)')"
 
@@ -269,6 +355,24 @@ curl -i -sS "${API_URL}/api/workspaces" | head
 
 The health check should return `200`; protected app routes should reject
 requests without a valid Supabase bearer token.
+
+For a repeatable API smoke, use:
+
+```bash
+python scripts/cloud_run_api_smoke.py --api-url "$API_URL"
+```
+
+To also verify authenticated routes and MCP discovery, set
+`STACKCERT_SMOKE_SUPABASE_ANON_KEY` to the browser-safe publishable/anon key and
+pass a Supabase smoke user:
+
+```bash
+python scripts/cloud_run_api_smoke.py \
+  --api-url "$API_URL" \
+  --supabase-url "$SUPABASE_URL" \
+  --email "$STACKCERT_SMOKE_EMAIL" \
+  --password "$STACKCERT_SMOKE_PASSWORD"
+```
 
 Once the raw `run.app` URL is healthy, map `api-staging.stackcert.com` or
 `api.stackcert.com` to the service through Cloud Run custom domains or
@@ -298,7 +402,7 @@ STACKCERT_PERSISTENCE_BACKEND=supabase
 STACKCERT_CORS_ORIGINS=https://app.stackcert.com,https://stackcert.com
 SUPABASE_URL
 SUPABASE_SECRET_KEY
-SUPABASE_JWT_SECRET
+SUPABASE_JWT_SECRET optional
 ```
 
 Deploy workers:
@@ -399,6 +503,29 @@ VITE_SUPABASE_URL=<production Supabase URL>
 VITE_SUPABASE_ANON_KEY=<production publishable/anon key>
 ```
 
+For a temporary Cloudflare Workers static-assets deploy from the current
+monorepo, use:
+
+```text
+Path: web
+Build command: npm ci && npm run build
+Deploy command: npx wrangler deploy
+Non-production branch deploy command: leave blank, or keep the Cloudflare default
+```
+
+Set these Cloudflare build environment variables:
+
+```text
+VITE_ROUTER_MODE=browser
+VITE_PUBLIC_BASE=/
+VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
+VITE_SUPABASE_ANON_KEY=<Supabase anon/publishable key>
+```
+
+The deploy command relies on `web/wrangler.jsonc`, which serves `./dist` as
+Workers static assets and uses `single-page-application` fallback routing.
+
 Add a Cloudflare Pages redirect rule so React routes work:
 
 ```text
@@ -440,6 +567,8 @@ Set these before launch:
 
 - GCP billing budget alerts at 50%, 80%, and 100%.
 - Cloud Run API max instances, initially around `5`.
+- Cloud Run staging API max instances, initially `1`; raise only after the
+  budget and traffic profile are clear.
 - Cloud Run worker max instances, initially around `2`.
 - Worker concurrency caps.
 - Per-workspace and per-run StackCert budget limits.

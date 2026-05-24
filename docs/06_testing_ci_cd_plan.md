@@ -11,6 +11,31 @@ StackCert has three correctness layers:
 All three must be tested. A pretty dashboard with incorrect evidence logic is
 dangerous; a correct engine with broken auth or exports is not sellable.
 
+## Current Verification Baseline
+
+As of 2026-05-24, the current working tree has been verified with:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
+.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v
+cd web && npm run lint
+cd web && npm test -- --run
+cd web && npm run build
+deno check supabase/functions/stackcert-api/index.ts
+```
+
+Expected current results:
+
+- 11 Python core tests pass.
+- 44 service/API tests pass.
+- 4 frontend tests pass.
+- Frontend production build passes.
+- Supabase Edge Function type check passes.
+
+The hosted Edge Function has also been redeployed and `GET /api/health` returns
+`200`. Authenticated hosted MCP smoke remains a next CI enhancement because it
+requires the Supabase publishable/anon key in the smoke-test environment.
+
 ## Test Pyramid
 
 ### Python Core Tests

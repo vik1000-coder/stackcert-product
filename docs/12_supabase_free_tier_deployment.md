@@ -56,7 +56,8 @@ The Edge Function mirrors the main product API surface enough for demos:
 - setup catalogs, custom behavior creation, import preview, safety-check
   connectors;
 - jobs, worker-run simulation, release-evidence issue/signoff;
-- MCP manifest/RPC and agent-platform integration metadata.
+- MCP manifest/RPC, release-evidence status, theory-card, measurement
+  recommendation, and agent-platform integration metadata.
 
 Some API routes and JSON fields retain older names such as `certificate` or
 `guard` for compatibility. Visible product copy should use "release evidence"
@@ -64,6 +65,16 @@ and "safety checks."
 
 The Edge Function verifies Supabase Auth tokens before serving app data. Public
 exceptions are limited to health and export endpoints.
+
+MCP routes are authenticated app routes:
+
+- `GET /api/mcp/manifest`
+- `POST /api/mcp`
+- `POST /api/mcp/rpc`
+
+The hosted Edge Function MCP surface is intended for demo and integration-shape
+validation. Production MCP should run through the FastAPI service on Cloud Run
+so theory cards and release evidence use the Python CASS engine directly.
 
 ## What GitHub Pages Hosts Today
 
@@ -223,6 +234,8 @@ The smoke test checks:
 - app API rejects unauthenticated calls;
 - Supabase Auth password sign-in works;
 - authenticated project read returns the seeded demo project.
+- authenticated MCP smoke should be added once the smoke anon key is available
+  in CI for this specific check.
 
 ## Local/CI Deployment Contract Tests
 
@@ -262,5 +275,7 @@ The test asserts that:
 - GitHub Pages is the current web host; Supabase remains the Auth/API backend.
 - Edge Function state is demo-oriented and not a durable replacement for the
   Python API/worker path.
+- Hosted MCP is useful for contract shape and demo integration, but production
+  MCP should be served by the Cloud Run FastAPI API.
 - Release evidence remains a scoped comparative-risk artifact. It does not
   guarantee the AI system is safe, compliant, or free of harmful behavior.

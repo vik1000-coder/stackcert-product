@@ -16,7 +16,7 @@ and cost-aware scale.
 
 ## Current Supabase Notes
 
-Checked on 2026-05-23:
+Checked on 2026-05-24:
 
 - Supabase CLI installed locally: `2.101.0`.
 - Current Supabase docs/changelog call out:
@@ -33,6 +33,24 @@ Implementation rule:
 - Treat Supabase as the system of record, but do not put release-evidence business
   logic in the browser or in database-only functions.
 - Keep CASS math and release-evidence issuance in the Python backend.
+
+## Current Implementation State
+
+The local product stack now includes:
+
+- React/Vite frontend with public pages and authenticated workbench routes.
+- FastAPI service with CASS-backed demo and uploaded-output pilot APIs.
+- Supabase migrations and persistence helpers for workspaces, projects,
+  benchmark suites, custom behaviors, guard connectors, jobs, usage events,
+  pilot runs, issued evidence, and signoffs.
+- MCP routes for release-evidence status, theory cards, measurement
+  recommendations, integration guides, and deployment-review prompts.
+- Supabase Edge Function demo API deployed for the temporary hosted demo.
+
+The production target remains unchanged: deploy the Python FastAPI API and
+worker to Cloud Run, keep Supabase as system of record, and serve the frontend
+from a production static host. The hosted Supabase Edge Function should not
+become the production CASS runtime.
 
 ## Repository Layout
 
@@ -229,6 +247,9 @@ API groups:
 /api/costs
 /api/drift
 /api/integrations
+/api/mcp
+/api/mcp/manifest
+/api/mcp/rpc
 ```
 
 The API should expose display-ready data for the UI but keep raw artifacts in
