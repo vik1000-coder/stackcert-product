@@ -37,13 +37,12 @@ jobs:
       - name: Check frontend if present
         run: |
           if [ -f web/package.json ]; then
-            cd web
-            npm ci
-            npm run lint
-            npm run typecheck
-            npm test -- --run
-            npm run build
-            VITE_ROUTER_MODE=hash VITE_PUBLIC_BASE=./ VITE_API_BASE_URL=https://example.invalid/functions/v1/stackcert-api VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=example npm run build
+            npm --prefix web ci --workspaces=false --include=optional
+            npm --prefix web run lint
+            npm --prefix web run typecheck
+            npm --prefix web test -- --run
+            npm --prefix web run build
+            VITE_ROUTER_MODE=hash VITE_PUBLIC_BASE=./ VITE_API_BASE_URL=https://example.invalid/functions/v1/stackcert-api VITE_SUPABASE_URL=https://example.supabase.co VITE_SUPABASE_ANON_KEY=example npm --prefix web run build
           else
             echo "web/package.json not present yet; skipping frontend checks"
           fi

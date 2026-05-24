@@ -1185,3 +1185,28 @@ Started: 2026-05-23
   - Hosted unauthenticated `GET /api/mcp/manifest` -> 401, preserving the app
     API auth gate. Authenticated MCP smoke still needs the smoke anon key in the
     shell or CI secret.
+
+## GitHub Actions And Cloudflare Build Fix
+
+- Investigated failing GitHub checks for commit `b2f1a29`:
+  - `ci / frontend checks`;
+  - `deploy pages / test and build web`.
+- Root cause: adding a root npm workspace made `cd web && npm ci` use the root
+  lockfile. The root lockfile did not include GitHub's Linux x64 Rolldown
+  optional native binding, so Vitest failed with
+  `Cannot find module '@rolldown/binding-linux-x64-gnu'`.
+- Removed the root npm workspace wiring and kept the root package focused on
+  Cloudflare Workers Builds:
+  - root `npm ci` installs Wrangler only;
+  - root `npm run build` installs the web app with `web/package-lock.json` and
+    then builds the frontend;
+  - root `npx wrangler deploy` still deploys `web/dist`.
+- Updated GitHub Actions frontend steps to run explicit package commands:
+  `npm --prefix web ci --workspaces=false --include=optional`, followed by
+  prefix-scoped lint, typecheck, test, and build commands.
+- Verification:
+  - local `npm ci && npm run build` -> OK;
+  - local `npm --prefix web test -- --run` -> 4 tests passed;
+  - local `npx wrangler deploy --dry-run` -> OK;
+  - clean Docker `linux/amd64` `npm ci && npm run build &&
+    npm --prefix web test -- --run` -> OK.

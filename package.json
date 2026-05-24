@@ -2,11 +2,8 @@
   "name": "stackcert-product",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "web"
-  ],
   "scripts": {
-    "build": "npm --workspace stackcert-web run build",
+    "build": "npm --prefix web ci --workspaces=false --include=optional && npm --prefix web run build",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
