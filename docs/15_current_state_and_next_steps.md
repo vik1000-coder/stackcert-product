@@ -111,8 +111,7 @@ Latest hosted verification:
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - Cloudflare deployment list shows the latest `stackcert-staging` deployment
-  was created by the GitHub `deploy cloudflare` workflow. The verified version
-  ID is `1f015c2e-5721-41ca-803e-2b1ac407b4d9`.
+  was created by the GitHub `deploy cloudflare` workflow.
 - Cloud Run `GET /api/health` returns `200`.
 - Cloud Run unauthenticated API calls return `401`/`403` as expected.
 - Authenticated deployment smoke against Cloudflare + Cloud Run + Supabase Auth

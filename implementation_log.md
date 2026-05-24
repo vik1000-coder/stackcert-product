@@ -1260,8 +1260,7 @@ Started: 2026-05-23
   - Cloud Run `stackcert-api` revision is `stackcert-api-00003-szq`;
   - Cloud Run CORS includes the Cloudflare staging origin;
   - Cloudflare `stackcert-staging` deployments are visible with the scoped token;
-  - GitHub `deploy cloudflare` produced Worker version
-    `1f015c2e-5721-41ca-803e-2b1ac407b4d9`;
+  - GitHub `deploy cloudflare` produced a new Worker deployment;
   - full deployed smoke returns `deployment smoke OK`.
 - Noted Cloudflare token limitation: the scoped token can deploy/list Workers,
   but Workers Builds API endpoints return `403`; add Workers Builds
