@@ -11,7 +11,8 @@ with scoped release evidence instead of broad safety claims.
 
 The current scope includes the CASS core under the hood, a product API, a React
 LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
-and a hosted Supabase free-tier demo. The core engine includes:
+worker-backed deterministic evaluation runs, and a hosted Supabase free-tier
+demo. The core engine includes:
 
 - data schemas and JSONL/CSV import;
 - safety-check adapters and offline evaluation runner;
@@ -28,6 +29,8 @@ The product direction is now a production-oriented full-stack app:
 - FastAPI service around the Python CASS core;
 - authenticated MCP endpoints for release-evidence status, theory cards, and
   agent deployment reviews;
+- deterministic provider-style worker execution for real project benchmark
+  suites, with budget checks, usage events, and persisted CASS evidence runs;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
 - GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.

@@ -85,14 +85,20 @@ export function SetupPage() {
   });
   const createEvaluation = useMutation({
     mutationFn: (payload: Parameters<typeof api.createEvaluationJob>[1]) => api.createEvaluationJob(projectId, payload),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      if (response.job.status.startsWith('complete') && response.job.summary.source === 'worker_evaluation' && response.job.run_id) navigate(`../overview?run=${response.job.run_id}`);
     }
   });
   const runNextWorker = useMutation({
     mutationFn: () => api.runNextWorkerJob(projectId),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      if (response.job.status.startsWith('complete') && response.job.summary.source === 'worker_evaluation' && response.job.run_id) navigate(`../overview?run=${response.job.run_id}`);
     }
   });
   const previewImport = useMutation({
@@ -148,7 +154,8 @@ export function SetupPage() {
   const stackPreview = stacks.data!.stacks.slice(0, 5);
   const latestJob = jobs.data!.jobs[0];
   const executableGuards = guards.data!.guards.filter((guard) => guard.status !== 'draft');
-  const dryRunGuardIds = executableGuards.slice(0, 4).map((guard) => guard.id);
+  const dryRunGuardIds = executableGuards.slice(0, 4).map((guard) => guard.guard_key ?? guard.id);
+  const canRunWorkerEvaluation = dryRunGuardIds.length >= 2 && Boolean(suite);
 
   return (
     <div className="page">
@@ -282,14 +289,18 @@ export function SetupPage() {
           <div className="setup-button-row">
             <button
               className="btn primary"
-              disabled={createEvaluation.isPending || dryRunGuardIds.length === 0}
+              disabled={createEvaluation.isPending || !canRunWorkerEvaluation}
               onClick={() =>
                 createEvaluation.mutate({
                   guard_ids: dryRunGuardIds,
+                  benchmark_suite_id: suite?.id,
                   examples_per_cell: 2,
                   seed: 7,
                   adapter_mode: 'deterministic_fixture',
-                  execution_mode: 'immediate'
+                  execution_mode: 'immediate',
+                  lambda_cost: 5,
+                  rho_prior: 0.6,
+                  max_k: 2
                 })
               }
             >
@@ -297,14 +308,18 @@ export function SetupPage() {
             </button>
             <button
               className="btn"
-              disabled={createEvaluation.isPending || dryRunGuardIds.length === 0}
+              disabled={createEvaluation.isPending || !canRunWorkerEvaluation}
               onClick={() =>
                 createEvaluation.mutate({
                   guard_ids: dryRunGuardIds,
+                  benchmark_suite_id: suite?.id,
                   examples_per_cell: 2,
                   seed: 7,
                   adapter_mode: 'deterministic_fixture',
-                  execution_mode: 'queued'
+                  execution_mode: 'queued',
+                  lambda_cost: 5,
+                  rho_prior: 0.6,
+                  max_k: 2
                 })
               }
             >

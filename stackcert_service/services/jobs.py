@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from collections import Counter
-from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -14,7 +13,11 @@ from stackcert.guards.fake_adapter import DeterministicPolicyGuardAdapter
 from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import EvaluationJobCreate, MeasurementPlanCreate
+from stackcert_service.services import benchmark_imports
 from stackcert_service.services import demo_project
+from stackcert_service.services import guard_connectors
+from stackcert_service.services import pilot_runs
+from stackcert_service.services import projects
 from stackcert_service.services import usage
 from stackcert_service.services.display import guard_label, stack_label
 
@@ -119,14 +122,50 @@ def get_job(job_id: str) -> dict[str, Any]:
 
 
 def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict[str, Any]:
-    if project_id != settings.demo_project_id:
+    project = projects.get_project(project_id)
+    if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    engine, _, _ = demo_project.demo_bundle()
-    requested_guard_ids = payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
-    unknown = sorted(set(requested_guard_ids).difference(engine.guard_ids))
-    if unknown:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+    suite_context: dict[str, Any] = {}
+    if project_id == settings.demo_project_id:
+        engine, _, _ = demo_project.demo_bundle()
+        requested_guard_ids = payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
+        unknown = sorted(set(requested_guard_ids).difference(engine.guard_ids))
+        if unknown:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+        estimated_cost_usd = 0.0
+    else:
+        suite_bundle = benchmark_imports.get_committed_suite_bundle(project_id, payload.benchmark_suite_id)
+        all_examples = pilot_runs._examples_from_suite(suite_bundle)
+        sampled_examples = sample_within_cells(all_examples, per_cell=payload.examples_per_cell, seed=payload.seed)
+        if not sampled_examples:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Benchmark suite has no runnable examples")
+        configured_guard_ids = _project_guard_ids(project_id)
+        requested_guard_ids = payload.guard_ids or configured_guard_ids[: min(20, len(configured_guard_ids))]
+        unknown = sorted(set(requested_guard_ids).difference(configured_guard_ids))
+        if unknown:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+        if len(requested_guard_ids) < 2:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
+        estimated_cost_usd = _estimate_project_evaluation_cost(project_id, requested_guard_ids, len(sampled_examples))
+        if payload.max_cost_usd is not None and estimated_cost_usd > payload.max_cost_usd:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Estimated worker run costs ${estimated_cost_usd:.4f}, above the ${payload.max_cost_usd:.4f} budget cap",
+            )
+        suite_context = {
+            "source": "worker_evaluation",
+            "benchmark_suite_id": suite_bundle["suite"]["id"],
+            "benchmark_suite_name": suite_bundle["suite"]["name"],
+            "sampled_example_ids": [example.example_id for example in sampled_examples],
+            "sampled_examples": len(sampled_examples),
+            "total_examples": len(all_examples),
+            "lambda_cost": payload.lambda_cost,
+            "rho_prior": payload.rho_prior,
+            "max_k": payload.max_k,
+            "estimated_cost_usd": estimated_cost_usd,
+            "budget_cap_usd": payload.max_cost_usd,
+        }
 
     run_id = f"eval_{uuid.uuid4().hex[:10]}"
     job = {
@@ -144,13 +183,20 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
         "input": {
             "payload": payload.model_dump(),
             "requested_guard_ids": requested_guard_ids,
+            **suite_context,
         },
         "summary": {
             "adapter_mode": payload.adapter_mode,
-            "examples": 0,
+            "source": suite_context.get("source", "demo_fixture"),
+            "benchmark_suite_id": suite_context.get("benchmark_suite_id"),
+            "benchmark_suite_name": suite_context.get("benchmark_suite_name"),
+            "examples": suite_context.get("sampled_examples", 0),
+            "total_examples": suite_context.get("total_examples"),
             "guards": len(requested_guard_ids),
             "outputs": 0,
             "errors": 0,
+            "estimated_cost_usd": estimated_cost_usd,
+            "budget_cap_usd": payload.max_cost_usd,
         },
         "artifact_preview": [],
         "next_steps": [
@@ -229,6 +275,100 @@ def retry_job(job_id: str) -> dict[str, Any]:
     ]
     _append_event(job, "manual_retry", "Operator requeued the job for another worker attempt.")
     return _update(job)
+
+
+def _project_guard_ids(project_id: str) -> list[str]:
+    seen: set[str] = set()
+    guard_ids: list[str] = []
+    for connector in guard_connectors.list_connectors(project_id):
+        if connector.get("status") == "draft":
+            continue
+        guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
+        if guard_id and guard_id not in seen:
+            seen.add(guard_id)
+            guard_ids.append(guard_id)
+    return guard_ids
+
+
+def _connector_thresholds(project_id: str) -> dict[str, float]:
+    thresholds: dict[str, float] = {}
+    for connector in guard_connectors.list_connectors(project_id):
+        guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
+        if not guard_id:
+            continue
+        threshold = connector.get("threshold")
+        thresholds[guard_id] = float(threshold) if threshold is not None else 0.5
+    return thresholds
+
+
+def _connector_unit_costs(project_id: str) -> dict[str, float]:
+    costs: dict[str, float] = {}
+    for connector in guard_connectors.list_connectors(project_id):
+        guard_id = str(connector.get("guard_key") or connector.get("id") or "").strip()
+        if guard_id:
+            costs[guard_id] = float(connector.get("unit_cost_usd") or 0.0002)
+    return costs
+
+
+def _estimate_project_evaluation_cost(project_id: str, guard_ids: list[str], example_count: int) -> float:
+    costs = _connector_unit_costs(project_id)
+    return round(sum(costs.get(guard_id, 0.0002) * example_count for guard_id in guard_ids), 4)
+
+
+def _usage_events_from_evaluation(
+    job: dict[str, Any],
+    outputs: list[Any],
+    examples: list[Any],
+    guard_ids: list[str],
+) -> list[dict[str, Any]]:
+    unit_costs = _connector_unit_costs(str(job["project_id"]))
+    examples_by_id = {example.example_id: example for example in examples}
+    events = []
+    for guard_id in guard_ids:
+        guard_outputs = [output for output in outputs if output.guard_id == guard_id]
+        request_count = len(guard_outputs)
+        input_tokens = 0
+        for output in guard_outputs:
+            example = examples_by_id.get(output.example_id)
+            input_tokens += max(1, len(str(example.prompt_redacted if example else "").split()))
+        output_tokens = request_count * 24
+        cost = round(request_count * unit_costs.get(guard_id, 0.0002), 4)
+        events.append(
+            {
+                "id": f"use_{job['id']}_{guard_id}",
+                "provider": "stackcert_worker",
+                "model": "deterministic_policy_guard",
+                "operation": "evaluation_guard_run",
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "request_count": request_count,
+                "duration_ms": request_count * 75,
+                "estimated_cost_usd": cost,
+                "actual_cost_usd": cost,
+                "metadata": {
+                    "guard_id": guard_id,
+                    "benchmark_suite_id": job.get("input", {}).get("benchmark_suite_id"),
+                    "adapter_mode": job.get("input", {}).get("payload", {}).get("adapter_mode"),
+                    "contract": "guard_adapter_v1",
+                },
+            }
+        )
+    return events
+
+
+def _measurement_context(run_id: str, lambda_cost: float) -> dict[str, Any]:
+    if pilot_runs.has_run(run_id):
+        run = pilot_runs.run_summary(run_id)
+        return {
+            "project_id": run["project_id"],
+            "source": run.get("source") or "worker_evaluation",
+            "measurements": pilot_runs.measurements(run_id, lambda_cost),
+        }
+    return {
+        "project_id": settings.demo_project_id,
+        "source": "demo_fixture",
+        "measurements": demo_project.measurements(lambda_cost),
+    }
 
 
 def _parse_time(value: Any) -> datetime | None:
@@ -392,6 +532,12 @@ def _raise_provider_failure(failure_mode: str | None) -> None:
 
 
 def _execute_evaluation_job(job: dict[str, Any], payload: EvaluationJobCreate) -> dict[str, Any]:
+    if job.get("input", {}).get("source") == "worker_evaluation":
+        return _execute_project_evaluation_job(job, payload)
+    return _execute_demo_evaluation_job(job, payload)
+
+
+def _execute_demo_evaluation_job(job: dict[str, Any], payload: EvaluationJobCreate) -> dict[str, Any]:
     engine, _, _ = demo_project.demo_bundle()
     _raise_provider_failure(payload.failure_mode)
     requested_guard_ids = job.get("input", {}).get("requested_guard_ids") or payload.guard_ids or list(engine.guard_ids[: min(4, len(engine.guard_ids))])
@@ -450,8 +596,114 @@ def _execute_evaluation_job(job: dict[str, Any], payload: EvaluationJobCreate) -
     return job
 
 
+def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobCreate) -> dict[str, Any]:
+    project_id = str(job["project_id"])
+    job_input = job.get("input", {})
+    if payload.adapter_mode == "uploaded_outputs":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use the uploaded-output run flow for precomputed outputs")
+    _raise_provider_failure(payload.failure_mode)
+
+    suite_bundle = benchmark_imports.get_committed_suite_bundle(project_id, job_input.get("benchmark_suite_id") or payload.benchmark_suite_id)
+    all_examples = pilot_runs._examples_from_suite(suite_bundle)
+    sampled_ids = set(job_input.get("sampled_example_ids") or [])
+    examples = [example for example in all_examples if example.example_id in sampled_ids] if sampled_ids else sample_within_cells(all_examples, per_cell=payload.examples_per_cell, seed=payload.seed)
+    if not examples:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Benchmark suite has no runnable examples")
+
+    requested_guard_ids = job_input.get("requested_guard_ids") or payload.guard_ids or _project_guard_ids(project_id)
+    configured_guard_ids = _project_guard_ids(project_id)
+    unknown = sorted(set(requested_guard_ids).difference(configured_guard_ids))
+    if unknown:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown guard ids: {', '.join(unknown)}")
+    if len(requested_guard_ids) < 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
+
+    estimated_cost = _estimate_project_evaluation_cost(project_id, requested_guard_ids, len(examples))
+    budget_cap = payload.max_cost_usd if payload.max_cost_usd is not None else job_input.get("budget_cap_usd")
+    if budget_cap is not None and estimated_cost > float(budget_cap):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Estimated worker run costs ${estimated_cost:.4f}, above the ${float(budget_cap):.4f} budget cap",
+        )
+
+    thresholds = _connector_thresholds(project_id)
+    adapters = tuple(
+        DeterministicPolicyGuardAdapter(
+            guard_id=guard_id,
+            run_id=job["run_id"],
+            threshold=thresholds.get(guard_id) or 0.5,
+            metadata={"source": "worker_evaluation", "contract": "guard_adapter_v1"},
+        )
+        for guard_id in requested_guard_ids
+    )
+    outputs = EvaluationRunner(adapters).run(examples)
+    blocked = sum(1 for output in outputs if not output.binary_pass)
+    errors = sum(1 for output in outputs if output.error)
+    by_guard = Counter(output.guard_id for output in outputs)
+    by_cell = Counter(example.cell_id for example in examples)
+    run = pilot_runs.create_worker_evaluation_run(
+        project_id,
+        run_id=str(job["run_id"]),
+        suite_bundle=suite_bundle,
+        examples=examples,
+        outputs=outputs,
+        lambda_cost=payload.lambda_cost,
+        rho_prior=payload.rho_prior,
+        max_k=payload.max_k,
+        name=f"{suite_bundle['suite']['name']} worker evaluation",
+        job_id=str(job["id"]),
+    )
+    recorded_events = usage.record_usage_events(project_id, job, _usage_events_from_evaluation(job, outputs, examples, requested_guard_ids))
+    actual_cost = round(sum(float(event.get("actual_cost_usd") or 0) for event in recorded_events), 4)
+    preview = [
+        {
+            "example_id": output.example_id,
+            "guard_id": output.guard_id,
+            "guard_label": guard_label(output.guard_id),
+            "binary_pass": output.binary_pass,
+            "block_probability": output.block_probability,
+            "error": output.error,
+        }
+        for output in outputs[:12]
+    ]
+    job["status"] = "complete" if errors == 0 else "complete_with_errors"
+    job["completed_at"] = _now()
+    job["progress"] = 1.0
+    job["summary"] = {
+        "source": "worker_evaluation",
+        "adapter_mode": payload.adapter_mode,
+        "benchmark_suite_id": suite_bundle["suite"]["id"],
+        "benchmark_suite_name": suite_bundle["suite"]["name"],
+        "examples": len(examples),
+        "total_examples": len(all_examples),
+        "guards": len(requested_guard_ids),
+        "outputs": len(outputs),
+        "blocked_outputs": blocked,
+        "pass_rate": round((len(outputs) - blocked) / len(outputs), 4) if outputs else 0.0,
+        "errors": errors,
+        "cells": dict(sorted(by_cell.items())),
+        "outputs_by_guard": dict(sorted(by_guard.items())),
+        "run_id": run["id"],
+        "certificate_id": run.get("certificate_id"),
+        "certificate_status": run.get("certificate_status"),
+        "measurement_actions": run.get("measurement_actions"),
+        "estimated_cost_usd": estimated_cost,
+        "actual_cost_usd": actual_cost,
+        "usage_event_count": len(recorded_events),
+        "budget_cap_usd": budget_cap,
+    }
+    job["artifact_preview"] = preview
+    job["next_steps"] = [
+        "Review the recommendation, overlap analysis, and remaining measurement plan for this evidence run.",
+        "Replace deterministic adapters with managed REST or model-judge providers before relying on the result for a real deployment gate.",
+        "Issue release evidence only after acknowledging scope and limitations; StackCert mitigates risk, it does not guarantee safety.",
+    ]
+    return job
+
+
 def create_measurement_plan_job(run_id: str, payload: MeasurementPlanCreate, lambda_cost: float = 5.0) -> dict[str, Any]:
-    measurements = demo_project.measurements(lambda_cost)
+    measurement_context = _measurement_context(run_id, lambda_cost)
+    measurements = measurement_context["measurements"]
     requested = set(payload.action_ids)
     actions = [
         action
@@ -470,7 +722,7 @@ def create_measurement_plan_job(run_id: str, payload: MeasurementPlanCreate, lam
     job = {
         "id": f"job_{uuid.uuid4().hex[:12]}",
         "type": "measurement_plan",
-        "project_id": settings.demo_project_id,
+        "project_id": measurement_context["project_id"],
         "run_id": run_id,
         "status": "queued",
         "created_at": _now(),
@@ -482,6 +734,7 @@ def create_measurement_plan_job(run_id: str, payload: MeasurementPlanCreate, lam
         "input": {
             "payload": payload.model_dump(),
             "lambda_cost": lambda_cost,
+            "source": measurement_context["source"],
             "requested_action_ids": [action["id"] for action in actions],
         },
         "summary": {

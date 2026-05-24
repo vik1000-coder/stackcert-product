@@ -1267,3 +1267,39 @@ Started: 2026-05-23
   read/config permissions if build-log introspection becomes required.
 - Updated `README.md`, `.env.example`, and deployment/status docs to reflect the
   working Supabase + Cloud Run + Cloudflare staging stack.
+
+## Deterministic Provider Worker Evidence Slice
+
+- Extended evaluation jobs beyond the seeded demo project:
+  - jobs can now target a real project benchmark suite;
+  - workers execute configured safety-check connectors using the deterministic
+    provider adapter contract;
+  - run-level budget caps block evaluation before work starts;
+  - worker outputs create a persisted `worker_evaluation` CASS evidence run;
+  - usage events are recorded per evaluated safety check.
+- Made worker-produced runs first-class evidence runs:
+  - project run lists now include `worker_evaluation` sources;
+  - persisted worker runs reload with their sampled example set;
+  - recommendation, ranking, overlap, measurement, cost, and release-evidence
+    endpoints can operate on worker-produced runs.
+- Made measurement-plan creation durable for real pilot runs by routing the API
+  through the job service instead of returning an unstored plan object.
+- Updated setup UI behavior:
+  - dry-run jobs use connector `guard_key` values rather than database ids;
+  - setup invalidates runs/stacks after worker completion;
+  - completed worker runs open directly in the recommendation view.
+- Added regression coverage:
+  - non-demo project worker run with suite import, two connectors, budget-cap
+    rejection, queued worker execution, persisted run, overview, and cost ledger;
+  - Supabase store listing for `worker_evaluation` evidence sources.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/services/jobs.py stackcert_service/services/pilot_runs.py stackcert_service/db/supabase.py stackcert_service/schemas.py` -> OK;
+  - `uv run python -m unittest discover tests_service` -> 56 tests passed;
+  - `uv run python -m unittest discover tests` -> 11 tests passed;
+  - `npm --prefix web run typecheck -- --pretty false` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm run build` -> OK;
+  - Playwright local smoke created a real project, imported a suite, added two
+    connectors, queued a worker dry-run from setup, ran the worker, opened the
+    resulting recommendation run, and checked desktop/mobile horizontal
+    overflow -> OK. Screenshot: `output/setup-worker-smoke.png`.

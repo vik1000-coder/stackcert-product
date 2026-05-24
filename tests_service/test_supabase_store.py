@@ -148,6 +148,55 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertIn("/rest/v1/jobs", requests[1]["url"])
         self.assertEqual(requests[-1]["method"], "PATCH")
 
+    def test_worker_evaluation_runs_are_listed_as_evidence_runs(self) -> None:
+        worker_row = {
+            "id": "00000000-0000-4000-8000-000000000A11",
+            "workspace_id": settings.demo_workspace_db_id,
+            "project_id": settings.demo_project_db_id,
+            "benchmark_suite_id": "00000000-0000-4000-8000-000000000701",
+            "external_run_id": "eval_worker_123",
+            "status": "succeeded",
+            "lambda_cost": 5.0,
+            "rho_prior": 0.6,
+            "k": 2,
+            "summary": {
+                "source": "worker_evaluation",
+                "name": "Worker evaluation run",
+                "examples": 2,
+                "guards": 2,
+                "candidate_stacks": 3,
+                "benchmark_cells": 2,
+                "outputs": 4,
+                "certificate_id": "evidence_eval_worker_123",
+                "certificate_status": "provisional",
+                "measurement_actions": 1,
+                "sampled_example_ids": ["adversarial_tool_misuse_0001", "benign_support_0001"],
+            },
+            "created_at": "2026-05-24T02:00:00+00:00",
+            "completed_at": "2026-05-24T02:01:00+00:00",
+        }
+        ignored_row = {
+            **worker_row,
+            "id": "00000000-0000-4000-8000-000000000A12",
+            "external_run_id": "cert_issue_only",
+            "summary": {"source": "certificate_issue"},
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET" and "/rest/v1/evaluation_runs" in str(request.url):
+                if request.url.params.get("external_run_id") == "eq.eval_worker_123":
+                    return httpx.Response(200, json=[{"id": worker_row["id"], "summary": worker_row["summary"]}])
+                return httpx.Response(200, json=[worker_row, ignored_row])
+            return httpx.Response(500, json={"unexpected": str(request.url)})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        listed = store.list_pilot_runs(settings.demo_project_id)
+
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["id"], "eval_worker_123")
+        self.assertEqual(listed[0]["source"], "worker_evaluation")
+        self.assertTrue(store.has_pilot_run("eval_worker_123"))
+
     def test_usage_events_persist_with_job_reference_and_metadata(self) -> None:
         stored_job: dict[str, Any] | None = None
         stored_events: list[dict[str, Any]] = []

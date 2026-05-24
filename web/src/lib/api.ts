@@ -382,10 +382,15 @@ export type StackCertJob = {
 
 export type EvaluationJobInput = {
   guard_ids: string[];
+  benchmark_suite_id?: string;
   examples_per_cell: number;
   seed: number;
   adapter_mode: 'deterministic_fixture' | 'uploaded_outputs';
   execution_mode?: 'immediate' | 'queued';
+  lambda_cost?: number;
+  rho_prior?: number;
+  max_k?: number;
+  max_cost_usd?: number;
 };
 
 export type UploadedOutputRunInput = {

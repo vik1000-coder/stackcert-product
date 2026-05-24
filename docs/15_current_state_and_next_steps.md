@@ -146,7 +146,8 @@ Latest hosted verification:
 
 ## Important Boundaries
 
-The current product is not yet production-ready for real customers.
+The current product is not yet production-ready for real customers, but the
+worker path has moved past demo-only execution.
 
 Do not overstate the current release evidence. It is scoped to:
 
@@ -157,28 +158,45 @@ Do not overstate the current release evidence. It is scoped to:
 - the candidate stack set evaluated in the run.
 
 The hosted Edge Function demo does not replace the Python FastAPI/worker path.
-Provider-grade evaluation, retries, budgets, and durable artifact writes still
-belong in the FastAPI plus Cloud Run worker architecture.
+Provider-grade evaluation, retries, budgets, and durable artifact writes belong
+in the FastAPI plus Cloud Run worker architecture.
+
+Current worker status:
+
+- queued evaluation jobs can target a real project benchmark suite;
+- deterministic provider-style adapters execute configured safety-check
+  connectors;
+- jobs enforce a run-level budget cap before execution;
+- worker outputs create a persisted `worker_evaluation` evidence run;
+- CASS recommendation, overlap, measurement-plan, cost, and release-evidence
+  pages can read that worker-produced run;
+- usage events are recorded per evaluated safety check;
+- retry, lease, dead-letter, manual retry, and run-next worker APIs remain in
+  place from the earlier worker hardening slice.
 
 ## What To Do Next
 
 ### 1. Finish The Real Provider Worker Path
 
-The worker path is the most important product gap after Cloud Run API hosting.
+The worker path is now useful for deterministic staging runs. The next gap is
+real external provider execution.
 
 Needed work:
 
-- worker entrypoint;
-- durable job claiming and lease renewal;
-- provider retry/backoff/rate-limit policy;
-- per-workspace budget caps;
-- idempotent output writes;
-- dead-letter handling;
-- usage-event accounting;
-- recompute evidence after outputs land.
+- REST safety-check adapter with authenticated outbound calls;
+- model-judge adapter contract and fixture tests;
+- lease renewal for long-running jobs;
+- provider retry/backoff/rate-limit policy by connector;
+- per-workspace and per-run budget caps backed by database policy;
+- idempotent output writes across worker retries and duplicate claims;
+- dead-letter review UI;
+- Cloud Run worker deployment or scheduled Cloud Run Job using
+  `scripts/worker_once.py`;
+- recompute evidence after targeted measurement outputs land, not only after
+  initial evaluation runs.
 
-Start with deterministic/fake providers in staging, then add one real REST
-safety-check adapter.
+The deterministic/fake provider path is the staging baseline. Add one real REST
+safety-check adapter next and keep deterministic mode for CI and onboarding.
 
 ### 2. Harden Auth, Tenancy, And Evidence Storage
 
@@ -224,10 +242,11 @@ After staging works end to end:
 The next engineering milestone should be:
 
 ```text
-Provider-grade worker execution + real pilot onboarding hardening
+Real REST provider adapter + authenticated hosted MCP smoke coverage
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
-GitHub CI/CD are wired and smoke-tested. The next value milestone is moving from
-uploaded/demo outputs toward reliable provider-backed evaluation jobs that a
-pilot team can use without us hand-holding every run.
+GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
+from uploaded outputs to a deterministic managed run. The next value milestone
+is proving the same contract against a real provider endpoint and a real MCP
+client.

@@ -93,8 +93,10 @@ The implementation is past planning. The working app now includes:
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts.
 
-The current priority is provider-grade worker execution and real pilot
-onboarding hardening. See `15_current_state_and_next_steps.md`.
+The current priority is a real REST/model-provider adapter, authenticated
+hosted MCP smoke coverage, and tenancy/security hardening. The deterministic
+worker path now executes real project benchmark suites and persists
+`worker_evaluation` evidence runs. See `15_current_state_and_next_steps.md`.
 
 ## Test Cadence
 

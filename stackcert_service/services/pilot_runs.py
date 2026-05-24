@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import uuid
+from collections import Counter
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import StringIO
@@ -115,6 +116,75 @@ def create_uploaded_output_run(project_id: str, payload: UploadedOutputRunCreate
             }
         ],
     )
+    return run_summary(run_id)
+
+
+def create_worker_evaluation_run(
+    project_id: str,
+    *,
+    run_id: str,
+    suite_bundle: dict[str, Any],
+    examples: list[BenchmarkExample],
+    outputs: list[GuardOutput],
+    lambda_cost: float = 5.0,
+    rho_prior: float = 0.6,
+    max_k: int = 2,
+    name: str | None = None,
+    job_id: str | None = None,
+) -> dict[str, Any]:
+    project = projects.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if len({output.guard_id for output in outputs}) < 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Evaluate at least two safety checks to compare deployable combinations")
+
+    cells = _cells_for_examples(_cells_from_suite(suite_bundle), examples)
+    guards = _guards_from_outputs(project_id, outputs)
+    try:
+        engine = CassEngine(
+            guards=guards,
+            cells=cells,
+            examples=examples,
+            outputs=outputs,
+            welfare_profile=WelfareProfile(
+                name=f"lambda_{lambda_cost:g}",
+                lambda_cost=lambda_cost,
+                business_rationale="Worker-produced release evidence profile.",
+            ),
+            run_id=run_id,
+            max_k=max_k,
+            rho_prior=rho_prior,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    scheduled = greedy_measurement_plan(engine, budget_fraction=0.5)
+    certificate = scheduled.final_engine.build_certificate(measurement_actions=scheduled.actions)
+    now = _now()
+    run = {
+        "id": run_id,
+        "project_id": project_id,
+        "workspace_id": project["workspace_id"],
+        "status": "complete",
+        "name": name or "Worker evaluation run",
+        "source": "worker_evaluation",
+        "benchmark_suite_id": suite_bundle["suite"]["id"],
+        "benchmark_suite_name": suite_bundle["suite"]["name"],
+        "sampled_example_ids": [example.example_id for example in examples],
+        "job_id": job_id,
+        "created_at": now,
+        "completed_at": now,
+    }
+    _runs[run_id] = {
+        "run": run,
+        "project": project,
+        "suite": suite_bundle["suite"],
+        "engine": scheduled.final_engine,
+        "scheduled": scheduled,
+        "certificate": certificate,
+    }
+    _persist_bundle(run_id)
+    projects.set_project_setup_status(project_id, "evidence_ready")
     return run_summary(run_id)
 
 
@@ -573,8 +643,11 @@ def _bundle_from_source(source: dict[str, Any]) -> dict[str, Any]:
     run = source["run"]
     suite_bundle = source["suite_bundle"]
     outputs = [_output_from_store_row(row) for row in source["outputs"]]
-    cells = _cells_from_suite(suite_bundle)
     examples = _examples_from_suite(suite_bundle)
+    sampled_ids = set(run.get("sampled_example_ids") or [])
+    if sampled_ids:
+        examples = [example for example in examples if example.example_id in sampled_ids]
+    cells = _cells_for_examples(_cells_from_suite(suite_bundle), examples)
     guards = _guards_from_outputs(run["project_id"], outputs)
     engine = CassEngine(
         guards=guards,
@@ -680,6 +753,15 @@ def _cells_from_suite(bundle: dict[str, Any]) -> list[BenchmarkCell]:
             metadata={"example_count": int(cell.get("examples") or 0), "suite_id": bundle["suite"]["id"]},
         )
         for cell in bundle["cells"]
+    ]
+
+
+def _cells_for_examples(cells: list[BenchmarkCell], examples: list[BenchmarkExample]) -> list[BenchmarkCell]:
+    counts = Counter(example.cell_id for example in examples)
+    return [
+        replace(cell, metadata={**cell.metadata, "example_count": counts[cell.cell_id]})
+        for cell in cells
+        if counts.get(cell.cell_id, 0) > 0
     ]
 
 

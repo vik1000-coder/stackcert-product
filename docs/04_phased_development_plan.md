@@ -253,8 +253,9 @@ Acceptance criteria:
 ## Phase 5: Safety Check, Model, And Evaluation Runner
 
 Status: partially implemented. Connector records, redaction, queued jobs,
-leases, retries, and cost records exist; real provider-backed worker execution
-is the major remaining gap.
+leases, retries, budget checks, usage records, and deterministic provider-style
+worker execution exist. Real outbound REST/model-provider execution and long-job
+lease renewal remain the major gaps.
 
 Goal: Move from uploaded outputs to managed evaluations.
 
@@ -281,8 +282,11 @@ Tests:
 Acceptance criteria:
 
 - A user can connect at least one REST safety check and one local/model judge adapter.
-- A worker can execute a small run and write results.
+- A worker can execute a small deterministic run and write CASS evidence
+  results for a real project.
 - Test plan can queue executable targeted-test jobs.
+- A production REST/model-provider adapter can execute with provider-specific
+  retries, rate limits, and idempotent writes.
 
 ## Phase 6: Cost, Governance, And Release Evidence Workflow
 

@@ -37,3 +37,4 @@ htmlcov/
 *.db
 artifacts/
 exports/
+output/

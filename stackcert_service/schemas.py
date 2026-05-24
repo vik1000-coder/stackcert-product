@@ -56,10 +56,15 @@ class CostEstimateRequest(BaseModel):
 
 class EvaluationJobCreate(BaseModel):
     guard_ids: list[str] = Field(default_factory=list, max_length=20)
+    benchmark_suite_id: str | None = Field(default=None, min_length=2, max_length=120)
     examples_per_cell: int = Field(ge=1, le=50, default=2)
     seed: int = Field(ge=0, le=1_000_000, default=7)
     adapter_mode: str = Field(pattern="^(deterministic_fixture|uploaded_outputs)$", default="deterministic_fixture")
     execution_mode: str = Field(pattern="^(immediate|queued)$", default="immediate")
+    lambda_cost: float = Field(default=5.0, ge=0, le=100)
+    rho_prior: float = Field(default=0.6, ge=-1, le=1)
+    max_k: int = Field(default=2, ge=1, le=2)
+    max_cost_usd: float | None = Field(default=None, ge=0)
     failure_mode: str | None = Field(default=None, pattern="^(provider_timeout|provider_rate_limited|invalid_configuration)$")
 
 

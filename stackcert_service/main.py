@@ -311,8 +311,6 @@ def get_run_costs(run_id: str, _: PrincipalDep) -> dict[str, object]:
 
 @app.post("/api/runs/{run_id}/measurement-plans")
 def create_measurement_plan(run_id: str, payload: MeasurementPlanCreate, _: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
-    if pilot_runs.has_run(run_id):
-        return pilot_runs.create_measurement_plan(run_id, payload, lambda_cost)
     job = jobs.create_measurement_plan_job(run_id, payload, lambda_cost)
     return {
         "id": f"plan_{job['id']}",

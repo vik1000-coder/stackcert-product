@@ -14,6 +14,9 @@ class SupabasePersistenceError(RuntimeError):
     """Raised when the server-side Supabase persistence layer is unavailable."""
 
 
+EVIDENCE_RUN_SOURCES = {"uploaded_outputs", "worker_evaluation"}
+
+
 def configured_supabase_store() -> SupabaseStore | None:
     mode = settings.persistence_backend.lower()
     if mode == "memory":
@@ -525,7 +528,7 @@ class SupabaseStore:
         summaries = [
             self._pilot_run_summary_from_row(row, project_id)
             for row in rows
-            if (row.get("summary") or {}).get("source") == "uploaded_outputs"
+            if (row.get("summary") or {}).get("source") in EVIDENCE_RUN_SOURCES
         ]
         return summaries
 
@@ -543,7 +546,7 @@ class SupabaseStore:
             return None
         run_row = rows[0]
         summary = run_row.get("summary") or {}
-        if summary.get("source") != "uploaded_outputs":
+        if summary.get("source") not in EVIDENCE_RUN_SOURCES:
             return None
         project_id = settings.demo_project_id if str(run_row["project_id"]) == settings.demo_project_db_id else str(run_row["project_id"])
         project = self._project_by_db_id(str(run_row["project_id"]))
@@ -574,7 +577,7 @@ class SupabaseStore:
                 "limit": "1",
             },
         )
-        return bool(rows and (rows[0].get("summary") or {}).get("source") == "uploaded_outputs")
+        return bool(rows and (rows[0].get("summary") or {}).get("source") in EVIDENCE_RUN_SOURCES)
 
     def store_pilot_run(
         self,
@@ -597,12 +600,15 @@ class SupabaseStore:
                 "limit": "1",
             },
         )
+        source = run.get("source") or run_summary.get("source") or "uploaded_outputs"
         summary = {
             **run_summary,
-            "source": "uploaded_outputs",
-            "name": run.get("name") or "Uploaded-output pilot run",
+            "source": source,
+            "name": run.get("name") or ("Worker evaluation run" if source == "worker_evaluation" else "Uploaded-output pilot run"),
             "benchmark_suite_id": suite_db_id,
             "benchmark_suite_name": run.get("benchmark_suite_name"),
+            "sampled_example_ids": run.get("sampled_example_ids") or [],
+            "job_id": run.get("job_id"),
             "certificate": certificate,
         }
         payload = {
@@ -1054,18 +1060,21 @@ class SupabaseStore:
     def _pilot_run_from_row(row: dict[str, Any], project_id: str) -> dict[str, Any]:
         summary = row.get("summary") or {}
         workspace_id = settings.demo_workspace_id if str(row["workspace_id"]) == settings.demo_workspace_db_id else str(row["workspace_id"])
+        source = summary.get("source") or "uploaded_outputs"
         return {
             "id": row.get("external_run_id") or row["id"],
             "project_id": project_id,
             "workspace_id": workspace_id,
             "status": _job_status_from_db(row.get("status") or "succeeded"),
-            "name": summary.get("name") or "Uploaded-output pilot run",
-            "source": summary.get("source") or "uploaded_outputs",
+            "name": summary.get("name") or ("Worker evaluation run" if source == "worker_evaluation" else "Uploaded-output pilot run"),
+            "source": source,
             "benchmark_suite_id": str(row["benchmark_suite_id"]) if row.get("benchmark_suite_id") else summary.get("benchmark_suite_id"),
             "benchmark_suite_name": summary.get("benchmark_suite_name") or "Imported benchmark suite",
             "lambda_cost": float(summary.get("lambda_cost") or row.get("lambda_cost") or 5.0),
             "rho_prior": float(summary.get("rho_prior") or row.get("rho_prior") or 0.6),
             "k": int(summary.get("k") or row.get("k") or 2),
+            "sampled_example_ids": summary.get("sampled_example_ids") or [],
+            "job_id": summary.get("job_id"),
             "created_at": row.get("created_at"),
             "completed_at": row.get("completed_at"),
         }
