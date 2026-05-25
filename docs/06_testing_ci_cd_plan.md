@@ -214,6 +214,9 @@ Jobs:
 - Supabase local migration reset/status check.
 - Supabase Edge Function presence check.
 
+The Supabase CLI setup is pinned to `2.101.0` in CI. Do not use `latest` there;
+release-resolution rate limits can fail the migration job before any tests run.
+
 ```yaml
 name: ci
 on:

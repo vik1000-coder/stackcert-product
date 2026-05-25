@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.101.0
       - name: Check Supabase migrations if present
         run: |
           if [ -f supabase/config.toml ]; then

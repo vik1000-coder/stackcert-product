@@ -1464,3 +1464,9 @@ Started: 2026-05-23
     an MCP-only machine bearer token -> `mcp client smoke OK`;
   - `supabase db advisors --linked --type all --level warn --fail-on error`
     -> OK exit with the leaked-password-protection warning above.
+- Follow-up CI fix:
+  - first post-commit `ci` run on `88f91bc` failed only in the Supabase setup
+    step because `supabase/setup-cli@v2` could not resolve `latest` under a
+    GitHub release rate limit;
+  - pinned the CI Supabase CLI version to `2.101.0`, matching the local CLI
+    used for the migration push.
