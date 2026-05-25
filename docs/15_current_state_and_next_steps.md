@@ -348,6 +348,10 @@ Current worker status:
   cost estimates, with provider-reported token usage used when REST/model-judge
   endpoints return it;
 - jobs enforce a run-level budget cap before execution;
+- workspace and project budget policies are now first-class persisted records
+  with RLS-backed Supabase tables, service-layer enforcement, and admin UI
+  controls for monthly, per-run, measurement, hard-stop, and provider-spend
+  settings;
 - worker outputs create a persisted `worker_evaluation` evidence run;
 - CASS recommendation, overlap, measurement-plan, cost, and release-evidence
   pages can read that worker-produced run;
@@ -357,8 +361,8 @@ Current worker status:
   worker APIs are in place;
 - the independent Cloud Run worker job is deployed and smoke-tested;
 - the app now includes a workspace admin dashboard with worker health, spend,
-  throughput, project status, connector-secret posture, job retry/cancel
-  controls, dead-letter review, and audit trail.
+  throughput, project status, connector-secret posture, budget policy
+  management, job retry/cancel controls, dead-letter review, and audit trail.
 
 Current trust-layer status:
 
@@ -423,10 +427,10 @@ into a five-milestone executable roadmap:
    secrets, worker deployment, lease renewal, dead letters, and budget caps.
    Status: secret metadata/rotation, Secret Manager refs, lease renewal, and
    retry/dead-letter logic are implemented; the separate Cloud Run worker/job
-   is deployed and smoke-tested. Workspace-level budget caps and provider
-   rate-limit/backoff settings are now implemented through environment-driven
-   workspace caps and connector runtime controls; production still needs an
-   operator-owned budget policy.
+   is deployed and smoke-tested. Workspace/project budget policies are now
+   persisted in Supabase and exposed through the admin dashboard, while
+   provider rate-limit/backoff settings are implemented through connector
+   runtime controls.
 4. Release gates and agent-friendly surfaces: conservative REST release-gate
    API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
    Status: REST API, scoped tokens, script support, reusable GitHub workflow,
@@ -443,15 +447,14 @@ into a five-milestone executable roadmap:
 
 The immediate execution queue is now:
 
-1. Replace environment-driven workspace budget caps with workspace/project
-   settings UI and persisted policy records.
-2. Deploy the Cloud Run API after backend changes that add new app-consumed
-   routes, then let Cloudflare redeploy the frontend against the updated API.
-3. Add real trace-ingestion commit flows after the current trace-import preview
+1. Deploy the Cloud Run API after backend changes that add the new
+   budget-policy routes, then let Cloudflare redeploy the frontend against the
+   updated API.
+2. Add real trace-ingestion commit flows after the current trace-import preview
    proves useful with design-partner exports.
-4. Add signed generic deployment webhooks and provider-specific adapters for the
+3. Add signed generic deployment webhooks and provider-specific adapters for the
    first customer platform that needs them.
-5. Finish the production operations checklist: Sentry or equivalent, uptime
+4. Finish the production operations checklist: Sentry or equivalent, uptime
    checks, backup/restore rehearsal, auth email templates/sender domain, and
    explicit budget alerts for GCP, Supabase, and provider spend.
 
@@ -460,7 +463,7 @@ The immediate execution queue is now:
 The next engineering milestone should be:
 
 ```text
-Persisted budget policy UI + trace import commit flow + production operations checklist
+Trace import commit flow + production operations checklist
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run API, Cloud Run
@@ -468,7 +471,6 @@ worker job, Cloudflare, and GitHub CI/CD are wired and smoke-tested. The worker
 can now move a pilot team from uploaded outputs to deterministic, REST, or
 model-judge managed runs with retry-safe evidence writes, managed secret refs,
 lease renewal, cost accounting, release-gate checks, release-context matching,
-and operator-facing queue/dead-letter health. The highest-value remaining
-production work is to persist budget policies in the app rather than env vars,
-turn trace previews into reviewed import commits, and complete monitoring/backup
-setup.
+persisted budget controls, and operator-facing queue/dead-letter health. The
+highest-value remaining production work is to turn trace previews into reviewed
+import commits and complete monitoring/backup setup.

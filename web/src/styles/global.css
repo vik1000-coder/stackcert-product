@@ -1670,6 +1670,139 @@ tr:last-child td {
   outline: 0;
 }
 
+.admin-budget-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.admin-budget-copy {
+  margin: -8px 0 0;
+  max-width: 720px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-budget-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 180px;
+  color: var(--sc-ink-3);
+  font-size: 12px;
+}
+
+.admin-budget-meter {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--sc-surface-3);
+}
+
+.admin-budget-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--sc-ok), var(--sc-amber));
+  transition: width 180ms ease;
+}
+
+.admin-budget-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.admin-budget-form {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface-2);
+  padding: 14px;
+}
+
+.admin-budget-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--sc-ink-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-budget-form input,
+.admin-budget-form select,
+.admin-budget-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--sc-line-2);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  color: var(--sc-ink);
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+.admin-budget-form textarea {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.admin-budget-subhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-budget-subhead strong {
+  color: var(--sc-ink);
+  font-size: 14px;
+}
+
+.admin-budget-subhead span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-budget-subhead select {
+  width: min(220px, 100%);
+}
+
+.admin-budget-toggle {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.admin-budget-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.admin-budget-notes {
+  margin-top: 2px;
+}
+
+.admin-budget-project-summary {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  padding: 12px;
+}
+
 .admin-job-list {
   display: grid;
   gap: 10px;
@@ -1738,6 +1871,7 @@ tr:last-child td {
   .grid-3,
   .grid-4,
   .admin-status-grid,
+  .admin-budget-grid,
   .pilot-readiness-head,
   .pilot-readiness-grid {
     grid-template-columns: 1fr;
@@ -1929,6 +2063,16 @@ tr:last-child td {
   }
 
   .admin-row-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-budget-head,
+  .admin-budget-subhead {
+    flex-direction: column;
+  }
+
+  .admin-budget-status {
+    min-width: 0;
     justify-content: flex-start;
   }
 

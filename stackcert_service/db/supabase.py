@@ -210,6 +210,72 @@ class SupabaseStore:
         )
         return self._onboarding_profile_from_row(rows[0])
 
+    def get_workspace_budget_policy(self, workspace_id: str) -> dict[str, Any] | None:
+        workspace_db_id = self._resolve_workspace(workspace_id)
+        rows = self._request(
+            "GET",
+            "workspace_budget_policies",
+            params={"workspace_id": f"eq.{workspace_db_id}", "select": "*", "limit": "1"},
+        )
+        return self._workspace_budget_policy_from_row(rows[0]) if rows else None
+
+    def upsert_workspace_budget_policy(self, workspace_id: str, policy: dict[str, Any], actor_id: str | None = None) -> dict[str, Any]:
+        workspace_db_id = self._resolve_workspace(workspace_id)
+        payload = {
+            "workspace_id": workspace_db_id,
+            "monthly_cap_usd": policy.get("monthly_cap_usd"),
+            "per_run_cap_usd": policy.get("per_run_cap_usd"),
+            "measurement_cap_usd": policy.get("measurement_cap_usd"),
+            "alert_threshold_pct": policy.get("alert_threshold_pct", 0.8),
+            "hard_stop_pct": policy.get("hard_stop_pct", 1.0),
+            "enforce_hard_stop": bool(policy.get("enforce_hard_stop", True)),
+            "provider_spend_disabled": bool(policy.get("provider_spend_disabled", False)),
+            "notes": policy.get("notes") or None,
+        }
+        if _is_uuid(actor_id):
+            payload["updated_by"] = actor_id
+            payload["created_by"] = actor_id
+        rows = self._request(
+            "POST",
+            "workspace_budget_policies",
+            params={"on_conflict": "workspace_id"},
+            json=payload,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return self._workspace_budget_policy_from_row(rows[0])
+
+    def get_project_budget_policy(self, project_id: str) -> dict[str, Any] | None:
+        _, project_db_id = self._resolve_project(project_id)
+        rows = self._request(
+            "GET",
+            "project_budget_policies",
+            params={"project_id": f"eq.{project_db_id}", "select": "*", "limit": "1"},
+        )
+        return self._project_budget_policy_from_row(rows[0]) if rows else None
+
+    def upsert_project_budget_policy(self, project_id: str, policy: dict[str, Any], actor_id: str | None = None) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        payload = {
+            "workspace_id": workspace_db_id,
+            "project_id": project_db_id,
+            "monthly_cap_usd": policy.get("monthly_cap_usd"),
+            "per_run_cap_usd": policy.get("per_run_cap_usd"),
+            "measurement_cap_usd": policy.get("measurement_cap_usd"),
+            "provider_spend_disabled": bool(policy.get("provider_spend_disabled", False)),
+            "notes": policy.get("notes") or None,
+        }
+        if _is_uuid(actor_id):
+            payload["updated_by"] = actor_id
+            payload["created_by"] = actor_id
+        rows = self._request(
+            "POST",
+            "project_budget_policies",
+            params={"on_conflict": "project_id"},
+            json=payload,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return self._project_budget_policy_from_row(rows[0])
+
     def update_project_setup_status(self, project_id: str, setup_status: str) -> None:
         workspace_db_id, project_db_id = self._resolve_project(project_id)
         self._request(
@@ -1682,6 +1748,39 @@ class SupabaseStore:
             "budget_range": row.get("budget_range") or "under_100",
             "lambda_cost": float(row.get("lambda_cost") or 5.0),
             "first_setup_focus": row.get("first_setup_focus") or "setup#import-examples",
+            "created_at": row.get("created_at"),
+            "updated_at": row.get("updated_at"),
+        }
+
+    @staticmethod
+    def _workspace_budget_policy_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        workspace_id = str(row["workspace_id"])
+        return {
+            "workspace_id": settings.demo_workspace_id if workspace_id == settings.demo_workspace_db_id else workspace_id,
+            "monthly_cap_usd": float(row["monthly_cap_usd"]) if row.get("monthly_cap_usd") is not None else None,
+            "per_run_cap_usd": float(row["per_run_cap_usd"]) if row.get("per_run_cap_usd") is not None else None,
+            "measurement_cap_usd": float(row["measurement_cap_usd"]) if row.get("measurement_cap_usd") is not None else None,
+            "alert_threshold_pct": float(row.get("alert_threshold_pct") or 0.8),
+            "hard_stop_pct": float(row.get("hard_stop_pct") or 1.0),
+            "enforce_hard_stop": bool(row.get("enforce_hard_stop", True)),
+            "provider_spend_disabled": bool(row.get("provider_spend_disabled", False)),
+            "notes": row.get("notes") or "",
+            "created_at": row.get("created_at"),
+            "updated_at": row.get("updated_at"),
+        }
+
+    @staticmethod
+    def _project_budget_policy_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        workspace_id = str(row["workspace_id"])
+        project_id = str(row["project_id"])
+        return {
+            "workspace_id": settings.demo_workspace_id if workspace_id == settings.demo_workspace_db_id else workspace_id,
+            "project_id": settings.demo_project_id if project_id == settings.demo_project_db_id else project_id,
+            "monthly_cap_usd": float(row["monthly_cap_usd"]) if row.get("monthly_cap_usd") is not None else None,
+            "per_run_cap_usd": float(row["per_run_cap_usd"]) if row.get("per_run_cap_usd") is not None else None,
+            "measurement_cap_usd": float(row["measurement_cap_usd"]) if row.get("measurement_cap_usd") is not None else None,
+            "provider_spend_disabled": bool(row.get("provider_spend_disabled", False)),
+            "notes": row.get("notes") or "",
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
         }

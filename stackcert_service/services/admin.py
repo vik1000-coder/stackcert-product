@@ -10,6 +10,7 @@ from stackcert_service.config import settings
 from stackcert_service.security import access
 from stackcert_service.security.auth import Principal
 from stackcert_service.services import audit
+from stackcert_service.services import budget_controls
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
 from stackcert_service.services import jobs
@@ -106,6 +107,7 @@ def workspace_overview(workspace_id: str, principal: Principal) -> dict[str, Any
                     "latest_status": str(project_jobs[0].get("status")) if project_jobs else "none",
                 },
                 "usage": summary,
+                "budget": budget_controls.project_budget_overview(project_id),
                 "connectors": {
                     "total": len(connectors),
                     "active": sum(1 for connector in connectors if connector.get("status") not in {"draft", "disabled"}),
@@ -160,6 +162,7 @@ def workspace_overview(workspace_id: str, principal: Principal) -> dict[str, Any
                 for bucket in sorted(provider_totals.values(), key=lambda item: float(item["actual_cost_usd"]), reverse=True)
             ],
         },
+        "budget": budget_controls.workspace_budget_overview(workspace_id),
         "projects": project_summaries,
         "jobs": all_jobs[:50],
         "dead_letters": dead_letters[:25],

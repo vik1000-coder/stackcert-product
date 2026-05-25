@@ -2189,3 +2189,50 @@ Started: 2026-05-23
     -> 108 tests passed;
   - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
     tests passed.
+
+## Persisted Budget Policies And Admin Controls
+
+Timestamp: 2026-05-25 16:59 UTC
+
+- Added Supabase migration
+  `20260525164132_add_budget_policies.sql` for persisted
+  `workspace_budget_policies` and `project_budget_policies` records:
+  - workspace/project foreign keys and uniqueness constraints;
+  - monthly, per-run, and measurement caps;
+  - workspace alert/hard-stop thresholds;
+  - provider-spend pause flags and operator notes;
+  - RLS policies for workspace members and operator roles;
+  - explicit grants for authenticated and service-role access.
+- Applied the migration to linked Supabase staging with `supabase db push
+  --linked --yes`.
+- Reworked budget enforcement from env-only caps into a service that can read
+  persisted policies, keep local memory fallbacks for tests/dev, and enforce:
+  - workspace monthly caps;
+  - project monthly caps;
+  - per-run caps;
+  - measurement caps;
+  - provider-spend pause controls.
+- Added API routes:
+  - `GET/PATCH /api/workspaces/{workspace_id}/budget-policy`;
+  - `GET/PATCH /api/projects/{project_id}/budget-policy`.
+- Updated evaluation-job and measurement-plan creation/execution paths so
+  provider-spend checks happen before work is queued or run.
+- Expanded the admin overview payload with workspace and per-project budget
+  posture.
+- Added admin-dashboard UI for workspace policy editing, project overrides,
+  budget status/meter display, and project-table budget posture.
+- Fixed a React event-handler crash found during browser QA by capturing
+  checkbox/textarea values before deferred state updates.
+- Verification:
+  - `supabase db lint` -> OK;
+  - `supabase db push --linked --dry-run` -> exactly one pending migration;
+  - focused budget API/store tests -> OK;
+  - `uv run python -m unittest discover tests_service -v` -> 110 tests
+    passed before the final frontend handler fix;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK before the final handler fix;
+  - Playwright local browser QA passed admin budget policy save, project
+    override save, desktop layout, and 390px mobile layout with page width
+    stable and no form/server errors.

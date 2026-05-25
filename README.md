@@ -51,7 +51,8 @@ The product direction is now a production-oriented full-stack app:
   examples, safety options, evidence run, review, and release-gate wiring;
 - operator-facing job health and an admin dashboard with spend, throughput,
   connector-secret posture, worker health, dead-letter review, audit trail,
-  retry/cancel controls, and manual worker passes;
+  retry/cancel controls, persisted workspace/project budget policies, and
+  manual worker passes;
 - release-gate REST API for CI/deploy systems, returning `pass`, `warn`, or
   `block` with evidence packet ids, retest triggers, and scoped assumptions;
 - service-layer workspace/project/run/evidence authorization, audit events, and

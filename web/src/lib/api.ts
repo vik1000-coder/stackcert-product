@@ -705,6 +705,75 @@ export type AuditEvent = {
   created_at: string;
 };
 
+export type BudgetPolicy = {
+  workspace_id: string;
+  project_id?: string;
+  configured: boolean;
+  source: string;
+  monthly_cap_usd: number | null;
+  per_run_cap_usd: number | null;
+  measurement_cap_usd: number | null;
+  alert_threshold_pct?: number;
+  hard_stop_pct?: number;
+  enforce_hard_stop?: boolean;
+  provider_spend_disabled: boolean;
+  notes: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type BudgetState = {
+  status: string;
+  spent_usd: number;
+  pending_cost_usd: number;
+  projected_spend_usd: number;
+  cap_usd: number | null;
+  remaining_usd: number | null;
+  alert_threshold_usd: number | null;
+  hard_stop_usd: number | null;
+  usage_percent: number | null;
+  blocking_reasons: string[];
+};
+
+export type ProjectBudgetOverview = {
+  project_id: string;
+  workspace_id: string | null;
+  configured: boolean;
+  status: string;
+  pending_cost_usd: number;
+  blocking_reasons: string[];
+  workspace: { policy: BudgetPolicy; state: BudgetState };
+  project: { policy: BudgetPolicy; state: BudgetState };
+  run: { operation: string; status: string; pending_cost_usd: number; cap_usd: number | null; blocking_reasons: string[] };
+  effective: { per_run_cap_usd: number | null; provider_spend_disabled: boolean };
+};
+
+export type WorkspaceBudgetOverview = {
+  workspace_id: string;
+  policy: BudgetPolicy;
+  state: BudgetState;
+  project_count: number;
+};
+
+export type WorkspaceBudgetPolicyInput = {
+  monthly_cap_usd?: number | null;
+  per_run_cap_usd?: number | null;
+  measurement_cap_usd?: number | null;
+  alert_threshold_pct?: number;
+  hard_stop_pct?: number;
+  enforce_hard_stop?: boolean;
+  provider_spend_disabled?: boolean;
+  notes?: string | null;
+};
+
+export type ProjectBudgetPolicyInput = {
+  monthly_cap_usd?: number | null;
+  per_run_cap_usd?: number | null;
+  measurement_cap_usd?: number | null;
+  provider_spend_disabled?: boolean;
+  notes?: string | null;
+};
+
 export type AdminProjectSummary = {
   project: Project;
   runs: {
@@ -725,6 +794,7 @@ export type AdminProjectSummary = {
     latest_status: string;
   };
   usage: CostSummaryPayload['summary'];
+  budget: ProjectBudgetOverview;
   connectors: {
     total: number;
     active: number;
@@ -775,6 +845,7 @@ export type AdminOverview = {
     summary: CostSummaryPayload['summary'];
     by_provider: CostSummaryPayload['by_provider'];
   };
+  budget: WorkspaceBudgetOverview;
   projects: AdminProjectSummary[];
   jobs: Array<StackCertJob & { project_name?: string; project_slug?: string }>;
   dead_letters: Array<StackCertJob & { project_name?: string; project_slug?: string }>;
@@ -927,6 +998,14 @@ export const api = {
   adminOverview: (workspaceId: string) => request<{ admin: AdminOverview }>(`/api/workspaces/${workspaceId}/admin/overview`),
   runWorkspaceWorker: (workspaceId: string, payload: { worker_id?: string; max_jobs?: number; lease_seconds?: number }) =>
     post<{ worker_run: AdminWorkerRun }>(`/api/workspaces/${workspaceId}/admin/workers/run-next`, payload),
+  workspaceBudgetPolicy: (workspaceId: string) =>
+    request<{ budget: WorkspaceBudgetOverview }>(`/api/workspaces/${workspaceId}/budget-policy`),
+  updateWorkspaceBudgetPolicy: (workspaceId: string, payload: WorkspaceBudgetPolicyInput) =>
+    patch<{ budget: WorkspaceBudgetOverview }>(`/api/workspaces/${workspaceId}/budget-policy`, payload),
+  projectBudgetPolicy: (projectId: string) =>
+    request<{ budget: ProjectBudgetOverview }>(`/api/projects/${projectId}/budget-policy`),
+  updateProjectBudgetPolicy: (projectId: string, payload: ProjectBudgetPolicyInput) =>
+    patch<{ budget: ProjectBudgetOverview }>(`/api/projects/${projectId}/budget-policy`, payload),
   createMeasurementPlan: (runId: string, payload: { action_ids: string[]; max_cost_usd?: number }, lambda: number) =>
     post<{ id: string; job: StackCertJob; status: string; run_id: string; summary: Record<string, unknown>; actions: MeasurementsPayload['actions'] }>(
       `/api/runs/${runId}/measurement-plans?lambda_cost=${lambda}`,

@@ -170,7 +170,7 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Estimated worker run costs ${estimated_cost_usd:.4f}, above the ${payload.max_cost_usd:.4f} budget cap",
             )
-        budget_controls.enforce_workspace_budget(project_id, pending_cost_usd=estimated_cost_usd)
+        budget_controls.enforce_project_budget(project_id, pending_cost_usd=estimated_cost_usd, operation="evaluation_run")
         provider_controls = _provider_runtime_controls(project_id, requested_guard_ids, len(sampled_examples))
         suite_context = {
             "source": "worker_evaluation",
@@ -929,7 +929,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Estimated worker run costs ${estimated_cost:.4f}, above the ${float(budget_cap):.4f} budget cap",
         )
-    budget_controls.enforce_workspace_budget(project_id, pending_cost_usd=estimated_cost)
+    budget_controls.enforce_project_budget(project_id, pending_cost_usd=estimated_cost, operation="evaluation_run")
 
     if payload.adapter_mode in {"rest_guard", "model_judge"}:
         _audit_provider_secret_use(project_id, requested_guard_ids, str(job.get("locked_by") or "worker"), payload.adapter_mode)
@@ -1030,6 +1030,11 @@ def create_measurement_plan_job(run_id: str, payload: MeasurementPlanCreate, lam
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Selected measurement plan costs ${selected_cost:.2f}, above the ${payload.max_cost_usd:.2f} budget cap",
         )
+    budget_controls.enforce_project_budget(
+        str(measurement_context["project_id"]),
+        pending_cost_usd=selected_cost,
+        operation="measurement_plan",
+    )
 
     job = {
         "id": f"job_{uuid.uuid4().hex[:12]}",
@@ -1077,9 +1082,10 @@ def _execute_measurement_plan_job(job: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Measurement plan has no actions to execute")
 
     usage_events = [_usage_event_from_action(job, action) for action in actions]
+    estimated_cost = round(sum(float(action["cost_usd"]) for action in actions), 4)
+    budget_controls.enforce_project_budget(str(job["project_id"]), pending_cost_usd=estimated_cost, operation="measurement_plan")
     recorded_events = usage.record_usage_events(str(job["project_id"]), job, usage_events)
     actual_cost = round(sum(float(event.get("actual_cost_usd") or 0) for event in recorded_events), 4)
-    estimated_cost = round(sum(float(action["cost_usd"]) for action in actions), 4)
     completed_actions = [
         {
             **action,

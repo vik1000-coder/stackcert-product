@@ -346,11 +346,12 @@ connector-secret register/rotate/disable APIs, local/env/Google Secret Manager
 secret reference resolution, audit events, lease renewal, retry/dead-letter
 behavior, multi-job worker CLI support, a separate Cloud Run worker job, hosted
 worker smoke coverage, job cancel, and a workspace admin dashboard are
-implemented and tested. Environment-driven workspace budget caps and connector
-rate-limit/retry/backoff controls are now implemented. Remaining production work
-is persisted budget-policy management, richer provider throttling observability,
-and worker-only machine auth for execution routes if we want non-operator
-automation to claim work.
+implemented and tested. Workspace/project budget policies are now persisted in
+Supabase, exposed in the admin dashboard, and enforced before evaluation and
+measurement jobs can spend provider budget. Connector rate-limit/retry/backoff
+controls are implemented. Remaining production work is richer provider
+throttling observability and worker-only machine auth for execution routes if
+we want non-operator automation to claim work.
 
 ### User Stories
 
@@ -749,9 +750,9 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 ## Current Next Move
 
-The next implementation move is the production-operations and persisted-policy
-slice: workspace/project budget settings UI and storage, trace-import commit
-flows after preview review, signed generic deployment webhooks, monitoring,
+The next implementation move is the production-operations and integration
+slice: trace-import commit flows after preview review, signed generic
+deployment webhooks, richer provider throttling observability, monitoring,
 backup/restore rehearsal, and auth sender-domain setup. Keep the existing GCP
 guardrails in place: Cloud Run API max instances `3`, worker job task count
 `1`, worker parallelism `1`, and the `StackCert staging $50` budget.

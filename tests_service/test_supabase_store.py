@@ -67,6 +67,83 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(project["setup_status"], "needs_benchmark_suite")
         self.assertTrue(any("/rest/v1/workspace_memberships" in str(request.url) for request in requests))
 
+    def test_budget_policy_contracts_use_project_scope_and_upsert(self) -> None:
+        captured_workspace: dict[str, Any] | None = None
+        captured_project: dict[str, Any] | None = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_workspace, captured_project
+            url = str(request.url)
+            if request.method == "GET" and "/rest/v1/workspace_budget_policies" in url:
+                return httpx.Response(200, json=[])
+            if request.method == "POST" and "/rest/v1/workspace_budget_policies" in url:
+                captured_workspace = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(request.url.params.get("on_conflict"), "workspace_id")
+                return httpx.Response(
+                    201,
+                    json=[
+                        {
+                            **captured_workspace,
+                            "id": "00000000-0000-4000-8000-000000000B01",
+                            "created_at": "2026-05-25T16:00:00+00:00",
+                            "updated_at": "2026-05-25T16:00:00+00:00",
+                        }
+                    ],
+                )
+            if request.method == "GET" and "/rest/v1/project_budget_policies" in url:
+                return httpx.Response(200, json=[])
+            if request.method == "POST" and "/rest/v1/project_budget_policies" in url:
+                captured_project = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(request.url.params.get("on_conflict"), "project_id")
+                return httpx.Response(
+                    201,
+                    json=[
+                        {
+                            **captured_project,
+                            "id": "00000000-0000-4000-8000-000000000B02",
+                            "created_at": "2026-05-25T16:00:01+00:00",
+                            "updated_at": "2026-05-25T16:00:01+00:00",
+                        }
+                    ],
+                )
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        workspace_policy = store.upsert_workspace_budget_policy(
+            settings.demo_workspace_id,
+            {
+                "monthly_cap_usd": 50,
+                "per_run_cap_usd": 5,
+                "measurement_cap_usd": 2,
+                "alert_threshold_pct": 0.75,
+                "hard_stop_pct": 1,
+                "enforce_hard_stop": True,
+                "provider_spend_disabled": False,
+                "notes": "Pilot cap",
+            },
+            actor_id="20000000-0000-4000-8000-000000000001",
+        )
+        project_policy = store.upsert_project_budget_policy(
+            settings.demo_project_id,
+            {
+                "monthly_cap_usd": 10,
+                "per_run_cap_usd": 1,
+                "measurement_cap_usd": 0.5,
+                "provider_spend_disabled": True,
+                "notes": "Freeze provider spend",
+            },
+            actor_id="20000000-0000-4000-8000-000000000001",
+        )
+
+        assert captured_workspace is not None
+        assert captured_project is not None
+        self.assertEqual(captured_workspace["workspace_id"], settings.demo_workspace_db_id)
+        self.assertEqual(captured_workspace["updated_by"], "20000000-0000-4000-8000-000000000001")
+        self.assertEqual(workspace_policy["workspace_id"], settings.demo_workspace_id)
+        self.assertEqual(workspace_policy["monthly_cap_usd"], 50.0)
+        self.assertEqual(captured_project["project_id"], settings.demo_project_db_id)
+        self.assertTrue(project_policy["provider_spend_disabled"])
+
     def test_membership_lookup_and_audit_event_contract(self) -> None:
         captured_audit: dict[str, Any] | None = None
 

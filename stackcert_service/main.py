@@ -23,17 +23,20 @@ from stackcert_service.schemas import (
     McpRpcRequest,
     OnboardingPilotCreate,
     ProjectCreate,
+    ProjectBudgetPolicyUpdate,
     ProjectOnboardingProfileUpdate,
     ReleaseGateEvaluateRequest,
     TraceImportPreviewRequest,
     UploadedOutputRunCreate,
     UploadedOutputPreviewRequest,
+    WorkspaceBudgetPolicyUpdate,
     WorkspaceCreate,
 )
 from stackcert_service.services import admin
 from stackcert_service.services import benchmark_imports
 from stackcert_service.services import audit
 from stackcert_service.services import artifacts
+from stackcert_service.services import budget_controls
 from stackcert_service.services import certificates
 from stackcert_service.services import custom_behaviors
 from stackcert_service.services import demo_project
@@ -488,6 +491,32 @@ def get_workspace_admin_overview(workspace_id: str, principal: PrincipalDep) -> 
     return {"admin": admin.workspace_overview(workspace_id, principal)}
 
 
+@app.get("/api/workspaces/{workspace_id}/budget-policy")
+def get_workspace_budget_policy(workspace_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    return {"budget": budget_controls.workspace_budget_overview(workspace_id)}
+
+
+@app.patch("/api/workspaces/{workspace_id}/budget-policy")
+def update_workspace_budget_policy(workspace_id: str, payload: WorkspaceBudgetPolicyUpdate, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    policy = budget_controls.update_workspace_policy(workspace_id, payload.model_dump(exclude_unset=True), actor_id=principal.user_id)
+    audit.record_event(
+        "budget_policy.workspace.updated",
+        principal,
+        workspace_id=workspace_id,
+        target_type="workspace",
+        target_id=workspace_id,
+        metadata={
+            "monthly_cap_usd": policy.get("monthly_cap_usd"),
+            "per_run_cap_usd": policy.get("per_run_cap_usd"),
+            "measurement_cap_usd": policy.get("measurement_cap_usd"),
+            "provider_spend_disabled": policy.get("provider_spend_disabled"),
+        },
+    )
+    return {"budget": budget_controls.workspace_budget_overview(workspace_id)}
+
+
 @app.post("/api/workspaces/{workspace_id}/admin/workers/run-next")
 def run_workspace_admin_worker(workspace_id: str, payload: AdminWorkerRunRequest, principal: PrincipalDep) -> dict[str, object]:
     _require_workspace_access(workspace_id, principal, required="workspace_admin")
@@ -513,6 +542,33 @@ def run_workspace_admin_worker(workspace_id: str, payload: AdminWorkerRunRequest
 def list_project_usage_events(project_id: str, principal: PrincipalDep) -> dict[str, object]:
     _require_project_access(project_id, principal)
     return usage.cost_summary(project_id)
+
+
+@app.get("/api/projects/{project_id}/budget-policy")
+def get_project_budget_policy(project_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal)
+    return {"budget": budget_controls.project_budget_overview(project_id)}
+
+
+@app.patch("/api/projects/{project_id}/budget-policy")
+def update_project_budget_policy(project_id: str, payload: ProjectBudgetPolicyUpdate, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    policy = budget_controls.update_project_policy(project_id, payload.model_dump(exclude_unset=True), actor_id=principal.user_id)
+    audit.record_event(
+        "budget_policy.project.updated",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={
+            "monthly_cap_usd": policy.get("monthly_cap_usd"),
+            "per_run_cap_usd": policy.get("per_run_cap_usd"),
+            "measurement_cap_usd": policy.get("measurement_cap_usd"),
+            "provider_spend_disabled": policy.get("provider_spend_disabled"),
+        },
+    )
+    return {"budget": budget_controls.project_budget_overview(project_id)}
 
 
 @app.post("/api/projects/{project_id}/evaluation-jobs")

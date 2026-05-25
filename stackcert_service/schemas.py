@@ -146,6 +146,25 @@ class AdminWorkerRunRequest(BaseModel):
     lease_seconds: int = Field(default=900, ge=30, le=3600)
 
 
+class WorkspaceBudgetPolicyUpdate(BaseModel):
+    monthly_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    per_run_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    measurement_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    alert_threshold_pct: float = Field(default=0.8, ge=0, le=1.5)
+    hard_stop_pct: float = Field(default=1.0, ge=0, le=2)
+    enforce_hard_stop: bool = True
+    provider_spend_disabled: bool = False
+    notes: str | None = Field(default=None, max_length=1200)
+
+
+class ProjectBudgetPolicyUpdate(BaseModel):
+    monthly_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    per_run_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    measurement_cap_usd: float | None = Field(default=None, ge=0, le=1_000_000)
+    provider_spend_disabled: bool = False
+    notes: str | None = Field(default=None, max_length=1200)
+
+
 class BenchmarkImportPreviewRequest(BaseModel):
     format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
     content: str = Field(min_length=10, max_length=1_000_000)
