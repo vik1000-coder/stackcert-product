@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AppShell } from './components/AppShell';
+import { AdminPage } from './pages/AdminPage';
 import { AuthPage } from './pages/AuthPage';
 import { BlogIndexPage, BlogPostPage } from './pages/BlogPage';
 import { CertificatePage } from './pages/CertificatePage';
@@ -46,6 +47,7 @@ export function App() {
           <Route path="drift" element={<DriftPage lambda={lambda} />} />
           <Route path="setup" element={<SetupPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="/:pageSlug" element={<StaticPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

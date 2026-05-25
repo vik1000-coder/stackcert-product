@@ -88,6 +88,12 @@ class MeasurementPlanCreate(BaseModel):
     max_cost_usd: float | None = Field(default=None, ge=0)
 
 
+class AdminWorkerRunRequest(BaseModel):
+    worker_id: str | None = Field(default=None, min_length=2, max_length=160)
+    max_jobs: int = Field(default=1, ge=1, le=10)
+    lease_seconds: int = Field(default=900, ge=30, le=3600)
+
+
 class BenchmarkImportPreviewRequest(BaseModel):
     format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
     content: str = Field(min_length=10, max_length=1_000_000)

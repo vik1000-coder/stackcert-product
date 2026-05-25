@@ -48,6 +48,7 @@ class DeploymentReadinessTests(unittest.TestCase):
     def test_deployment_smoke_script_covers_web_api_and_auth(self):
         smoke = self.read("scripts/deployment_smoke.py")
         mcp_smoke = self.read("scripts/mcp_client_smoke.py")
+        worker_smoke = self.read("scripts/cloud_run_worker_smoke.py")
         mcp_hash = self.read("scripts/hash_mcp_machine_token.py")
         release_gate_hash = self.read("scripts/hash_release_gate_token.py")
         certificate_gate = self.read("scripts/certificate_gate.py")
@@ -68,6 +69,12 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("--bearer-token", mcp_smoke)
         self.assertIn("streamable_http_client", mcp_smoke)
         self.assertIn("get_release_evidence_status", mcp_smoke)
+        self.assertIn("gcloud", worker_smoke)
+        self.assertIn("run", worker_smoke)
+        self.assertIn("jobs", worker_smoke)
+        self.assertIn("execute", worker_smoke)
+        self.assertIn("/api/projects/proj_acme_copilot/evaluation-jobs", worker_smoke)
+        self.assertIn("/api/jobs/{job_id}", worker_smoke)
         self.assertIn("STACKCERT_MCP_MACHINE_TOKEN_HASHES", mcp_hash)
         self.assertIn("STACKCERT_RELEASE_GATE_TOKEN_HASHES", release_gate_hash)
         self.assertIn("--release-gate", certificate_gate)
@@ -75,6 +82,22 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("sha256", mcp_hash)
         self.assertIn("scripts/mcp_client_smoke.py", pages_workflow)
         self.assertIn("scripts/mcp_client_smoke.py", cloudflare_workflow)
+
+    def test_cloud_run_worker_entrypoint_and_admin_surface_exist(self):
+        worker_module = self.read("stackcert_service/worker.py")
+        api = self.read("stackcert_service/main.py")
+        app = self.read("web/src/App.tsx")
+        admin_page = self.read("web/src/pages/AdminPage.tsx")
+
+        self.assertIn("run_worker_once", worker_module)
+        self.assertIn("--all-projects", worker_module)
+        self.assertIn("STACKCERT_WORKER_ALL_PROJECTS", worker_module)
+        self.assertIn("/api/workspaces/{workspace_id}/admin/overview", api)
+        self.assertIn("/api/workspaces/{workspace_id}/admin/workers/run-next", api)
+        self.assertIn("/api/jobs/{job_id}/cancel", api)
+        self.assertIn("AdminPage", app)
+        self.assertIn("Run worker pass", admin_page)
+        self.assertIn("Dead-letter review", admin_page)
 
 
 if __name__ == "__main__":

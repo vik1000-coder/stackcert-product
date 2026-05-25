@@ -46,8 +46,24 @@ def record_event(
     return event
 
 
-def list_events() -> list[dict[str, Any]]:
-    return list(_audit_events)
+def list_events(
+    *,
+    workspace_id: str | None = None,
+    project_id: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    store = _persistent_store()
+    if store:
+        try:
+            return store.list_audit_events(workspace_id=workspace_id, project_id=project_id, limit=limit)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    events = list(_audit_events)
+    if workspace_id:
+        events = [event for event in events if event.get("workspace_id") == workspace_id]
+    if project_id:
+        events = [event for event in events if event.get("project_id") == project_id]
+    return events[: max(1, min(int(limit), 500))]
 
 
 def clear_events() -> None:

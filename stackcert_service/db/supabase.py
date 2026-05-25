@@ -953,6 +953,33 @@ class SupabaseStore:
         )
         return {**event, "db_id": rows[0].get("id") if rows else None}
 
+    def list_audit_events(
+        self,
+        *,
+        workspace_id: str | None = None,
+        project_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str] = {
+            "select": "*",
+            "order": "created_at.desc",
+            "limit": str(max(1, min(int(limit), 500))),
+        }
+        filter_after = False
+        workspace_db_id = _api_workspace_to_db_id(workspace_id)
+        if project_id:
+            workspace_db_id, project_db_id = self._resolve_project(project_id)
+            params["project_id"] = f"eq.{project_db_id}"
+        elif workspace_db_id:
+            params["workspace_id"] = f"eq.{workspace_db_id}"
+        elif workspace_id:
+            filter_after = True
+        rows = self._request("GET", "audit_events", params=params)
+        events = [self._audit_event_from_row(row) for row in rows]
+        if filter_after:
+            events = [event for event in events if event.get("workspace_id") == workspace_id]
+        return events
+
     def list_certificate_artifacts(self, certificate_id: str) -> list[dict[str, Any]]:
         rows = self._certificate_rows(certificate_id)
         if not rows:
@@ -1672,6 +1699,33 @@ class SupabaseStore:
             "estimated_cost_usd": float(row.get("estimated_cost_usd") or 0),
             "actual_cost_usd": float(row.get("actual_cost_usd") or row.get("estimated_cost_usd") or 0),
             "currency": row.get("currency") or "USD",
+            "metadata": metadata,
+            "created_at": row.get("created_at"),
+        }
+
+    @staticmethod
+    def _audit_event_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        metadata = row.get("metadata") or {}
+        workspace_id = metadata.get("api_workspace_id") or (
+            settings.demo_workspace_id if str(row["workspace_id"]) == settings.demo_workspace_db_id else str(row["workspace_id"])
+            if row.get("workspace_id")
+            else None
+        )
+        project_id = metadata.get("api_project_id") or (
+            settings.demo_project_id if str(row["project_id"]) == settings.demo_project_db_id else str(row["project_id"])
+            if row.get("project_id")
+            else None
+        )
+        return {
+            "id": str(row["id"]),
+            "workspace_id": workspace_id,
+            "project_id": project_id,
+            "actor_user_id": str(row["actor_user_id"]) if row.get("actor_user_id") else None,
+            "actor_type": metadata.get("actor_type") or ("user" if row.get("actor_user_id") else "machine"),
+            "actor": metadata.get("actor") or str(row["actor_user_id"] or ""),
+            "action": row["action"],
+            "target_type": row.get("target_type"),
+            "target_id": metadata.get("external_target_id") or (str(row["target_id"]) if row.get("target_id") else None),
             "metadata": metadata,
             "created_at": row.get("created_at"),
         }

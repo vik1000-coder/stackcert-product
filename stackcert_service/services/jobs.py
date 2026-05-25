@@ -227,7 +227,12 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
     return run_job(job["id"])
 
 
-def run_next_job(project_id: str | None = None, worker_id: str | None = None) -> dict[str, Any]:
+def run_next_job(
+    project_id: str | None = None,
+    worker_id: str | None = None,
+    *,
+    lease_seconds: int = DEFAULT_LEASE_SECONDS,
+) -> dict[str, Any]:
     now = _now_dt()
     runnable = [
         job
@@ -237,10 +242,10 @@ def run_next_job(project_id: str | None = None, worker_id: str | None = None) ->
     if not runnable:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No queued jobs found")
     runnable.sort(key=lambda item: (str(item.get("retry_after") or item.get("created_at") or ""), str(item.get("id") or "")))
-    return run_job(runnable[0]["id"], worker_id=worker_id)
+    return run_job(runnable[0]["id"], worker_id=worker_id, lease_seconds=lease_seconds)
 
 
-def run_job(job_id: str, worker_id: str | None = None) -> dict[str, Any]:
+def run_job(job_id: str, worker_id: str | None = None, *, lease_seconds: int = DEFAULT_LEASE_SECONDS) -> dict[str, Any]:
     job = get_job(job_id)
     if job["type"] not in {"evaluation_run", "measurement_plan"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported executable job type: {job['type']}")
@@ -251,7 +256,7 @@ def run_job(job_id: str, worker_id: str | None = None) -> dict[str, Any]:
         current_owner = job.get("locked_by") or "unknown worker"
         if current_owner != worker_id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Job is leased by {current_owner}")
-    job = _lease_job(job, worker_id)
+    job = _lease_job(job, worker_id, lease_seconds=lease_seconds)
     _update(job)
 
     try:
@@ -264,6 +269,31 @@ def run_job(job_id: str, worker_id: str | None = None) -> dict[str, Any]:
     except Exception as exc:
         completed = _handle_job_failure(job, exc)
     return _update(completed)
+
+
+def cancel_job(job_id: str) -> dict[str, Any]:
+    job = get_job(job_id)
+    if job["status"] in {"complete", "complete_with_errors", "canceled"}:
+        return job
+    if job["status"] == "running" and not _job_lease_expired(job, _now_dt()):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot cancel an actively leased job")
+    job["status"] = "canceled"
+    job["progress"] = 1.0
+    job["completed_at"] = _now()
+    job["locked_by"] = None
+    job["lease_expires_at"] = None
+    job["retry_after"] = None
+    job["dead_letter_reason"] = None
+    job["next_steps"] = [
+        "Job was canceled before another worker could spend provider budget.",
+        "Create a new job if this evaluation still needs to run.",
+    ]
+    job["summary"] = {
+        **job.get("summary", {}),
+        "canceled_by_operator": True,
+    }
+    _append_event(job, "canceled", "Operator canceled the job before execution.")
+    return _update(job)
 
 
 def retry_job(job_id: str) -> dict[str, Any]:
@@ -603,9 +633,10 @@ def _job_lease_expired(job: dict[str, Any], now: datetime) -> bool:
     return lease_expires_at is not None and lease_expires_at <= now
 
 
-def _lease_job(job: dict[str, Any], worker_id: str) -> dict[str, Any]:
+def _lease_job(job: dict[str, Any], worker_id: str, *, lease_seconds: int = DEFAULT_LEASE_SECONDS) -> dict[str, Any]:
     attempts = int(job.get("attempts") or 0) + 1
-    lease_expires_at = _future(DEFAULT_LEASE_SECONDS)
+    lease_seconds = max(30, min(int(lease_seconds), 3600))
+    lease_expires_at = _future(lease_seconds)
     job["status"] = "running"
     job["started_at"] = job.get("started_at") or _now()
     job["attempts"] = attempts

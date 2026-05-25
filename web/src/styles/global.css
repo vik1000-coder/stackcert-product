@@ -1292,10 +1292,113 @@ tr:last-child td {
   min-width: 0;
 }
 
+.admin-status-grid {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+}
+
+.admin-section-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-mini-metric {
+  min-width: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface-2);
+  padding: 10px;
+}
+
+.admin-mini-value {
+  margin-top: 4px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.admin-inline-input {
+  width: 54px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  outline: 0;
+}
+
+.admin-job-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-project-mobile-list {
+  display: none;
+}
+
+.admin-project-mobile-row {
+  border-top: 1px solid var(--sc-line);
+  padding-top: 12px;
+}
+
+.admin-project-mobile-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-job-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--sc-line);
+  padding-top: 12px;
+}
+
+.admin-job-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-row-title,
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-row-title {
+  color: var(--sc-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.admin-row-actions {
+  justify-content: flex-end;
+}
+
+.admin-row-id {
+  margin-top: 5px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.admin-row-copy {
+  margin: 7px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 @media (max-width: 1100px) {
   .grid-2,
   .grid-3,
-  .grid-4 {
+  .grid-4,
+  .admin-status-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1357,6 +1460,7 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  .admin-job-row,
   .setup-grid-three,
   .setup-grid-secret,
   .setup-suite-row,
@@ -1450,5 +1554,22 @@ tr:last-child td {
 
   .nav-list {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-row-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-project-table {
+    display: none;
+  }
+
+  .admin-project-mobile-list {
+    display: grid;
+    gap: 12px;
   }
 }

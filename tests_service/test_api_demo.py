@@ -16,6 +16,7 @@ from stackcert_service.main import app
 from stackcert_service.config import settings
 from stackcert_service.schemas import EvaluationJobCreate, GuardConnectorCreate
 from stackcert_service.services import benchmark_imports
+from stackcert_service.services import audit
 from stackcert_service.services import certificates
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
@@ -23,6 +24,7 @@ from stackcert_service.services import jobs
 from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import usage
+from stackcert_service.worker import run_worker_once
 
 
 class _RestGuardSmokeHandler(BaseHTTPRequestHandler):
@@ -111,6 +113,7 @@ class DemoApiTest(unittest.TestCase):
         projects.clear_setup_records()
         pilot_runs.clear_runs()
         usage.clear_usage_events()
+        audit.clear_events()
 
     def tearDown(self) -> None:
         object.__setattr__(settings, "persistence_backend", self.old_persistence_backend)
@@ -1343,6 +1346,73 @@ class DemoApiTest(unittest.TestCase):
         completed = reclaimed.json()["job"]
         self.assertEqual(completed["status"], "complete")
         self.assertIsNone(completed["locked_by"])
+
+    def test_admin_overview_and_workspace_worker_pass(self) -> None:
+        create_response = self.client.post(
+            "/api/projects/proj_acme_copilot/evaluation-jobs",
+            json={"guard_ids": ["lexical_guard", "rules_policy"], "examples_per_cell": 1, "execution_mode": "queued"},
+        )
+        self.assertEqual(create_response.status_code, 200)
+
+        overview = self.client.get("/api/workspaces/ws_demo/admin/overview")
+        self.assertEqual(overview.status_code, 200)
+        admin = overview.json()["admin"]
+        self.assertEqual(admin["workspace"]["id"], "ws_demo")
+        self.assertEqual(admin["metrics"]["queued_jobs"], 1)
+        self.assertTrue(admin["controls"]["can_run_worker"])
+        self.assertEqual(admin["worker"]["queue_depth"], 1)
+
+        run_response = self.client.post(
+            "/api/workspaces/ws_demo/admin/workers/run-next",
+            json={"max_jobs": 1, "lease_seconds": 120},
+        )
+        self.assertEqual(run_response.status_code, 200)
+        worker_run = run_response.json()["worker_run"]
+        self.assertEqual(worker_run["processed_count"], 1)
+        self.assertEqual(worker_run["processed"][0]["status"], "complete")
+
+        refreshed = self.client.get("/api/workspaces/ws_demo/admin/overview").json()["admin"]
+        self.assertEqual(refreshed["metrics"]["queued_jobs"], 0)
+        self.assertEqual(refreshed["projects"][0]["jobs"]["complete"], 1)
+        self.assertTrue(any(event["action"] == "admin.worker.run_next" for event in refreshed["audit_events"]))
+
+    def test_worker_module_processes_all_project_scope(self) -> None:
+        create_response = self.client.post(
+            "/api/projects/proj_acme_copilot/evaluation-jobs",
+            json={"guard_ids": ["lexical_guard", "rules_policy"], "examples_per_cell": 1, "execution_mode": "queued"},
+        )
+        self.assertEqual(create_response.status_code, 200)
+
+        result = run_worker_once(all_projects=True, max_jobs=2, worker_id="unit-worker", lease_seconds=90)
+        self.assertEqual(result["processed_count"], 1)
+        self.assertEqual(result["processed"][0]["status"], "complete")
+
+    def test_cancel_queued_job_and_block_active_lease_cancel(self) -> None:
+        queued_response = self.client.post(
+            "/api/projects/proj_acme_copilot/evaluation-jobs",
+            json={"guard_ids": ["lexical_guard"], "examples_per_cell": 1, "execution_mode": "queued"},
+        )
+        self.assertEqual(queued_response.status_code, 200)
+        queued_job_id = queued_response.json()["job"]["id"]
+
+        cancel_response = self.client.post(f"/api/jobs/{queued_job_id}/cancel")
+        self.assertEqual(cancel_response.status_code, 200)
+        self.assertEqual(cancel_response.json()["job"]["status"], "canceled")
+        self.assertTrue(cancel_response.json()["job"]["summary"]["canceled_by_operator"])
+
+        active_response = self.client.post(
+            "/api/projects/proj_acme_copilot/evaluation-jobs",
+            json={"guard_ids": ["lexical_guard"], "examples_per_cell": 1, "execution_mode": "queued"},
+        )
+        self.assertEqual(active_response.status_code, 200)
+        active_job_id = active_response.json()["job"]["id"]
+        active_job = jobs.get_job(active_job_id)
+        active_job["status"] = "running"
+        active_job["locked_by"] = "provider-worker-a"
+        active_job["lease_expires_at"] = "2999-01-01T00:00:00+00:00"
+
+        blocked = self.client.post(f"/api/jobs/{active_job_id}/cancel")
+        self.assertEqual(blocked.status_code, 409)
 
     def test_benchmark_import_preview(self) -> None:
         content = "\n".join(

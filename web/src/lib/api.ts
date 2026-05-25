@@ -557,6 +557,116 @@ export type ProjectInput = {
   description?: string;
 };
 
+export type AuditEvent = {
+  id: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  actor_user_id?: string | null;
+  actor_type?: string | null;
+  actor?: string | null;
+  action: string;
+  target_type?: string | null;
+  target_id?: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AdminProjectSummary = {
+  project: Project;
+  runs: {
+    total: number;
+    latest_run_id: string | null;
+    latest_run_source: string | null;
+    latest_certificate_status: string;
+    latest_completed_at: string | null;
+  };
+  jobs: {
+    total: number;
+    queued: number;
+    running: number;
+    failed: number;
+    complete: number;
+    canceled: number;
+    dead_letters: number;
+    latest_status: string;
+  };
+  usage: CostSummaryPayload['summary'];
+  connectors: {
+    total: number;
+    active: number;
+    missing_secrets: number;
+    missing_secret_connectors: Array<{
+      id?: string;
+      guard_key?: string;
+      label?: string;
+      adapter_type?: string;
+      vendor?: string;
+      status?: string;
+    }>;
+  };
+};
+
+export type AdminOverview = {
+  workspace: Workspace;
+  role: string;
+  generated_at: string;
+  metrics: {
+    projects: number;
+    runs: number;
+    issued_evidence: number;
+    jobs: number;
+    queued_jobs: number;
+    running_jobs: number;
+    failed_jobs: number;
+    dead_letter_jobs: number;
+    connectors: number;
+    missing_secret_connectors: number;
+    request_count: number;
+    input_tokens: number;
+    output_tokens: number;
+    estimated_cost_usd: number;
+    actual_cost_usd: number;
+  };
+  worker: {
+    queue_depth: number;
+    running: number;
+    failed: number;
+    dead_letters: number;
+    stale_running: number;
+    oldest_queued_at: string | null;
+    next_retry_at: string | null;
+    recommended_action: string;
+  };
+  usage: {
+    summary: CostSummaryPayload['summary'];
+    by_provider: CostSummaryPayload['by_provider'];
+  };
+  projects: AdminProjectSummary[];
+  jobs: Array<StackCertJob & { project_name?: string; project_slug?: string }>;
+  dead_letters: Array<StackCertJob & { project_name?: string; project_slug?: string }>;
+  audit_events: AuditEvent[];
+  controls: {
+    can_run_worker: boolean;
+    can_retry_failed_jobs: boolean;
+    can_cancel_queued_jobs: boolean;
+    worker_scope: string;
+    max_jobs_per_manual_run: number;
+  };
+};
+
+export type AdminWorkerRun = {
+  workspace_id: string;
+  worker_id: string;
+  processed: Array<{
+    job_id: string;
+    project_id?: string | null;
+    run_id?: string | null;
+    status?: string | null;
+    summary: Record<string, unknown>;
+  }>;
+  processed_count: number;
+};
+
 async function request<T>(path: string): Promise<T> {
   const token = await getAccessToken();
   const response = await fetch(`${apiBase}${path}`, {
@@ -640,9 +750,13 @@ export const api = {
   stacks: (projectId: string) => request<{ run: RunSummary | null; stacks: CandidateStack[] }>(`/api/projects/${projectId}/stacks?lambda_cost=5`),
   jobs: (projectId: string) => request<{ jobs: StackCertJob[] }>(`/api/projects/${projectId}/jobs`),
   retryJob: (jobId: string) => post<{ job: StackCertJob }>(`/api/jobs/${jobId}/retry`, {}),
+  cancelJob: (jobId: string) => post<{ job: StackCertJob }>(`/api/jobs/${jobId}/cancel`, {}),
   createEvaluationJob: (projectId: string, payload: EvaluationJobInput) =>
     post<{ job: StackCertJob }>(`/api/projects/${projectId}/evaluation-jobs`, payload),
   runNextWorkerJob: (projectId: string) => post<{ job: StackCertJob }>(`/api/projects/${projectId}/workers/run-next`, {}),
+  adminOverview: (workspaceId: string) => request<{ admin: AdminOverview }>(`/api/workspaces/${workspaceId}/admin/overview`),
+  runWorkspaceWorker: (workspaceId: string, payload: { worker_id?: string; max_jobs?: number; lease_seconds?: number }) =>
+    post<{ worker_run: AdminWorkerRun }>(`/api/workspaces/${workspaceId}/admin/workers/run-next`, payload),
   createMeasurementPlan: (runId: string, payload: { action_ids: string[]; max_cost_usd?: number }, lambda: number) =>
     post<{ id: string; job: StackCertJob; status: string; run_id: string; summary: Record<string, unknown>; actions: MeasurementsPayload['actions'] }>(
       `/api/runs/${runId}/measurement-plans?lambda_cost=${lambda}`,

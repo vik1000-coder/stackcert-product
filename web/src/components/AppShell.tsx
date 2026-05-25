@@ -14,7 +14,8 @@ const routes = [
   { to: 'certificate', label: 'Release evidence' },
   { to: 'drift', label: 'When to retest' },
   { to: 'setup', label: 'App setup' },
-  { to: 'projects', label: 'Apps' }
+  { to: 'projects', label: 'Apps' },
+  { to: 'admin', label: 'Admin' }
 ];
 
 export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaChange: (value: number) => void }) {

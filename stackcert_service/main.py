@@ -9,6 +9,7 @@ from stackcert_service.observability import configure_logging, request_middlewar
 from stackcert_service.security import access
 from stackcert_service.security.auth import McpPrincipalDep, Principal, PrincipalDep, ReleaseGatePrincipalDep
 from stackcert_service.schemas import (
+    AdminWorkerRunRequest,
     BenchmarkImportCommitRequest,
     BenchmarkImportPreviewRequest,
     CertificateIssueRequest,
@@ -26,6 +27,7 @@ from stackcert_service.schemas import (
     UploadedOutputPreviewRequest,
     WorkspaceCreate,
 )
+from stackcert_service.services import admin
 from stackcert_service.services import benchmark_imports
 from stackcert_service.services import audit
 from stackcert_service.services import artifacts
@@ -402,6 +404,33 @@ def list_project_jobs(project_id: str, principal: PrincipalDep) -> dict[str, obj
     return {"jobs": jobs.list_jobs(project_id)}
 
 
+@app.get("/api/workspaces/{workspace_id}/admin/overview")
+def get_workspace_admin_overview(workspace_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    return {"admin": admin.workspace_overview(workspace_id, principal)}
+
+
+@app.post("/api/workspaces/{workspace_id}/admin/workers/run-next")
+def run_workspace_admin_worker(workspace_id: str, payload: AdminWorkerRunRequest, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    result = admin.run_workspace_worker_once(
+        workspace_id,
+        principal,
+        worker_id=payload.worker_id,
+        max_jobs=payload.max_jobs,
+        lease_seconds=payload.lease_seconds,
+    )
+    audit.record_event(
+        "admin.worker.run_next",
+        principal,
+        workspace_id=workspace_id,
+        target_type="workspace",
+        target_id=workspace_id,
+        metadata={"worker_id": result["worker_id"], "processed_count": result["processed_count"]},
+    )
+    return {"worker_run": result}
+
+
 @app.get("/api/projects/{project_id}/usage-events")
 def list_project_usage_events(project_id: str, principal: PrincipalDep) -> dict[str, object]:
     _require_project_access(project_id, principal)
@@ -655,6 +684,20 @@ def retry_job(job_id: str, principal: PrincipalDep) -> dict[str, object]:
     job = jobs.retry_job(job_id)
     audit.record_event(
         "evaluation_job.retry",
+        principal,
+        project_id=str(existing["project_id"]),
+        target_type="job",
+        target_id=job_id,
+    )
+    return {"job": job}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, principal: PrincipalDep) -> dict[str, object]:
+    existing = _require_job_access(job_id, principal, required="project_maintainer")
+    job = jobs.cancel_job(job_id)
+    audit.record_event(
+        "evaluation_job.canceled",
         principal,
         project_id=str(existing["project_id"]),
         target_type="job",

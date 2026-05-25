@@ -141,6 +141,40 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(captured_audit["metadata"]["api_workspace_id"], settings.demo_workspace_id)
         self.assertEqual(captured_audit["metadata"]["api_project_id"], settings.demo_project_id)
 
+    def test_list_audit_events_maps_demo_ids_for_admin_overview(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "GET" and "/rest/v1/audit_events" in str(request.url):
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "id": "30000000-0000-4000-8000-000000000003",
+                            "workspace_id": settings.demo_workspace_db_id,
+                            "project_id": settings.demo_project_db_id,
+                            "actor_user_id": "20000000-0000-4000-8000-000000000001",
+                            "action": "admin.worker.run_next",
+                            "target_type": "workspace",
+                            "target_id": None,
+                            "metadata": {"external_target_id": settings.demo_workspace_id, "actor": "operator@example.com"},
+                            "created_at": "2026-05-24T18:00:00+00:00",
+                        }
+                    ],
+                )
+            return httpx.Response(500, json={"unexpected": str(request.url)})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        events = store.list_audit_events(workspace_id=settings.demo_workspace_id, limit=25)
+
+        self.assertEqual(events[0]["workspace_id"], settings.demo_workspace_id)
+        self.assertEqual(events[0]["project_id"], settings.demo_project_id)
+        self.assertEqual(events[0]["target_id"], settings.demo_workspace_id)
+        self.assertEqual(events[0]["actor"], "operator@example.com")
+        self.assertIn(f"workspace_id=eq.{settings.demo_workspace_db_id}", str(requests[0].url))
+        self.assertIn("limit=25", str(requests[0].url))
+
     def test_create_custom_behavior_posts_redacted_contract(self) -> None:
         captured: list[httpx.Request] = []
 
