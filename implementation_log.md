@@ -2257,3 +2257,48 @@ Timestamp: 2026-05-25 16:59 UTC
     stable and no form/server errors.
   - Playwright hosted browser QA passed sign-in, live admin budget controls,
     and 390px mobile admin layout with no form/API errors.
+
+## Release Status Documentation And Full Verification
+
+Timestamp: 2026-05-25 18:35 UTC
+
+- Added `docs/20_current_release_status.md` as the compact live-system status
+  page for:
+  - current hosted URLs;
+  - Cloudflare Worker deployment state;
+  - Cloud Run API revision and image;
+  - Supabase migration parity;
+  - auth, API, MCP, and deployment-smoke verification;
+  - remaining production-readiness work.
+- Linked the new status doc from `README.md` and
+  `docs/15_current_state_and_next_steps.md`.
+- Confirmed live service state before committing:
+  - Cloud Run service `stackcert-api` latest ready revision:
+    `stackcert-api-00017-vmj`;
+  - Cloud Run image:
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`;
+  - Cloud Run traffic: 100% to latest revision;
+  - Cloud Run max scale remains `3`;
+  - latest observed Cloudflare Worker deployment:
+    `08a7a79b-6f32-4085-a091-119264526c1f`;
+  - Supabase local and linked remote migrations match through
+    `20260525164132_add_budget_policies.sql`;
+  - GitHub Actions for `e17da3c` are green for `ci`, fallback
+    `deploy pages`, and `deploy cloudflare`.
+- Verification:
+  - `uv run python -m unittest discover tests_service -v` -> 110 tests
+    passed;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
+    tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `supabase db lint` -> OK;
+  - `supabase db push --linked --dry-run` -> remote database is up to date;
+  - `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --service stackcert-api` -> OK;
+  - authenticated `scripts/cloud_run_api_smoke.py` against Cloud Run -> OK;
+  - authenticated `scripts/deployment_smoke.py` against Cloudflare same-origin
+    API + Supabase Auth -> OK;
+  - authenticated `scripts/mcp_client_smoke.py` against Cloudflare `/api/mcp`
+    with the official Python MCP SDK -> OK.

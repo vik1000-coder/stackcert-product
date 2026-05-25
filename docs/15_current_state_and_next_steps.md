@@ -10,6 +10,10 @@ The detailed executable roadmap is now
 `18_pilot_ready_execution_plan.md`. This page summarizes the current baseline;
 the execution plan owns the ordered implementation queue.
 
+For the shortest live-system snapshot, including current deployed revisions,
+CI status, and the latest verification commands, see
+`20_current_release_status.md`.
+
 ## Current Working State
 
 StackCert is now a usable prototype with a real product shape:
