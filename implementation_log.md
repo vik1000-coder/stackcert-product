@@ -2279,12 +2279,14 @@ Timestamp: 2026-05-25 18:35 UTC
     `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`;
   - Cloud Run traffic: 100% to latest revision;
   - Cloud Run max scale remains `3`;
-  - latest observed Cloudflare Worker deployment:
-    `08a7a79b-6f32-4085-a091-119264526c1f`;
+  - Cloudflare Worker deployment was verified through both GitHub Actions and
+    `wrangler deploy`; exact Worker version IDs are intentionally tracked with
+    `npx wrangler deployments list --name stackcert-staging` because they
+    change on every deploy;
   - Supabase local and linked remote migrations match through
     `20260525164132_add_budget_policies.sql`;
-  - GitHub Actions for `e17da3c` are green for `ci`, fallback
-    `deploy pages`, and `deploy cloudflare`.
+  - GitHub Actions for the release-status audit commits were checked green for
+    `ci`, fallback `deploy pages`, and `deploy cloudflare`.
 - Verification:
   - `uv run python -m unittest discover tests_service -v` -> 110 tests
     passed;

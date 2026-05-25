@@ -1,6 +1,6 @@
 # Current Release Status
 
-Last updated: 2026-05-25 18:35 UTC
+Last updated: 2026-05-25 18:44 UTC
 
 This is the concise status page for the deployed StackCert staging system. Use
 it when checking whether local code, GitHub, Supabase, Cloud Run, and
@@ -10,11 +10,16 @@ Cloudflare agree.
 
 - Repository: `vik1000-coder/stackcert-product`
 - Branch: `main`
-- Verified deployed application commit at the start of this audit: `e17da3c`
-- Latest green GitHub Actions runs for `e17da3c`:
+- Release path: pushes to `main` run `ci`, the GitHub Pages fallback deploy,
+  and then the Cloudflare Worker deploy after CI succeeds.
+- Latest audit result:
   - `ci`: success
   - `deploy pages`: success
   - `deploy cloudflare`: success
+- Exact run and commit IDs are intentionally not hard-coded here because docs
+  updates create new commits and Cloudflare version IDs change on every deploy.
+  Use `gh run list --branch main --limit 6` and
+  `npx wrangler deployments list --name stackcert-staging` for the live IDs.
 
 ## Hosted URLs
 
