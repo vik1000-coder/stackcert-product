@@ -1565,3 +1565,64 @@ Started: 2026-05-23
   - `npm --prefix web run build` -> OK;
   - `npm run build` -> OK;
   - `git diff --check` -> OK.
+
+## Milestone 2 Immutable Evidence And Private Artifacts
+
+- Added Supabase migration
+  `20260525021244_immutable_evidence_artifacts.sql`:
+  - `certificates.packet_snapshot` for canonical issued packet JSON;
+  - `certificates.artifact_refs` for attached private artifacts;
+  - supersession/revocation metadata fields;
+  - `artifact_objects.metadata`;
+  - indexes for artifact type/metadata lookup;
+  - triggers that reject edits to issued certificate core fields and reject
+    certificate deletes.
+- Applied the migration to the linked Supabase staging project:
+  - `supabase db push --linked --dry-run` showed exactly the new migration;
+  - `supabase db push --linked --yes` applied it;
+  - `supabase migration list --linked` shows local and remote both include
+    `20260525021244`.
+- Supabase advisors after the migration:
+  - `supabase db advisors --linked --type all --level warn --fail-on error`
+    exited successfully;
+  - existing warning remains: Supabase Auth leaked-password protection is
+    disabled.
+- Added `stackcert_service/services/artifacts.py`:
+  - memory fallback for local tests;
+  - Supabase artifact listing;
+  - private storage signed URL creation;
+  - SHA-256 verification by downloading stored artifacts.
+- Extended certificate issuing:
+  - evidence readiness gates run before issue;
+  - canonical issued packet JSON is hashed with SHA-256;
+  - issued packet snapshot and private JSON/Markdown artifact refs are returned
+    with the certificate;
+  - issue remains idempotent for existing certificate IDs.
+- Added API routes:
+  - `GET /api/runs/{run_id}/certificate/readiness`;
+  - `GET /api/certificates/{certificate_id}/artifacts`;
+  - `POST /api/certificates/{certificate_id}/artifacts/{artifact_type}/signed-url`;
+  - `GET /api/certificates/{certificate_id}/artifacts/{artifact_type}/verify`.
+- Updated deployment smoke scripts so hosted auth smokes check the evidence
+  readiness endpoint.
+- Updated release-evidence UI:
+  - readiness checklist with blockers and warnings;
+  - issue button disabled when readiness blocks issue;
+  - locked packet details include artifact count and hash;
+  - private artifacts show type, size, SHA-256, hash verification, and
+    authenticated short-lived download controls.
+- Added tests:
+  - `tests_service/test_evidence_readiness.py`;
+  - API coverage for readiness, artifact verification, and signed URL creation;
+  - Supabase store contract coverage for artifact upload, metadata persistence,
+    signed URLs, and verification.
+- Verification:
+  - `uv run python -m unittest tests_service.test_evidence_readiness tests_service.test_supabase_store tests_service.test_api_demo.DemoApiTest.test_certificate_issue_requires_ack_and_accepts_signoff tests_service.test_api_demo.DemoApiTest.test_certificate_markdown_export tests_service.test_access_control` -> 28 tests passed;
+  - `uv run python -m unittest discover -s tests_service` -> 80 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - Playwright local responsive smoke against `http://127.0.0.1:5173/app/ws_demo/proj_acme_copilot/certificate` with API on `127.0.0.1:18082` -> desktop and 390px mobile layouts rendered after issuing evidence.
+- Local Supabase reset was not rerun in this resumed session because Docker was
+  not reachable at `/Users/vik/.docker/run/docker.sock`.

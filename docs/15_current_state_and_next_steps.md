@@ -46,6 +46,10 @@ StackCert is now a usable prototype with a real product shape:
   evidence, job, usage, drift, and MCP surfaces in addition to Supabase RLS.
   Workspace/project lists are membership-filtered, cross-tenant object access is
   denied, and sensitive mutations write audit events.
+- Issued evidence now has backend readiness gates, immutable packet snapshots,
+  private JSON/Markdown artifact records, SHA-256 verification, and authorized
+  signed URL generation. The release-evidence UI shows readiness blockers,
+  warnings, artifact hashes, and verification/download controls after issue.
 - Agent/MCP surface for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts. MCP can authenticate with Supabase bearer tokens or MCP-only machine
@@ -95,7 +99,7 @@ uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 77 tests passed
+  -> 80 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -117,6 +121,24 @@ npm run build
 
 git diff --check
   -> OK
+
+supabase db push --linked --dry-run
+  -> would apply 20260525021244_immutable_evidence_artifacts.sql
+
+supabase db push --linked --yes
+  -> applied 20260525021244_immutable_evidence_artifacts.sql
+
+supabase migration list --linked
+  -> local and remote include 20260525021244
+
+supabase db advisors --linked --type all --level warn --fail-on error
+  -> OK exit; existing warning that Supabase Auth leaked-password protection is disabled
+
+Playwright responsive smoke against local API/web
+  -> release evidence page rendered at 1238px and 390px widths after issuing a packet
+
+supabase status / local db reset
+  -> blocked in this resumed session because Docker daemon was not reachable at /Users/vik/.docker/run/docker.sock
 
 supabase db push --linked --dry-run before applying the migration
   -> would apply 20260525001842_worker_idempotency_and_usage_keys.sql
@@ -155,7 +177,8 @@ uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f29
 Latest hosted verification:
 
 - Supabase remote migration history matches local migrations:
-  `20260523151421`, `20260523192827`, `20260524023733`, `20260525001842`.
+  `20260523151421`, `20260523192827`, `20260524023733`, `20260525001842`,
+  `20260525021244`.
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - Cloudflare deployment list shows the latest `stackcert-staging` deployment
@@ -264,6 +287,21 @@ Current trust-layer status:
   uploaded-output runs, connector/job/work creation, measurement plans,
   evidence issue/signoff/export, retest queueing, custom behaviors, and MCP tool
   calls.
+
+Current immutable-evidence status:
+
+- `20260525021244_immutable_evidence_artifacts.sql` adds packet snapshots,
+  artifact refs, artifact metadata, supersession/revocation metadata, and
+  database triggers that prevent core issued-certificate edits/deletes;
+- the backend computes a canonical issued packet JSON hash and stores private
+  JSON/Markdown artifacts for issued evidence;
+- evidence readiness blocks missing runs, incomplete runs, missing output
+  coverage, insufficient safety-check counts, missing benchmark-suite linkage,
+  and invalid CASS statuses, while allowing provisional evidence with explicit
+  warnings;
+- artifact signed URLs and hash verification require certificate access first;
+- deployment smoke scripts now check the hosted evidence-readiness endpoint in
+  addition to auth, MCP, and app-shell checks.
 
 ## What To Do Next
 

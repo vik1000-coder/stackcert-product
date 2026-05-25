@@ -101,16 +101,19 @@ The implementation is past planning. The working app now includes:
   `worker_evaluation` evidence runs.
 - Idempotent worker output/usage persistence and connector price-card/token
   accounting for provider-backed runs.
+- Service-layer tenancy/RBAC, audit events, immutable issued evidence packet
+  snapshots, private evidence artifacts, readiness gates, and artifact hash
+  verification.
 - MCP endpoints for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts, with Supabase user auth and MCP-only machine bearer tokens.
 
-Milestone 1 of the pilot trust layer is now implemented: service-layer
-tenancy/RBAC, membership-aware lists, route authorization, and audit events.
-The current priority is Milestone 2: immutable evidence semantics, private
-artifact handling, export verification, and readiness diagnostics. The next
-integration layer is Cloud Run worker deployment, managed secret storage, and
-release-gate APIs. See `15_current_state_and_next_steps.md`,
+Milestones 1 and 2 of the pilot trust layer are now implemented:
+service-layer tenancy/RBAC, membership-aware lists, route authorization, audit
+events, immutable evidence semantics, private artifact handling, export
+verification, and readiness diagnostics. The current priority is Milestone 3:
+managed secret storage and an independent Cloud Run worker/job deployment
+path. See `15_current_state_and_next_steps.md`,
 `18_pilot_ready_execution_plan.md`, and `19_route_access_matrix.md`.
 
 ## Test Cadence

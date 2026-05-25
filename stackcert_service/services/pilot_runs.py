@@ -236,6 +236,8 @@ def run_summary(run_id: str) -> dict[str, Any]:
         "certificate_id": certificate.certificate_id,
         "certificate_status": compact_status(certificate.status),
         "measurement_actions": len(scheduled.actions),
+        "benchmark_suite_id": run.get("benchmark_suite_id"),
+        "benchmark_suite_name": run.get("benchmark_suite_name"),
         "created_at": run.get("created_at"),
         "completed_at": run.get("completed_at"),
         "source": run.get("source"),

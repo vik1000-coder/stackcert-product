@@ -766,6 +766,31 @@ class SupabaseStore:
             return None
         return self._certificate_from_row(rows[0])
 
+    def get_issued_certificate_for_run(self, run_id: str, *, workspace_id: str | None = None) -> dict[str, Any] | None:
+        params = {
+            "external_run_id": f"eq.{run_id}",
+            "select": "id,workspace_id",
+            "limit": "1",
+        }
+        if workspace_id:
+            params["workspace_id"] = f"eq.{_api_workspace_to_db_id(workspace_id)}"
+        run_rows = self._request("GET", "evaluation_runs", params=params)
+        if not run_rows:
+            return None
+        certificate_rows = self._request(
+            "GET",
+            "certificates",
+            params={
+                "run_id": f"eq.{run_rows[0]['id']}",
+                "select": "*",
+                "order": "issued_at.desc.nullslast,created_at.desc",
+                "limit": "1",
+            },
+        )
+        if not certificate_rows:
+            return None
+        return self._certificate_from_row(certificate_rows[0])
+
     def issue_certificate(self, project_id: str, certificate: dict[str, Any]) -> dict[str, Any]:
         existing = self.get_issued_certificate(str(certificate["certificate_id"]))
         if existing:
@@ -776,6 +801,19 @@ class SupabaseStore:
             project_db_id=project_db_id,
             certificate=certificate,
         )
+        artifact_payloads = list(certificate.get("_artifact_payloads") or [])
+        artifact_refs = self._certificate_artifact_refs(
+            workspace_db_id=workspace_db_id,
+            certificate=certificate,
+            artifact_payloads=artifact_payloads,
+        )
+        for payload, ref in zip(artifact_payloads, artifact_refs, strict=False):
+            self._upload_storage_object(
+                bucket=ref["bucket"],
+                object_path=ref["object_path"],
+                content=payload["content"],
+                content_type=payload["content_type"],
+            )
         rows = self._request(
             "POST",
             "certificates",
@@ -792,9 +830,19 @@ class SupabaseStore:
                 "artifact_hash": certificate["artifact_hash"],
                 "summary": certificate["summary"],
                 "limitations": certificate["limitations"],
+                "packet_snapshot": certificate.get("packet_snapshot") or {},
+                "artifact_refs": artifact_refs,
             },
             prefer="return=representation",
         )
+        for ref in artifact_refs:
+            self._record_artifact_metadata(
+                workspace_db_id=workspace_db_id,
+                project_db_id=project_db_id,
+                run_db_id=run_db_id,
+                certificate_db_id=str(rows[0]["id"]),
+                ref=ref,
+            )
         return self._certificate_from_row(rows[0])
 
     def create_certificate_signoff(self, certificate_id: str, signoff: dict[str, Any]) -> dict[str, Any]:
@@ -845,6 +893,63 @@ class SupabaseStore:
             prefer="return=representation",
         )
         return {**event, "db_id": rows[0].get("id") if rows else None}
+
+    def list_certificate_artifacts(self, certificate_id: str) -> list[dict[str, Any]]:
+        rows = self._certificate_rows(certificate_id)
+        if not rows:
+            raise SupabasePersistenceError(f"Certificate not found: {certificate_id}")
+        refs = rows[0].get("artifact_refs") or []
+        if refs:
+            return refs
+        artifact_rows = self._request(
+            "GET",
+            "artifact_objects",
+            params={
+                "certificate_id": f"eq.{rows[0]['id']}",
+                "select": "bucket,object_path,artifact_type,byte_size,content_type,sha256,metadata",
+                "order": "created_at.asc",
+            },
+        )
+        return [self._artifact_ref_from_row(row) for row in artifact_rows]
+
+    def create_certificate_artifact_signed_url(
+        self,
+        certificate_id: str,
+        artifact_type: str,
+        *,
+        expires_in_seconds: int = 300,
+    ) -> dict[str, Any]:
+        ref = self._certificate_artifact_ref(certificate_id, artifact_type)
+        sign_url = f"{self.supabase_url.rstrip('/')}/storage/v1/object/sign/{ref['bucket']}/{ref['object_path']}"
+        response = self._send(
+            "POST",
+            sign_url,
+            json={"expiresIn": expires_in_seconds},
+            headers=self._headers(),
+        )
+        if response.status_code >= 400:
+            raise SupabasePersistenceError(f"Supabase storage signed URL returned HTTP {response.status_code}: {response.text[:240]}")
+        body = response.json()
+        signed_url = body.get("signedURL") or body.get("signedUrl") or body.get("url")
+        if not signed_url:
+            raise SupabasePersistenceError("Supabase storage signed URL response did not include a URL")
+        if signed_url.startswith("/"):
+            signed_url = f"{self.supabase_url.rstrip('/')}/storage/v1{signed_url}"
+        return {**ref, "signed_url": signed_url, "expires_in_seconds": expires_in_seconds}
+
+    def verify_certificate_artifact(self, certificate_id: str, artifact_type: str) -> dict[str, Any]:
+        ref = self._certificate_artifact_ref(certificate_id, artifact_type)
+        download_url = f"{self.supabase_url.rstrip('/')}/storage/v1/object/{ref['bucket']}/{ref['object_path']}"
+        response = self._send("GET", download_url, headers=self._headers(content_type="application/octet-stream"))
+        if response.status_code >= 400:
+            raise SupabasePersistenceError(f"Supabase storage download returned HTTP {response.status_code}: {response.text[:240]}")
+        actual = sha256(response.content).hexdigest()
+        return {
+            **ref,
+            "expected_sha256": ref.get("sha256"),
+            "actual_sha256": actual,
+            "verified": actual == ref.get("sha256"),
+        }
 
     def _replace_pilot_outputs(
         self,
@@ -1181,6 +1286,90 @@ class SupabaseStore:
             "sha256": digest,
         }
 
+    def _certificate_artifact_refs(
+        self,
+        *,
+        workspace_db_id: str,
+        certificate: dict[str, Any],
+        artifact_payloads: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        refs: list[dict[str, Any]] = []
+        for payload in artifact_payloads:
+            body = payload["content"]
+            artifact_type = payload["artifact_type"]
+            object_path = f"{workspace_db_id}/certificates/{certificate['certificate_id']}/{artifact_type}.{payload['extension']}"
+            refs.append(
+                {
+                    "bucket": "certificates",
+                    "object_path": object_path,
+                    "artifact_type": artifact_type,
+                    "content_type": payload["content_type"],
+                    "byte_size": len(body),
+                    "sha256": sha256(body).hexdigest(),
+                    "metadata": {
+                        "certificate_id": certificate["certificate_id"],
+                        "run_id": certificate["run_id"],
+                        "project_id": certificate["project_id"],
+                    },
+                }
+            )
+        return refs
+
+    def _upload_storage_object(self, *, bucket: str, object_path: str, content: bytes, content_type: str) -> None:
+        upload_url = f"{self.supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{object_path}"
+        headers = self._headers(content_type=content_type)
+        headers["x-upsert"] = "false"
+        response = self._send("POST", upload_url, content=content, headers=headers)
+        if response.status_code >= 400:
+            raise SupabasePersistenceError(f"Supabase storage upload returned HTTP {response.status_code}: {response.text[:240]}")
+
+    def _record_artifact_metadata(
+        self,
+        *,
+        workspace_db_id: str,
+        project_db_id: str,
+        run_db_id: str,
+        certificate_db_id: str,
+        ref: dict[str, Any],
+    ) -> None:
+        self._request(
+            "POST",
+            "artifact_objects",
+            params={"on_conflict": "bucket,object_path"},
+            json={
+                "workspace_id": workspace_db_id,
+                "project_id": project_db_id,
+                "run_id": run_db_id,
+                "certificate_id": certificate_db_id,
+                "bucket": ref["bucket"],
+                "object_path": ref["object_path"],
+                "artifact_type": ref["artifact_type"],
+                "byte_size": ref["byte_size"],
+                "content_type": ref["content_type"],
+                "sha256": ref["sha256"],
+                "metadata": ref.get("metadata") or {},
+            },
+            prefer="resolution=merge-duplicates,return=minimal",
+        )
+
+    def _certificate_artifact_ref(self, certificate_id: str, artifact_type: str) -> dict[str, Any]:
+        for ref in self.list_certificate_artifacts(certificate_id):
+            if ref.get("artifact_type") == artifact_type:
+                return ref
+        raise SupabasePersistenceError(f"Certificate artifact not found: {artifact_type}")
+
+    @staticmethod
+    def _artifact_ref_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "bucket": row["bucket"],
+            "object_path": row["object_path"],
+            "artifact_type": row["artifact_type"],
+            "content_type": row.get("content_type"),
+            "byte_size": row.get("byte_size"),
+            "sha256": row.get("sha256"),
+            "metadata": row.get("metadata") or {},
+        }
+
     def _headers(self, *, prefer: str | None = None, content_type: str = "application/json") -> dict[str, str]:
         headers = {
             "apikey": self.secret_key,
@@ -1305,6 +1494,8 @@ class SupabaseStore:
             "certificate_id": summary.get("certificate_id") or f"evidence_{run['id']}",
             "certificate_status": summary.get("certificate_status") or "provisional",
             "measurement_actions": int(summary.get("measurement_actions") or 0),
+            "benchmark_suite_id": str(row["benchmark_suite_id"]) if row.get("benchmark_suite_id") else summary.get("benchmark_suite_id"),
+            "benchmark_suite_name": summary.get("benchmark_suite_name"),
             "created_at": row.get("created_at"),
             "completed_at": row.get("completed_at"),
             "source": summary.get("source") or "uploaded_outputs",
@@ -1460,6 +1651,9 @@ class SupabaseStore:
             "artifact_hash": row.get("artifact_hash"),
             "limitations": row.get("limitations") or [],
             "summary": row.get("summary") or {},
+            "packet_snapshot": row.get("packet_snapshot") or {},
+            "artifact_refs": row.get("artifact_refs") or [],
+            "artifacts": row.get("artifact_refs") or [],
             "signoffs": [self._certificate_signoff_from_row(signoff, certificate_id) for signoff in signoff_rows],
         }
 

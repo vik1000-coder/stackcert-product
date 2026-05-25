@@ -25,6 +25,7 @@ from stackcert_service.schemas import (
 )
 from stackcert_service.services import benchmark_imports
 from stackcert_service.services import audit
+from stackcert_service.services import artifacts
 from stackcert_service.services import certificates
 from stackcert_service.services import custom_behaviors
 from stackcert_service.services import demo_project
@@ -572,10 +573,59 @@ def issue_certificate(run_id: str, payload: CertificateIssueRequest, principal: 
     return {"certificate": certificate}
 
 
+@app.get("/api/runs/{run_id}/certificate/readiness")
+def get_certificate_readiness(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    return {"readiness": certificates.evidence_readiness(run_id, lambda_cost)}
+
+
+@app.get("/api/runs/{run_id}/issued-certificate")
+def get_run_issued_certificate(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    run = _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    certificate = certificates.get_certificate_for_run(run_id, workspace_id=str(run["workspace_id"]))
+    return {"certificate": certificate}
+
+
 @app.get("/api/certificates/{certificate_id}")
 def get_issued_certificate(certificate_id: str, principal: PrincipalDep) -> dict[str, object]:
     certificate = _require_certificate_access(certificate_id, principal)
     return {"certificate": certificate}
+
+
+@app.get("/api/certificates/{certificate_id}/artifacts")
+def list_certificate_artifacts(certificate_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_certificate_access(certificate_id, principal)
+    return {"artifacts": artifacts.list_certificate_artifacts(certificate_id)}
+
+
+@app.post("/api/certificates/{certificate_id}/artifacts/{artifact_type}/signed-url")
+def create_certificate_artifact_signed_url(certificate_id: str, artifact_type: str, principal: PrincipalDep) -> dict[str, object]:
+    certificate = _require_certificate_access(certificate_id, principal)
+    result = artifacts.signed_url(certificate_id, artifact_type)
+    audit.record_event(
+        "evidence.artifact_url.created",
+        principal,
+        project_id=str(certificate["project_id"]),
+        target_type="certificate",
+        target_id=certificate_id,
+        metadata={"artifact_type": artifact_type},
+    )
+    return {"artifact": result}
+
+
+@app.get("/api/certificates/{certificate_id}/artifacts/{artifact_type}/verify")
+def verify_certificate_artifact(certificate_id: str, artifact_type: str, principal: PrincipalDep) -> dict[str, object]:
+    certificate = _require_certificate_access(certificate_id, principal)
+    result = artifacts.verify(certificate_id, artifact_type)
+    audit.record_event(
+        "evidence.artifact.verified",
+        principal,
+        project_id=str(certificate["project_id"]),
+        target_type="certificate",
+        target_id=certificate_id,
+        metadata={"artifact_type": artifact_type, "verified": result["verified"]},
+    )
+    return {"verification": result}
 
 
 @app.post("/api/certificates/{certificate_id}/signoffs")

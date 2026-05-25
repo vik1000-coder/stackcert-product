@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import unittest
 from typing import Any
@@ -337,6 +338,8 @@ class SupabaseStoreTest(unittest.TestCase):
         stored_run: dict[str, Any] | None = None
         stored_certificate: dict[str, Any] | None = None
         stored_signoffs: list[dict[str, Any]] = []
+        stored_artifacts: list[dict[str, Any]] = []
+        uploaded_objects: dict[str, bytes] = {}
 
         def handler(request: httpx.Request) -> httpx.Response:
             nonlocal stored_run, stored_certificate
@@ -351,6 +354,9 @@ class SupabaseStoreTest(unittest.TestCase):
                     "created_at": "2026-05-23T16:00:00+00:00",
                 }
                 return httpx.Response(201, json=[stored_run])
+            if request.method == "POST" and "/storage/v1/object/certificates/" in url:
+                uploaded_objects[request.url.path] = request.content
+                return httpx.Response(200, json={"Key": request.url.path})
             if request.method == "GET" and "/rest/v1/certificates" in url:
                 return httpx.Response(200, json=([stored_certificate] if stored_certificate else []))
             if request.method == "POST" and url.endswith("/rest/v1/certificates"):
@@ -358,12 +364,20 @@ class SupabaseStoreTest(unittest.TestCase):
                 self.assertEqual(payload["certificate_key"], "cert_demo")
                 self.assertEqual(payload["run_id"], "00000000-0000-4000-8000-000000000A01")
                 self.assertTrue(payload["summary"]["not_a_guarantee"])
+                self.assertEqual(payload["packet_snapshot"]["packet_version"], "stackcert.evidence.v1")
+                self.assertEqual(len(payload["artifact_refs"]), 2)
                 stored_certificate = {
                     **payload,
                     "id": "00000000-0000-4000-8000-000000000A02",
                     "created_at": "2026-05-23T16:00:01+00:00",
                 }
                 return httpx.Response(201, json=[stored_certificate])
+            if request.method == "POST" and "/rest/v1/artifact_objects" in url:
+                payload = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(payload["certificate_id"], "00000000-0000-4000-8000-000000000A02")
+                self.assertEqual(payload["metadata"]["certificate_id"], "cert_demo")
+                stored_artifacts.append(payload)
+                return httpx.Response(204)
             if request.method == "GET" and "/rest/v1/certificate_signoffs" in url:
                 return httpx.Response(200, json=stored_signoffs)
             if request.method == "POST" and url.endswith("/rest/v1/certificate_signoffs"):
@@ -392,6 +406,21 @@ class SupabaseStoreTest(unittest.TestCase):
             "artifact_hash": "a" * 64,
             "limitations": ["not a guarantee"],
             "summary": {"run_id": settings.demo_run_id, "lambda_cost": 5.0, "not_a_guarantee": True},
+            "packet_snapshot": {"packet_version": "stackcert.evidence.v1"},
+            "_artifact_payloads": [
+                {
+                    "artifact_type": "issued_evidence_json",
+                    "content": b'{"packet_version":"stackcert.evidence.v1"}',
+                    "content_type": "application/json",
+                    "extension": "json",
+                },
+                {
+                    "artifact_type": "issued_evidence_markdown",
+                    "content": b"# StackCert Evidence Packet",
+                    "content_type": "text/markdown",
+                    "extension": "md",
+                },
+            ],
             "signoffs": [],
         }
 
@@ -407,8 +436,63 @@ class SupabaseStoreTest(unittest.TestCase):
         fetched = store.get_issued_certificate("cert_demo")
 
         self.assertEqual(issued["certificate_id"], "cert_demo")
+        self.assertEqual(len(issued["artifacts"]), 2)
         self.assertEqual(signoff["decision"], "approved")
         self.assertEqual(fetched["signoffs"][0]["comment"], "Reviewed.")
+        self.assertEqual(len(stored_artifacts), 2)
+        self.assertEqual(len(uploaded_objects), 2)
+
+    def test_certificate_artifact_signed_url_and_verify_contract(self) -> None:
+        content = b'{"packet_version":"stackcert.evidence.v1"}'
+        digest = hashlib.sha256(content).hexdigest()
+        stored_certificate = {
+            "id": "00000000-0000-4000-8000-000000000A02",
+            "workspace_id": settings.demo_workspace_db_id,
+            "project_id": settings.demo_project_db_id,
+            "run_id": "00000000-0000-4000-8000-000000000A01",
+            "certificate_key": "cert_demo",
+            "status": "valid",
+            "selected_stack_label": "LG3 + Phi3",
+            "scope": "project:proj_acme_copilot run:real_main_2000",
+            "issued_at": "2026-05-23T16:00:00+00:00",
+            "expires_at": "2026-06-22T16:00:00+00:00",
+            "artifact_hash": digest,
+            "limitations": ["not a guarantee"],
+            "summary": {"run_id": settings.demo_run_id},
+            "packet_snapshot": {"packet_version": "stackcert.evidence.v1"},
+            "artifact_refs": [
+                {
+                    "bucket": "certificates",
+                    "object_path": f"{settings.demo_workspace_db_id}/certificates/cert_demo/issued_evidence_json.json",
+                    "artifact_type": "issued_evidence_json",
+                    "content_type": "application/json",
+                    "byte_size": len(content),
+                    "sha256": digest,
+                    "metadata": {"certificate_id": "cert_demo"},
+                }
+            ],
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            if request.method == "GET" and "/rest/v1/certificates" in url:
+                return httpx.Response(200, json=[stored_certificate])
+            if request.method == "GET" and "/rest/v1/certificate_signoffs" in url:
+                return httpx.Response(200, json=[])
+            if request.method == "POST" and "/storage/v1/object/sign/certificates/" in url:
+                return httpx.Response(200, json={"signedURL": "/object/sign/certificates/demo?token=abc"})
+            if request.method == "GET" and "/storage/v1/object/certificates/" in url:
+                return httpx.Response(200, content=content)
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        signed = store.create_certificate_artifact_signed_url("cert_demo", "issued_evidence_json")
+        verification = store.verify_certificate_artifact("cert_demo", "issued_evidence_json")
+
+        self.assertEqual(signed["expires_in_seconds"], 300)
+        self.assertIn("/storage/v1/object/sign/certificates/demo", signed["signed_url"])
+        self.assertTrue(verification["verified"])
+        self.assertEqual(verification["actual_sha256"], digest)
 
     def test_create_benchmark_suite_persists_cells_examples_and_artifact(self) -> None:
         calls: list[httpx.Request] = []

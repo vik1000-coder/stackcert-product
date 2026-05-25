@@ -11,10 +11,11 @@ with scoped release evidence instead of broad safety claims.
 
 The current scope includes the CASS core under the hood, a product API, a React
 LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
-worker-backed deterministic, REST, and model-judge evaluation runs, idempotent
-worker evidence persistence, connector price cards/token accounting, MCP
-machine-token auth, and a hosted Supabase free-tier demo. The core engine
-includes:
+worker-backed deterministic, REST, and model-judge evaluation runs, service
+layer RBAC/audit controls, immutable evidence packet snapshots, private
+evidence artifacts, idempotent worker evidence persistence, connector price
+cards/token accounting, MCP machine-token auth, and a hosted Supabase free-tier
+demo. The core engine includes:
 
 - data schemas and JSONL/CSV import;
 - safety-check adapters and offline evaluation runner;
@@ -22,6 +23,7 @@ includes:
 - comparison logic for release evidence;
 - targeted test recommendations;
 - Markdown and JSON evidence export;
+- immutable issued evidence packets with private artifact hashes;
 - unit tests for core evidence behavior.
 
 The product direction is now a production-oriented full-stack app:
@@ -35,6 +37,10 @@ The product direction is now a production-oriented full-stack app:
   project benchmark suites, with budget checks, usage events, backend-only
   connector secrets, idempotent writes, connector price cards, provider token
   accounting, and persisted CASS evidence runs;
+- service-layer workspace/project/run/evidence authorization, audit events, and
+  membership-filtered project data;
+- private issued-evidence JSON/Markdown artifacts with SHA-256 verification and
+  short-lived signed URL generation;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
 - GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.
@@ -118,6 +124,7 @@ Planning docs for turning this into a production-ready application live in:
 - `docs/16_pilot_ready_release_evidence_plan.md`
 - `docs/17_pilot_ready_plan_review.md`
 - `docs/18_pilot_ready_execution_plan.md`
+- `docs/19_route_access_matrix.md`
 
 Initial GitHub Actions workflow drafts live in:
 

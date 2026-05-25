@@ -96,6 +96,16 @@ def main() -> int:
         require(projects_status == 200, f"authenticated projects returned {projects_status}: {projects_body[:200]}")
         require("proj_acme_copilot" in projects_body, "authenticated projects did not include the seeded demo project")
 
+        readiness_status, readiness_body = read_url(
+            f"{api_base}/api/runs/real_main_2000/certificate/readiness?lambda_cost=5",
+            auth_headers,
+        )
+        require(readiness_status == 200, f"evidence readiness returned {readiness_status}: {readiness_body[:200]}")
+        readiness_payload = json.loads(readiness_body)
+        readiness = readiness_payload.get("readiness")
+        require(isinstance(readiness, dict), f"evidence readiness payload was unexpected: {readiness_payload}")
+        require(readiness.get("can_issue") is True, f"demo evidence should be issuable: {readiness}")
+
         manifest_status, manifest_body = read_url(f"{api_base}/api/mcp/manifest", auth_headers)
         require(manifest_status == 200, f"MCP manifest returned {manifest_status}: {manifest_body[:200]}")
         require("get_release_evidence_status" in manifest_body, "MCP manifest did not include release evidence tool")

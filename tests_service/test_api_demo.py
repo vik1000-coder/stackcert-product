@@ -1317,6 +1317,26 @@ class DemoApiTest(unittest.TestCase):
         fetched = self.client.get(f"/api/certificates/{issued['certificate_id']}")
         self.assertEqual(fetched.status_code, 200)
         self.assertEqual(fetched.json()["certificate"]["artifact_hash"], issued["artifact_hash"])
+        self.assertEqual(fetched.json()["certificate"]["packet_snapshot"]["packet_version"], "stackcert.evidence.v1")
+        self.assertEqual(len(fetched.json()["certificate"]["artifacts"]), 2)
+
+        readiness = self.client.get("/api/runs/real_main_2000/certificate/readiness?lambda_cost=5")
+        self.assertEqual(readiness.status_code, 200)
+        self.assertTrue(readiness.json()["readiness"]["can_issue"])
+
+        verification_response = self.client.get(
+            f"/api/certificates/{issued['certificate_id']}/artifacts/issued_evidence_json/verify"
+        )
+        self.assertEqual(verification_response.status_code, 200)
+        verification = verification_response.json()["verification"]
+        self.assertTrue(verification["verified"])
+        self.assertEqual(verification["expected_sha256"], issued["artifact_hash"])
+
+        signed_url_response = self.client.post(
+            f"/api/certificates/{issued['certificate_id']}/artifacts/issued_evidence_markdown/signed-url"
+        )
+        self.assertEqual(signed_url_response.status_code, 200)
+        self.assertTrue(signed_url_response.json()["artifact"]["signed_url"].startswith("memory://"))
 
         signoff_response = self.client.post(
             f"/api/certificates/{issued['certificate_id']}/signoffs",

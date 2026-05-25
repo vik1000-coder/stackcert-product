@@ -1,27 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api } from '../lib/api';
+import { api, type EvidenceArtifactVerification } from '../lib/api';
 import { NoRunState, useStackCertApp } from '../lib/appContext';
-import { Badge, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader } from '../components/Primitives';
+import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader } from '../components/Primitives';
 
 export function CertificatePage({ lambda }: { lambda: number }) {
   const { activeRunId } = useStackCertApp();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['certificate', activeRunId, lambda], queryFn: () => api.certificate(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const readinessQuery = useQuery({
+    queryKey: ['certificate-readiness', activeRunId, lambda],
+    queryFn: () => api.certificateReadiness(activeRunId!, lambda),
+    enabled: Boolean(activeRunId)
+  });
   const [acknowledged, setAcknowledged] = useState(false);
   const [signoffComment, setSignoffComment] = useState('');
+  const [artifactVerification, setArtifactVerification] = useState<EvidenceArtifactVerification | null>(null);
   const issuedQuery = useQuery({
-    queryKey: ['issued-certificate', query.data?.certificate_id],
-    queryFn: () => api.issuedCertificate(query.data!.certificate_id),
-    enabled: Boolean(query.data?.certificate_id)
+    queryKey: ['issued-certificate-for-run', activeRunId, lambda],
+    queryFn: () => api.issuedCertificateForRun(activeRunId!, lambda),
+    enabled: Boolean(activeRunId)
   });
   const issueCertificate = useMutation({
     mutationFn: () => api.issueCertificate(activeRunId!, lambda, { acknowledge_limitations: acknowledged, expires_in_days: 30 }),
     onSuccess: (data) => {
-      queryClient.setQueryData(['issued-certificate', data.certificate.certificate_id], data);
+      queryClient.setQueryData(['issued-certificate-for-run', activeRunId, lambda], data);
     }
   });
   const issued = issuedQuery.data?.certificate ?? issueCertificate.data?.certificate ?? null;
+  const artifacts = issued?.artifacts ?? issued?.artifact_refs ?? [];
+  const readiness = readinessQuery.data?.readiness ?? null;
+  const artifactUrlMutation = useMutation({
+    mutationFn: (artifactType: string) => api.certificateArtifactSignedUrl(issued!.certificate_id, artifactType),
+    onSuccess: (data) => {
+      window.location.assign(data.artifact.signed_url);
+    }
+  });
+  const artifactVerifyMutation = useMutation({
+    mutationFn: (artifactType: string) => api.verifyCertificateArtifact(issued!.certificate_id, artifactType),
+    onSuccess: (data) => setArtifactVerification(data.verification)
+  });
   const createSignoff = useMutation({
     mutationFn: (decision: 'approved' | 'rejected' | 'requested_changes') =>
       api.createCertificateSignoff((issued?.certificate_id ?? query.data!.certificate_id), {
@@ -30,7 +48,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         comment: signoffComment || undefined
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['issued-certificate', issued?.certificate_id ?? query.data?.certificate_id] });
+      queryClient.invalidateQueries({ queryKey: ['issued-certificate-for-run', activeRunId, lambda] });
       setSignoffComment('');
     }
   });
@@ -61,14 +79,6 @@ export function CertificatePage({ lambda }: { lambda: number }) {
       <PageHeader
         title="Release evidence"
         subtitle="This packet supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
-        actions={
-          <>
-            <ExternalButton href={api.certificateMarkdownUrl(activeRunId, lambda)} variant="primary">
-              Export evidence Markdown
-            </ExternalButton>
-            <ExternalButton href={api.certificateJsonUrl(activeRunId, lambda)}>Export evidence JSON</ExternalButton>
-          </>
-        }
       />
       <Explainer title="What this evidence packet means" tone="accent" style={{ marginBottom: 16 }}>
         <div className="definition-list">
@@ -114,6 +124,46 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Readiness to issue</h2>
+            <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+              StackCert checks that the run is complete, outputs cover the current example mix, and the CASS result is within the evidence scope.
+            </p>
+          </div>
+          <Badge tone={readinessTone(readiness?.status)} dot>
+            {displayReadinessStatus(readiness?.status)}
+          </Badge>
+        </div>
+        <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+          {(readiness?.checks ?? []).map((check) => (
+            <div
+              key={check.id}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(130px, 180px) minmax(0, 1fr)',
+                gap: 12,
+                borderTop: '1px solid var(--sc-line)',
+                paddingTop: 10
+              }}
+            >
+              <div>
+                <Badge tone={check.status}>{check.status}</Badge>
+                <div style={{ marginTop: 6, fontWeight: 700 }}>{check.label}</div>
+              </div>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>{check.message}</p>
+            </div>
+          ))}
+          {readinessQuery.isLoading ? <p className="muted" style={{ margin: 0 }}>Checking evidence readiness...</p> : null}
+          {readiness?.blockers.length ? (
+            <ReadinessList title="Blocking reasons" items={readiness.blockers} tone="bad" />
+          ) : null}
+          {readiness?.warnings.length ? (
+            <ReadinessList title="Warnings" items={readiness.warnings} tone="warn" />
+          ) : null}
+        </div>
+      </Card>
+      <Card style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Lock evidence for review</h2>
         <div className="grid grid-2">
           <div style={{ display: 'grid', gap: 12 }}>
@@ -129,7 +179,11 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 assumptions shown here. It is not a guarantee of safety or compliance.
               </span>
             </label>
-            <button className="btn primary" disabled={!acknowledged || issueCertificate.isPending} onClick={() => issueCertificate.mutate()}>
+            <button
+              className="btn primary"
+              disabled={!acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
+              onClick={() => issueCertificate.mutate()}
+            >
               {issueCertificate.isPending ? 'Issuing...' : 'Issue release evidence'}
             </button>
             {issueCertificate.isError ? (
@@ -142,6 +196,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 <Fact label="Issued" value={issued.issued_at} />
                 <Fact label="Expires" value={issued.expires_at} />
                 <Fact label="Artifact hash" value={issued.artifact_hash.slice(0, 24)} />
+                <Fact label="Artifacts" value={String(artifacts.length)} />
                 <Fact label="Signoffs" value={String(issued.signoffs.length)} />
               </>
             ) : (
@@ -150,6 +205,65 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           </div>
         </div>
       </Card>
+      {issued ? (
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Private evidence artifacts</h2>
+          <p className="muted" style={{ marginTop: -4, lineHeight: 1.5 }}>
+            Locked packets are stored as private artifacts. Download links are short-lived and every verification recomputes the stored SHA-256.
+          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {artifacts.map((artifact) => (
+              <div
+                key={`${artifact.bucket}/${artifact.object_path}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) auto',
+                  gap: 12,
+                  alignItems: 'center',
+                  borderTop: '1px solid var(--sc-line)',
+                  paddingTop: 10
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Badge tone="ok">{displayArtifactType(artifact.artifact_type)}</Badge>
+                    <span className="mono muted">{Math.ceil(artifact.byte_size / 1024)} KB</span>
+                  </div>
+                  <div className="mono" style={{ marginTop: 6, overflowWrap: 'anywhere' }}>{artifact.sha256}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn"
+                    disabled={artifactVerifyMutation.isPending}
+                    onClick={() => artifactVerifyMutation.mutate(artifact.artifact_type)}
+                  >
+                    Verify hash
+                  </button>
+                  <button
+                    className="btn primary"
+                    disabled={artifactUrlMutation.isPending}
+                    onClick={() => artifactUrlMutation.mutate(artifact.artifact_type)}
+                  >
+                    Download
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!artifacts.length ? <p className="muted" style={{ margin: 0 }}>No private artifacts are attached yet.</p> : null}
+            {artifactVerification ? (
+              <div className="notice">
+                {artifactVerification.verified ? 'Hash verified' : 'Hash mismatch'} for {displayArtifactType(artifactVerification.artifact_type)}.
+              </div>
+            ) : null}
+            {artifactUrlMutation.isError ? (
+              <div className="notice">{artifactUrlMutation.error instanceof Error ? artifactUrlMutation.error.message : 'Could not create download URL.'}</div>
+            ) : null}
+            {artifactVerifyMutation.isError ? (
+              <div className="notice">{artifactVerifyMutation.error instanceof Error ? artifactVerifyMutation.error.message : 'Could not verify artifact.'}</div>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
       <Card>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Reviewer signoff</h2>
         <div style={{ display: 'grid', gap: 12 }}>
@@ -230,11 +344,54 @@ export function CertificatePage({ lambda }: { lambda: number }) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 12, fontSize: 13 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(96px, 150px) minmax(0, 1fr)', gap: 12, fontSize: 13 }}>
       <span className="muted">{label}</span>
-      <span className="mono">{value}</span>
+      <span className="mono" style={{ overflowWrap: 'anywhere' }}>{value}</span>
     </div>
   );
+}
+
+function ReadinessList({
+  title,
+  items,
+  tone
+}: {
+  title: string;
+  items: Array<{ code: string; message: string }>;
+  tone: 'bad' | 'warn';
+}) {
+  return (
+    <div className="notice">
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <Badge tone={tone}>{title}</Badge>
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {items.map((item) => (
+          <li key={item.code}>{item.message}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function displayReadinessStatus(status?: string) {
+  if (status === 'ready') return 'ready';
+  if (status === 'warning') return 'can issue with warnings';
+  if (status === 'blocked') return 'blocked';
+  return 'checking';
+}
+
+function readinessTone(status?: string) {
+  if (status === 'ready') return 'ok';
+  if (status === 'warning') return 'warn';
+  if (status === 'blocked') return 'bad';
+  return 'neutral';
+}
+
+function displayArtifactType(value: string) {
+  if (value === 'issued_evidence_json') return 'Issued JSON';
+  if (value === 'issued_evidence_markdown') return 'Issued Markdown';
+  return value.replaceAll('_', ' ');
 }
 
 function displayAssumptionLabel(label: string) {

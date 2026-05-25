@@ -243,6 +243,12 @@ supabase db push --linked --dry-run
 Goal: make evidence packets reconstructable, tamper-resistant, and private by
 default.
 
+Status: implemented locally and applied to linked Supabase staging on
+2026-05-25. Evidence issue now runs readiness gates, stores immutable packet
+snapshots, persists private JSON/Markdown artifact metadata, supports
+authorized signed URLs, verifies SHA-256 hashes, and exposes readiness/artifact
+diagnostics in the release-evidence UI.
+
 ### User Stories
 
 - As a reviewer, I can reconstruct an issued evidence packet from stored inputs,
@@ -633,6 +639,10 @@ Done when:
 
 Add backend evidence-readiness checks before issue.
 
+Status: done. `certificates.evidence_readiness` powers
+`GET /api/runs/{run_id}/certificate/readiness`, issue blocking, deployment
+smoke coverage, and the UI readiness panel.
+
 Done when:
 
 - incomplete coverage blocks issue;
@@ -643,6 +653,10 @@ Done when:
 ### Ticket 7: Private Artifact Service
 
 Add the artifact service and wire it first to evidence JSON/Markdown exports.
+
+Status: done. `artifacts.py` provides memory/Supabase-backed artifact listing,
+signed URL creation, and SHA-256 verification. Issued evidence stores private
+JSON and Markdown artifact refs.
 
 Done when:
 
@@ -693,6 +707,8 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 ## Current Next Move
 
-The next implementation move is Ticket 1, followed immediately by Ticket 2 and
-Ticket 3. That starts Milestone 1 without touching cloud spend and gives the
-rest of the trust-layer work a precise authorization contract.
+The next implementation move is Milestone 3: managed provider secrets and an
+independent Cloud Run worker/job deployment path. Start with the managed secret
+backend and rotation/write API, then deploy the worker with the existing GCP
+budget guardrails still set to max instances `1` and the `StackCert staging
+$10` budget.

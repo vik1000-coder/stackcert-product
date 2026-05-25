@@ -211,6 +211,15 @@ export type CertificatePayload = {
   markdown: string;
 };
 
+export type EvidenceReadiness = {
+  run_id: string;
+  status: 'ready' | 'warning' | 'blocked';
+  can_issue: boolean;
+  blockers: Array<{ code: string; message: string; details: Record<string, unknown> }>;
+  warnings: Array<{ code: string; message: string; details: Record<string, unknown> }>;
+  checks: Array<{ id: string; label: string; status: 'passed' | 'warning' | 'blocked'; message: string }>;
+};
+
 export type CertificateSignoff = {
   id: string;
   certificate_id: string;
@@ -218,6 +227,27 @@ export type CertificateSignoff = {
   decision: 'approved' | 'rejected' | 'requested_changes';
   comment: string;
   created_at: string;
+};
+
+export type EvidenceArtifact = {
+  bucket: string;
+  object_path: string;
+  artifact_type: string;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type EvidenceArtifactSignedUrl = EvidenceArtifact & {
+  signed_url: string;
+  expires_in_seconds: number;
+};
+
+export type EvidenceArtifactVerification = EvidenceArtifact & {
+  expected_sha256: string;
+  actual_sha256: string;
+  verified: boolean;
 };
 
 export type IssuedCertificate = {
@@ -233,6 +263,9 @@ export type IssuedCertificate = {
   artifact_hash: string;
   limitations: string[];
   summary: Record<string, unknown>;
+  packet_snapshot?: Record<string, unknown>;
+  artifact_refs?: EvidenceArtifact[];
+  artifacts?: EvidenceArtifact[];
   signoffs: CertificateSignoff[];
 };
 
@@ -510,6 +543,10 @@ export const api = {
   measurements: (runId: string, lambda: number) => request<MeasurementsPayload>(`/api/runs/${runId}/measurements?lambda_cost=${lambda}`),
   runCosts: (runId: string) => request<CostSummaryPayload>(`/api/runs/${runId}/costs`),
   certificate: (runId: string, lambda: number) => request<CertificatePayload>(`/api/runs/${runId}/certificate?lambda_cost=${lambda}`),
+  certificateReadiness: (runId: string, lambda: number) =>
+    request<{ readiness: EvidenceReadiness }>(`/api/runs/${runId}/certificate/readiness?lambda_cost=${lambda}`),
+  issuedCertificateForRun: (runId: string, lambda: number) =>
+    request<{ certificate: IssuedCertificate | null }>(`/api/runs/${runId}/issued-certificate?lambda_cost=${lambda}`),
   issuedCertificate: (certificateId: string) => request<{ certificate: IssuedCertificate | null }>(`/api/certificates/${certificateId}`),
   issueCertificate: (runId: string, lambda: number, payload: { acknowledge_limitations: boolean; expires_in_days: number; reviewer_note?: string }) =>
     post<{ certificate: IssuedCertificate }>(`/api/runs/${runId}/certificate/issue?lambda_cost=${lambda}`, payload),
@@ -517,6 +554,11 @@ export const api = {
     certificateId: string,
     payload: { signer_role: string; decision: CertificateSignoff['decision']; comment?: string }
   ) => post<{ signoff: CertificateSignoff }>(`/api/certificates/${certificateId}/signoffs`, payload),
+  certificateArtifacts: (certificateId: string) => request<{ artifacts: EvidenceArtifact[] }>(`/api/certificates/${certificateId}/artifacts`),
+  certificateArtifactSignedUrl: (certificateId: string, artifactType: string) =>
+    post<{ artifact: EvidenceArtifactSignedUrl }>(`/api/certificates/${certificateId}/artifacts/${artifactType}/signed-url`, {}),
+  verifyCertificateArtifact: (certificateId: string, artifactType: string) =>
+    request<{ verification: EvidenceArtifactVerification }>(`/api/certificates/${certificateId}/artifacts/${artifactType}/verify`),
   drift: (projectId: string, lambda: number) => request<DriftPayload>(`/api/projects/${projectId}/drift?lambda_cost=${lambda}`),
   certificateMarkdownUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.md?lambda_cost=${lambda}`,
   certificateJsonUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.json?lambda_cost=${lambda}`,
