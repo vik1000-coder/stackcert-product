@@ -1956,3 +1956,19 @@ Started: 2026-05-23
     `98993f74-e817-49f5-a413-20e6e77f7023`;
   - post-Cloudflare `scripts/deployment_smoke.py` against Cloudflare +
     Cloud Run + Supabase Auth -> `deployment smoke OK`.
+
+## Docs And CI/CD Finalization For Worker/Admin Rollout
+
+- Updated the current-state, CI/CD, plan index, README, and implementation log
+  docs so they reflect the final pushed state after the Cloud Run worker job
+  and admin dashboard rollout.
+- Confirmed before this docs follow-up that the local branch was clean and
+  aligned with `origin/main` at `6ad91c3`.
+- Confirmed GitHub Actions passed on `6ad91c3`:
+  - `ci` run `26383846278` -> success;
+  - fallback `deploy pages` run `26383846277` -> success;
+  - `deploy cloudflare` run `26383928733` -> success, including the deployed
+    smoke test.
+- Re-ran the deployed smoke locally against Cloudflare + Cloud Run + Supabase
+  Auth after the workflow deploy:
+  - `scripts/deployment_smoke.py` -> `deployment smoke OK`.

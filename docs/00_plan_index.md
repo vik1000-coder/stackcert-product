@@ -112,13 +112,14 @@ The implementation is past planning. The working app now includes:
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts, with Supabase user auth and MCP-only machine bearer tokens.
 
-Milestones 1, 2, and the staging worker portion of Milestone 3 are now
-implemented: service-layer tenancy/RBAC, membership-aware lists, route
+Milestones 1 and 2 are implemented, and most of Milestone 3 is now live in
+staging: service-layer tenancy/RBAC, membership-aware lists, route
 authorization, audit events, immutable evidence semantics, private artifact
 handling, export verification, readiness diagnostics, managed connector-secret
-refs, and an independent Cloud Run worker job. The current priority is the
-post-worker production hardening slice: release-gate examples, budget/rate
-controls, evidence-context hashes, and operations setup. See
+refs, retry/dead-letter controls, lease renewal, an independent Cloud Run
+worker job, and a workspace admin operations dashboard. The current priority is
+the remaining production hardening slice: release-gate examples, workspace
+budget/rate controls, evidence-context hashes, and operations setup. See
 `15_current_state_and_next_steps.md`,
 `18_pilot_ready_execution_plan.md`, and `19_route_access_matrix.md`.
 

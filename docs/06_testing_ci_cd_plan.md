@@ -30,25 +30,28 @@ supabase db advisors --linked --type all --level warn --fail-on error
 Expected current results:
 
 - 17 Python core tests pass.
-- 64 service/API tests pass.
+- 95 service/API tests pass.
 - 6 frontend tests pass.
 - Frontend production build passes.
 - Root Cloudflare Workers static-assets build passes.
 - Supabase local and remote migration history includes
-  `20260525001842_worker_idempotency_and_usage_keys.sql`.
+  `20260525001842_worker_idempotency_and_usage_keys.sql` and
+  `20260525021244_immutable_evidence_artifacts.sql`.
 - Supabase advisors return no errors; staging still has a warn-level Auth
   leaked-password-protection item to fix before production.
 
 The hosted staging path has also been verified:
 
 - Supabase remote migration history matches the local migration history.
-- Cloud Run `stackcert-api` is serving revision `stackcert-api-00004-qv9`.
+- Cloud Run `stackcert-api` is serving revision `stackcert-api-00013-x8r`.
+- Cloud Run worker job `stackcert-worker` can process a queued demo job through
+  `scripts/cloud_run_worker_smoke.py`.
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - `scripts/deployment_smoke.py` passes against Cloudflare + Cloud Run +
   Supabase Auth.
-- Latest GitHub Actions runs on `main` are green for `ci`, fallback
-  `deploy pages`, and `deploy cloudflare`.
+- Recent GitHub Actions runs on `main` are green for `ci`, fallback
+  `deploy pages`, and `deploy cloudflare` on commit `6ad91c3`.
 
 ## Test Pyramid
 

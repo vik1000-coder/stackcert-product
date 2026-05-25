@@ -113,7 +113,7 @@ uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 90 tests passed
+  -> 95 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -209,9 +209,11 @@ Latest hosted verification:
   returns `deployment smoke OK`; the smoke script now also initializes the
   hosted MCP endpoint and calls `get_release_evidence_status` with an
   authenticated Supabase session.
-- Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
-  `deploy cloudflare` on commit `043e012`; the current local deployment
-  commit is `0b932c5` and should be pushed so CI/CD can redeploy from source.
+- Recent GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
+  `deploy cloudflare` on commit `6ad91c3`. The `ci` run included Python
+  service/core tests, frontend checks, and Supabase migration checks; the
+  Cloudflare deploy run built the static app, deployed it, and passed the
+  deployed smoke test.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
   browser-safe Supabase key, and the smoke-test user credentials.
@@ -228,8 +230,9 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00013-x8r`, deployed from commit
-  `0b932c5`.
+- Latest ready Cloud Run API revision is `stackcert-api-00013-x8r`, deployed
+  from code commit `0b932c5`. The later `6ad91c3` commit updated docs and
+  re-ran the web/static CI/CD path without changing the Cloud Run API image.
 - Latest image:
   `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
@@ -265,6 +268,10 @@ Latest hosted verification:
   - `ci` run `26382569136` -> success;
   - fallback `deploy pages` run `26382569147` -> success;
   - `deploy cloudflare` run `26382632288` -> success.
+- Worker/admin rollout push verification for commit `6ad91c3` is green:
+  - `ci` run `26383846278` -> success;
+  - fallback `deploy pages` run `26383846277` -> success;
+  - `deploy cloudflare` run `26383928733` -> success.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,

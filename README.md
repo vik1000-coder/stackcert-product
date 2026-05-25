@@ -87,7 +87,9 @@ https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
 Current Cloud Run API revision: `stackcert-api-00013-x8r`, deployed from
-`0b932c5` with the staging caps preserved.
+code commit `0b932c5` with the staging caps preserved. The latest pushed
+repository commit, `6ad91c3`, is a docs/static-app commit that passed CI and
+Cloudflare deployment without changing the Cloud Run API image.
 
 Current Cloud Run worker job:
 
@@ -115,6 +117,9 @@ Current CI/CD:
   Cloudflare Workers static app, and smokes Cloudflare + Cloud Run + Supabase
   Auth plus authenticated hosted MCP release-evidence status and REST
   release-gate checks.
+
+Recent verified workflow state on `main`: `ci`, `deploy pages`, and
+`deploy cloudflare` all passed for commit `6ad91c3`.
 
 ## Product App Planning
 
