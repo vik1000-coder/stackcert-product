@@ -761,7 +761,7 @@ def _visible_projects(principal: Principal | None) -> list[dict[str, Any]]:
         return projects.list_projects()
     if principal.principal_type == "machine":
         _require_mcp_read(principal)
-        return [demo_project.project()] if settings.environment != "production" else []
+        return [demo_project.project()] if settings.environment != "production" or settings.enable_demo_workspace else []
     return projects.list_projects(principal)
 
 

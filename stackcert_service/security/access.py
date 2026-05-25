@@ -196,6 +196,6 @@ def _workspace_role_for_principal(
 def _is_demo_workspace(principal: Principal, workspace_id: str) -> bool:
     if workspace_id not in {settings.demo_workspace_id, settings.demo_workspace_db_id}:
         return False
-    if settings.environment == "production":
+    if settings.environment == "production" and not settings.enable_demo_workspace:
         return False
     return principal.principal_type == "user"

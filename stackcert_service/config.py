@@ -54,6 +54,12 @@ class Settings:
     demo_run_id: str = "real_main_2000"
     demo_workspace_db_id: str = "00000000-0000-4000-8000-000000000001"
     demo_project_db_id: str = "00000000-0000-4000-8000-000000000101"
+    enable_demo_workspace: bool = os.getenv("STACKCERT_ENABLE_DEMO_WORKSPACE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 settings = Settings()

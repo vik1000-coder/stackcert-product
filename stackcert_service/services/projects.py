@@ -172,7 +172,8 @@ def _with_demo_project(rows: list[dict[str, Any]], principal: Principal | None) 
 
 def _can_use_demo_workspace(workspace_id: str, principal: Principal) -> bool:
     if settings.environment == "production":
-        return False
+        if not settings.enable_demo_workspace:
+            return False
     return principal.principal_type == "user" and workspace_id in {settings.demo_workspace_id, settings.demo_workspace_db_id}
 
 

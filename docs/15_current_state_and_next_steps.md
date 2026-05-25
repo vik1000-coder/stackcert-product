@@ -84,8 +84,9 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 - The Edge Function remains a lightweight demo/API-preview layer, not the
   provider-grade Python CASS runtime.
 - Cloud Run staging now runs the real FastAPI/CASS API with
-  `STACKCERT_PERSISTENCE_BACKEND=supabase` and allows the Cloudflare staging
-  origin in CORS.
+  `STACKCERT_PERSISTENCE_BACKEND=supabase`, explicitly enables the seeded demo
+  workspace for staging smoke users, and allows the Cloudflare staging origin
+  in CORS.
 
 ## Current Verification Baseline
 
@@ -207,8 +208,8 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00006-4qd`, deployed from commit
-  `b022c1c`.
+- Latest ready revision is `stackcert-api-00007-vc9`, deployed from commit
+  `325ea1a`.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
 - The current Cloud Run revision passes unauthenticated and authenticated

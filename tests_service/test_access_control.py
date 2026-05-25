@@ -17,10 +17,12 @@ from stackcert_service.services import projects
 class AccessHelperTest(unittest.TestCase):
     def setUp(self) -> None:
         self.old_environment = settings.environment
+        self.old_enable_demo_workspace = settings.enable_demo_workspace
 
     def tearDown(self) -> None:
         projects.clear_setup_records()
         object.__setattr__(settings, "environment", self.old_environment)
+        object.__setattr__(settings, "enable_demo_workspace", self.old_enable_demo_workspace)
 
     def test_role_aliases_and_groups(self) -> None:
         self.assertEqual(access.normalize_role("maintainer"), "platform")
@@ -69,12 +71,22 @@ class AccessHelperTest(unittest.TestCase):
 
     def test_production_demo_exception_is_disabled(self) -> None:
         object.__setattr__(settings, "environment", "production")
+        object.__setattr__(settings, "enable_demo_workspace", False)
         principal = Principal(user_id="demo_user", email="demo@example.com", role="owner", workspace_ids=())
 
         with self.assertRaises(HTTPException) as context:
             access.grant_from_workspace(principal, settings.demo_workspace_id)
 
         self.assertEqual(context.exception.status_code, 403)
+
+    def test_production_demo_exception_can_be_explicitly_enabled_for_staging(self) -> None:
+        object.__setattr__(settings, "environment", "production")
+        object.__setattr__(settings, "enable_demo_workspace", True)
+        principal = Principal(user_id="demo_user", email="demo@example.com", role="viewer", workspace_ids=())
+
+        grant = access.grant_from_workspace(principal, settings.demo_workspace_id, required="project_maintainer")
+
+        self.assertEqual(grant.role, "owner")
 
     def test_project_access_uses_supplied_membership_role(self) -> None:
         principal = Principal(user_id="user_1", email="user@example.com", role="viewer", workspace_ids=())

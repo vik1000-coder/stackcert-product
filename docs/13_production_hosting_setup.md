@@ -358,9 +358,13 @@ Deploy the API service:
   --cpu-throttling \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_CORS_ORIGINS=https://staging.stackcert.com" \
+  --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_ENABLE_DEMO_WORKSPACE=true,STACKCERT_CORS_ORIGINS=https://staging.stackcert.com" \
   --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest"
 ```
+
+`STACKCERT_ENABLE_DEMO_WORKSPACE=true` is for staging/demo deployments only.
+Leave it unset or `false` for a real production tenant so the seeded
+`proj_acme_copilot` walkthrough is not exposed alongside customer projects.
 
 If the runtime should accept MCP-only machine callers, include the hashed token
 configuration in `--set-env-vars` or set it with a separate
@@ -442,6 +446,7 @@ Required API environment:
 ```text
 STACKCERT_ENV=production
 STACKCERT_PERSISTENCE_BACKEND=supabase
+STACKCERT_ENABLE_DEMO_WORKSPACE optional; staging/demo only
 STACKCERT_CORS_ORIGINS=https://app.stackcert.com,https://stackcert.com
 SUPABASE_URL
 SUPABASE_SECRET_KEY
