@@ -211,9 +211,11 @@ def get_project(project_id: str, principal: PrincipalDep) -> dict[str, object]:
 @app.get("/api/projects/{project_id}/runs")
 def list_runs(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     _require_project_access(project_id, principal)
+    runs = pilot_runs.list_project_runs(project_id)
     if project_id != demo_project.project()["id"]:
-        return {"runs": pilot_runs.list_project_runs(project_id)}
-    return {"runs": [demo_project.run_summary(lambda_cost)]}
+        return {"runs": runs}
+    demo_run = demo_project.run_summary(lambda_cost)
+    return {"runs": runs + [demo_run] if not any(run["id"] == demo_run["id"] for run in runs) else runs}
 
 
 @app.post("/api/projects/{project_id}/runs/uploaded-outputs")

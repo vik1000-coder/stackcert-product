@@ -283,6 +283,13 @@ export type DriftPayload = {
   history: Array<{ id: string; status: string; run_id: string; summary: string }>;
 };
 
+export type RecertificationResponse = {
+  project_id: string;
+  job_id: string;
+  status: string;
+  message: string;
+};
+
 export type CustomBehavior = {
   id: string;
   project_id: string;
@@ -732,6 +739,8 @@ export const api = {
   verifyCertificateArtifact: (certificateId: string, artifactType: string) =>
     request<{ verification: EvidenceArtifactVerification }>(`/api/certificates/${certificateId}/artifacts/${artifactType}/verify`),
   drift: (projectId: string, lambda: number) => request<DriftPayload>(`/api/projects/${projectId}/drift?lambda_cost=${lambda}`),
+  triggerRecertification: (projectId: string, lambda: number) =>
+    post<RecertificationResponse>(`/api/projects/${projectId}/recertify?lambda_cost=${lambda}`, {}),
   certificateMarkdownUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.md?lambda_cost=${lambda}`,
   certificateJsonUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/certificate.json?lambda_cost=${lambda}`,
   rankingCsvUrl: (runId: string, lambda: number) => `${apiBase}/api/runs/${runId}/ranking.csv?lambda_cost=${lambda}`,
