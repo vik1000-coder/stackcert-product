@@ -7,9 +7,11 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 
 from stackcert_service.config import settings
+from stackcert_service.security import access
 from stackcert_service.security.auth import Principal
 from stackcert_service.schemas import CostEstimateRequest, MeasurementPlanCreate
 from stackcert_service.services import custom_behaviors
+from stackcert_service.services import audit
 from stackcert_service.services import demo_project
 from stackcert_service.services import jobs
 from stackcert_service.services import pilot_runs
@@ -51,7 +53,7 @@ THEORY_FORMULAE = {
 }
 
 
-def manifest() -> dict[str, Any]:
+def manifest(principal: Principal | None = None) -> dict[str, Any]:
     return {
         "protocolVersion": PROTOCOL_VERSION,
         "serverInfo": SERVER_INFO,
@@ -65,7 +67,7 @@ def manifest() -> dict[str, Any]:
             "auth": "Supabase bearer token or MCP-only machine bearer token.",
         },
         "tools": list_tools(),
-        "resources": list_resources(),
+        "resources": list_resources_for_principal(principal),
         "resourceTemplates": list_resource_templates(),
         "prompts": list_prompts(),
     }
@@ -244,23 +246,30 @@ def list_tools() -> list[dict[str, Any]]:
 
 def call_tool(name: str, arguments: dict[str, Any] | None = None, *, principal: Principal | None = None) -> dict[str, Any]:
     arguments = arguments or {}
+    _audit_mcp_tool_call(name, arguments, principal)
     if name == "list_projects":
-        return _tool_result({"projects": projects.list_projects()})
+        _require_mcp_read(principal)
+        return _tool_result({"projects": _visible_projects(principal)})
     if name == "get_release_evidence_status":
         project_id = str(arguments.get("project_id") or "")
+        _require_mcp_project_access(project_id, principal)
         payload = release_evidence_status(project_id, float(arguments.get("lambda_cost") or 5.0))
         return _tool_result(payload, resource_links=_resource_links_for_status(payload))
     if name == "get_certificate_status":
         project_id = str(arguments.get("project_id") or "")
+        _require_mcp_project_access(project_id, principal)
         payload = legacy_certificate_status(project_id, float(arguments.get("lambda_cost") or 5.0))
         return _tool_result(payload, resource_links=_resource_links_for_status(payload))
     if name == "get_run_theory_card":
         run_id = str(arguments.get("run_id") or "")
+        _require_mcp_run_access(run_id, principal)
         return _tool_result(theory_card(run_id, float(arguments.get("lambda_cost") or 5.0)))
     if name == "get_measurement_recommendations":
         run_id = str(arguments.get("run_id") or "")
+        _require_mcp_run_access(run_id, principal)
         return _tool_result(measurement_recommendations(run_id, float(arguments.get("lambda_cost") or 5.0)))
     if name == "estimate_run_cost":
+        _require_mcp_project_access(str(arguments.get("project_id") or settings.demo_project_id), principal)
         payload = CostEstimateRequest(**{key: value for key, value in arguments.items() if key != "project_id"})
         return _tool_result(
             {
@@ -271,10 +280,13 @@ def call_tool(name: str, arguments: dict[str, Any] | None = None, *, principal: 
     if name == "get_run_costs":
         run_id = str(arguments.get("run_id") or "")
         project_id = str(arguments.get("project_id") or _project_id_for_run(run_id) or settings.demo_project_id)
+        _require_mcp_project_access(project_id, principal)
+        _require_mcp_run_access(run_id, principal)
         return _tool_result(usage.cost_summary(project_id, run_id))
     if name == "create_measurement_plan":
         _require_mcp_write(principal)
         run_id = str(arguments.get("run_id") or "")
+        _require_mcp_run_access(run_id, principal, required="project_maintainer")
         payload = MeasurementPlanCreate(
             action_ids=list(arguments.get("action_ids") or []),
             max_cost_usd=arguments.get("max_cost_usd"),
@@ -290,8 +302,12 @@ def call_tool(name: str, arguments: dict[str, Any] | None = None, *, principal: 
 
 
 def list_resources() -> list[dict[str, Any]]:
+    return list_resources_for_principal(None)
+
+
+def list_resources_for_principal(principal: Principal | None) -> list[dict[str, Any]]:
     resources: list[dict[str, Any]] = []
-    for project in projects.list_projects():
+    for project in _visible_projects(principal):
         project_id = str(project["id"])
         resources.extend(
             [
@@ -378,30 +394,38 @@ def list_resource_templates() -> list[dict[str, Any]]:
     ]
 
 
-def read_resource(uri: str) -> dict[str, Any]:
+def read_resource(uri: str, *, principal: Principal | None = None) -> dict[str, Any]:
     if uri.startswith("stackcert://projects/") and uri.endswith("/release-evidence-status"):
         project_id = uri.removeprefix("stackcert://projects/").removesuffix("/release-evidence-status")
+        _require_mcp_project_access(project_id, principal)
         return _resource_result(uri, release_evidence_status(project_id))
     if uri.startswith("stackcert://projects/") and uri.endswith("/certificate-status"):
         project_id = uri.removeprefix("stackcert://projects/").removesuffix("/certificate-status")
+        _require_mcp_project_access(project_id, principal)
         return _resource_result(uri, legacy_certificate_status(project_id))
     if uri.startswith("stackcert://projects/") and uri.endswith("/integration-guide"):
         project_id = uri.removeprefix("stackcert://projects/").removesuffix("/integration-guide")
+        _require_mcp_project_access(project_id, principal)
         return _resource_result(uri, integration_guide(project_id))
     if uri.startswith("stackcert://runs/") and uri.endswith("/release-evidence"):
         run_id = uri.removeprefix("stackcert://runs/").removesuffix("/release-evidence")
+        _require_mcp_run_access(run_id, principal)
         return _resource_result(uri, release_evidence_packet(run_id))
     if uri.startswith("stackcert://runs/") and uri.endswith("/certificate"):
         run_id = uri.removeprefix("stackcert://runs/").removesuffix("/certificate")
+        _require_mcp_run_access(run_id, principal)
         return _resource_result(uri, release_evidence_packet(run_id))
     if uri.startswith("stackcert://runs/") and uri.endswith("/theory-card"):
         run_id = uri.removeprefix("stackcert://runs/").removesuffix("/theory-card")
+        _require_mcp_run_access(run_id, principal)
         return _resource_result(uri, theory_card(run_id))
     if uri.startswith("stackcert://runs/") and uri.endswith("/measurement-recommendations"):
         run_id = uri.removeprefix("stackcert://runs/").removesuffix("/measurement-recommendations")
+        _require_mcp_run_access(run_id, principal)
         return _resource_result(uri, measurement_recommendations(run_id))
     if uri.startswith("stackcert://runs/") and uri.endswith("/costs"):
         run_id = uri.removeprefix("stackcert://runs/").removesuffix("/costs")
+        _require_mcp_run_access(run_id, principal)
         return _resource_result(uri, usage.cost_summary(_project_id_for_run(run_id) or settings.demo_project_id, run_id))
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown MCP resource: {uri}")
 
@@ -439,6 +463,10 @@ def list_prompts() -> list[dict[str, Any]]:
 
 
 def get_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    return get_prompt_for_principal(name, arguments, principal=None)
+
+
+def get_prompt_for_principal(name: str, arguments: dict[str, Any] | None = None, *, principal: Principal | None = None) -> dict[str, Any]:
     arguments = arguments or {}
     if name == "draft_custom_behavior":
         agent_goal = str(arguments.get("agent_goal") or "the agent task")
@@ -453,7 +481,9 @@ def get_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, 
         return _prompt_result("Draft a StackCert custom behavior.", text)
     if name == "deployment_gate_review":
         project_id = str(arguments.get("project_id") or settings.demo_project_id)
+        _require_mcp_project_access(project_id, principal)
         run_id = str(arguments.get("run_id") or (_latest_run_for_project(project_id) or {}).get("id") or settings.demo_run_id)
+        _require_mcp_run_access(run_id, principal)
         status_payload = release_evidence_status(project_id)
         text = (
             "Review this StackCert result as a scoped deployment gate, not a guarantee. "
@@ -463,6 +493,7 @@ def get_prompt(name: str, arguments: dict[str, Any] | None = None) -> dict[str, 
         return _prompt_result("Review StackCert release evidence before deployment.", text)
     if name == "cass_theory_audit":
         run_id = str(arguments.get("run_id") or settings.demo_run_id)
+        _require_mcp_run_access(run_id, principal)
         card = theory_card(run_id)
         text = (
             "Audit whether this release decision stays inside the CASS evidence scope. "
@@ -645,15 +676,15 @@ def _dispatch(method: str, params: dict[str, Any], *, principal: Principal | Non
     if method == "tools/call":
         return call_tool(str(params.get("name") or ""), params.get("arguments") or {}, principal=principal)
     if method == "resources/list":
-        return {"resources": list_resources()}
+        return {"resources": list_resources_for_principal(principal)}
     if method == "resources/templates/list":
         return {"resourceTemplates": list_resource_templates()}
     if method == "resources/read":
-        return read_resource(str(params.get("uri") or ""))
+        return read_resource(str(params.get("uri") or ""), principal=principal)
     if method == "prompts/list":
         return {"prompts": list_prompts()}
     if method == "prompts/get":
-        return get_prompt(str(params.get("name") or ""), params.get("arguments") or {})
+        return get_prompt_for_principal(str(params.get("name") or ""), params.get("arguments") or {}, principal=principal)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown MCP method: {method}")
 
 
@@ -677,11 +708,83 @@ def _capabilities() -> dict[str, Any]:
 
 
 def _require_mcp_write(principal: Principal | None) -> None:
+    _require_mcp_read(principal)
     if principal is None or principal.principal_type != "machine":
         return
     if "mcp:write" in principal.scopes:
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="MCP machine token requires mcp:write scope for this tool")
+
+
+def _require_mcp_read(principal: Principal | None) -> None:
+    if principal is None or principal.principal_type != "machine":
+        return
+    access.require_scope(principal, "mcp:read")
+
+
+def _require_mcp_project_access(
+    project_id: str,
+    principal: Principal | None,
+    *,
+    required: str = "viewer",
+) -> None:
+    _require_mcp_read(principal)
+    if principal is None:
+        return
+    if principal.principal_type == "machine":
+        if project_id == settings.demo_project_id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MCP machine token is not scoped to this project",
+        )
+    project = projects.get_project(project_id)
+    role = projects.project_membership_role(project_id, principal) if project else None
+    access.grant_from_project(principal, project, membership_role=role, required=required)
+
+
+def _require_mcp_run_access(
+    run_id: str,
+    principal: Principal | None,
+    *,
+    required: str = "viewer",
+) -> None:
+    _require_mcp_read(principal)
+    project_id = _project_id_for_run(run_id)
+    if not project_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown run: {run_id}")
+    _require_mcp_project_access(project_id, principal, required=required)
+
+
+def _visible_projects(principal: Principal | None) -> list[dict[str, Any]]:
+    if principal is None:
+        return projects.list_projects()
+    if principal.principal_type == "machine":
+        _require_mcp_read(principal)
+        return [demo_project.project()] if settings.environment != "production" else []
+    return projects.list_projects(principal)
+
+
+def _audit_mcp_tool_call(name: str, arguments: dict[str, Any], principal: Principal | None) -> None:
+    if principal is None:
+        return
+    project_id = str(arguments.get("project_id") or "")
+    run_id = str(arguments.get("run_id") or "")
+    if not project_id and run_id:
+        project_id = _project_id_for_run(run_id) or ""
+    workspace_id = None
+    if project_id:
+        project = projects.get_project(project_id)
+        workspace_id = str(project.get("workspace_id")) if project else None
+    audit.record_event(
+        "mcp.tool_called",
+        principal,
+        workspace_id=workspace_id,
+        project_id=project_id or None,
+        target_type="mcp_tool",
+        target_id=name,
+        metadata={"tool": name, "argument_keys": sorted(arguments.keys())},
+    )
 
 
 def _tool_result(

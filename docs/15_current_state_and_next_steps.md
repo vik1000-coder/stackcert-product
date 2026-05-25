@@ -42,6 +42,10 @@ StackCert is now a usable prototype with a real product shape:
 - Supabase-backed persistence for custom behaviors, benchmark suites, guard
   connectors, jobs, usage events, issued evidence, signoffs, and uploaded-output
   pilot runs.
+- Service-layer tenancy/RBAC now protects workspace, project, setup, run,
+  evidence, job, usage, drift, and MCP surfaces in addition to Supabase RLS.
+  Workspace/project lists are membership-filtered, cross-tenant object access is
+  denied, and sensitive mutations write audit events.
 - Agent/MCP surface for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts. MCP can authenticate with Supabase bearer tokens or MCP-only machine
@@ -87,8 +91,11 @@ Latest local verification from the current working tree:
 uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py
   -> OK
 
+uv run python -m unittest tests_service.test_access_control
+  -> 10 tests passed
+
 uv run python -m unittest discover -s tests_service
-  -> 64 tests passed
+  -> 77 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -106,6 +113,9 @@ npm --prefix web run build
   -> OK
 
 npm run build
+  -> OK
+
+git diff --check
   -> OK
 
 supabase db push --linked --dry-run before applying the migration
@@ -193,7 +203,8 @@ Latest hosted verification:
 ## Important Boundaries
 
 The current product is not yet production-ready for real customers, but the
-worker path has moved past demo-only execution.
+worker path has moved past demo-only execution and the app now has a real
+service-layer trust boundary for design-partner pilots.
 
 Do not overstate the current release evidence. It is scoped to:
 
@@ -237,6 +248,22 @@ Current worker status:
   event ids for retry-safe persistence;
 - retry, lease, dead-letter, manual retry, and run-next worker APIs remain in
   place from the earlier worker hardening slice.
+
+Current trust-layer status:
+
+- `docs/19_route_access_matrix.md` documents every FastAPI route's object
+  scope, role/scope requirement, demo exception, and audit event expectation;
+- access helpers normalize the existing Supabase role vocabulary into product
+  groups such as `project_maintainer`, `evidence_issuer`, and
+  `evidence_reviewer`;
+- Supabase-backed and local membership lookup paths filter accessible
+  workspaces/projects and enforce project/run/certificate object access;
+- MCP user principals are filtered by project/run access, while MCP-only
+  machine tokens remain limited to scoped MCP surfaces;
+- audit events are recorded for workspace/project creation, suite commits,
+  uploaded-output runs, connector/job/work creation, measurement plans,
+  evidence issue/signoff/export, retest queueing, custom behaviors, and MCP tool
+  calls.
 
 ## What To Do Next
 

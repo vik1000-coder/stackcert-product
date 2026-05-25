@@ -72,6 +72,8 @@ Latest primary files:
   against the current codebase and hosted deployment state.
 - `18_pilot_ready_execution_plan.md`: the current executable roadmap distilled
   from the imported plan, feasibility review, and implementation state.
+- `19_route_access_matrix.md`: service route access contract for app users,
+  machine tokens, object scopes, demo exceptions, and audit events.
 
 ## Current Hosted Demo
 
@@ -103,11 +105,13 @@ The implementation is past planning. The working app now includes:
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts, with Supabase user auth and MCP-only machine bearer tokens.
 
-The current priority is the pilot trust layer: service-layer tenancy/RBAC,
-audit events, immutable evidence semantics, and private artifact handling. The
-next integration layer is Cloud Run worker deployment, managed secret storage,
-and release-gate APIs. See `15_current_state_and_next_steps.md` and
-`18_pilot_ready_execution_plan.md`.
+Milestone 1 of the pilot trust layer is now implemented: service-layer
+tenancy/RBAC, membership-aware lists, route authorization, and audit events.
+The current priority is Milestone 2: immutable evidence semantics, private
+artifact handling, export verification, and readiness diagnostics. The next
+integration layer is Cloud Run worker deployment, managed secret storage, and
+release-gate APIs. See `15_current_state_and_next_steps.md`,
+`18_pilot_ready_execution_plan.md`, and `19_route_access_matrix.md`.
 
 ## Test Cadence
 

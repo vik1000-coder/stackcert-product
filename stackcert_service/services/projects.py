@@ -10,24 +10,34 @@ from fastapi import HTTPException, status
 from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import ProjectCreate, WorkspaceCreate
+from stackcert_service.security.auth import Principal
 from stackcert_service.services import demo_project
 
 
 _workspaces: list[dict[str, Any]] = []
 _projects: list[dict[str, Any]] = []
+_workspace_memberships: dict[tuple[str, str], str] = {}
 
 
-def list_workspaces() -> list[dict[str, Any]]:
+def list_workspaces(principal: Principal | None = None) -> list[dict[str, Any]]:
     store = _persistent_store()
     if store:
         try:
-            return _demo_first(store.list_workspaces(), demo_project.workspace())
+            rows = store.list_workspaces_for_user(principal.user_id) if principal else store.list_workspaces()
+            return _with_demo_workspace(rows, principal)
         except SupabasePersistenceError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    return _demo_first(_workspaces, demo_project.workspace())
+    if principal:
+        rows = [
+            {**workspace, "role": membership_role(str(workspace["id"]), principal) or workspace.get("role") or "viewer"}
+            for workspace in _workspaces
+            if membership_role(str(workspace["id"]), principal)
+        ]
+        return _with_demo_workspace(rows, principal)
+    return _with_demo_workspace(_workspaces, principal)
 
 
-def create_workspace(payload: WorkspaceCreate) -> dict[str, Any]:
+def create_workspace(payload: WorkspaceCreate, principal: Principal | None = None) -> dict[str, Any]:
     workspace = {
         "id": f"ws_{uuid.uuid4().hex[:12]}",
         "name": payload.name,
@@ -39,21 +49,31 @@ def create_workspace(payload: WorkspaceCreate) -> dict[str, Any]:
     store = _persistent_store()
     if store:
         try:
-            return store.create_workspace(workspace)
+            return store.create_workspace(workspace, owner_user_id=principal.user_id if principal else None)
         except SupabasePersistenceError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     _workspaces.insert(0, workspace)
+    if principal:
+        _workspace_memberships[(workspace["id"], principal.user_id)] = "owner"
     return workspace
 
 
-def list_projects() -> list[dict[str, Any]]:
+def list_projects(principal: Principal | None = None) -> list[dict[str, Any]]:
     store = _persistent_store()
     if store:
         try:
-            return _demo_first(store.list_projects(), demo_project.project())
+            rows = store.list_projects_for_user(principal.user_id) if principal else store.list_projects()
+            return _with_demo_project(rows, principal)
         except SupabasePersistenceError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    return _demo_first(_projects, demo_project.project())
+    if principal:
+        rows = [
+            project
+            for project in _projects
+            if membership_role(str(project["workspace_id"]), principal)
+        ]
+        return _with_demo_project(rows, principal)
+    return _with_demo_project(_projects, principal)
 
 
 def get_project(project_id: str) -> dict[str, Any] | None:
@@ -110,10 +130,50 @@ def set_project_setup_status(project_id: str, setup_status: str) -> None:
 def clear_setup_records() -> None:
     _workspaces.clear()
     _projects.clear()
+    _workspace_memberships.clear()
 
 
-def _demo_first(rows: list[dict[str, Any]], demo: dict[str, Any]) -> list[dict[str, Any]]:
+def membership_role(workspace_id: str, principal: Principal) -> str | None:
+    if _can_use_demo_workspace(workspace_id, principal):
+        return "owner"
+    store = _persistent_store()
+    if store:
+        try:
+            return store.get_workspace_membership_role(workspace_id, principal.user_id)
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    if (workspace_id, principal.user_id) in _workspace_memberships:
+        return _workspace_memberships[(workspace_id, principal.user_id)]
+    if workspace_id in principal.workspace_ids:
+        return principal.role
+    return None
+
+
+def project_membership_role(project_id: str, principal: Principal) -> str | None:
+    project = get_project(project_id)
+    if not project:
+        return None
+    return membership_role(str(project["workspace_id"]), principal)
+
+
+def _with_demo_workspace(rows: list[dict[str, Any]], principal: Principal | None) -> list[dict[str, Any]]:
+    demo = demo_project.workspace()
+    if principal is not None and not _can_use_demo_workspace(demo["id"], principal):
+        return [row for row in rows if row["id"] != demo["id"]]
     return [demo] + [row for row in rows if row["id"] != demo["id"]]
+
+
+def _with_demo_project(rows: list[dict[str, Any]], principal: Principal | None) -> list[dict[str, Any]]:
+    demo = demo_project.project()
+    if principal is not None and not _can_use_demo_workspace(demo["workspace_id"], principal):
+        return [row for row in rows if row["id"] != demo["id"]]
+    return [demo] + [row for row in rows if row["id"] != demo["id"]]
+
+
+def _can_use_demo_workspace(workspace_id: str, principal: Principal) -> bool:
+    if settings.environment == "production":
+        return False
+    return principal.principal_type == "user" and workspace_id in {settings.demo_workspace_id, settings.demo_workspace_db_id}
 
 
 def _now() -> str:

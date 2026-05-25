@@ -1529,3 +1529,39 @@ Started: 2026-05-23
   - second, the pilot integration layer: managed secrets, independent Cloud Run
     worker, and release-gate APIs;
   - third, pilot UX and production operations.
+
+## Milestone 1 Pilot Trust Layer
+
+- Added `docs/19_route_access_matrix.md`, covering every FastAPI route's object
+  scope, required role or machine scope, demo exception, and audit expectation.
+- Added `stackcert_service/security/access.py` with:
+  - role normalization and aliases for the existing Supabase role vocabulary;
+  - product role groups such as `project_maintainer`, `evidence_issuer`, and
+    `evidence_reviewer`;
+  - app-principal, machine-scope, workspace, project, run, and certificate
+    grant helpers.
+- Added Supabase and local membership lookup paths:
+  - workspace/project list filtering by principal membership;
+  - workspace owner membership creation for locally created workspaces;
+  - project/run/certificate access checks that deny cross-tenant reads and
+    writes.
+- Applied route authorization to workspace, project, benchmark suite, custom
+  behavior, connector, job, run, usage, evidence, drift, retest, and MCP routes.
+- Added `stackcert_service/services/audit.py` and wired sensitive mutations to
+  audit events, including project/workspace creation, suite commits, uploaded
+  runs, connector/job actions, measurement plans, evidence issue/signoff/export,
+  retest queueing, custom behaviors, and MCP tool calls.
+- Updated MCP manifest/tool/resource/prompt handling so user principals are
+  filtered by project/run access and MCP-only machine tokens remain scoped to
+  MCP surfaces.
+- Added `tests_service/test_access_control.py` and extended Supabase store
+  contract coverage for membership and audit-event writes.
+- Verification:
+  - `uv run python -m unittest tests_service.test_access_control` -> 10 tests passed;
+  - `uv run python -m unittest discover -s tests_service` -> 77 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `git diff --check` -> OK.

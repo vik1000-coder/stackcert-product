@@ -49,7 +49,27 @@ class SupabaseStore:
         )
         return [self._workspace_from_row(row) for row in rows]
 
-    def create_workspace(self, workspace: dict[str, Any]) -> dict[str, Any]:
+    def list_workspaces_for_user(self, user_id: str) -> list[dict[str, Any]]:
+        memberships = self.list_workspace_memberships_for_user(user_id)
+        workspace_ids = [row["workspace_id"] for row in memberships]
+        if not workspace_ids:
+            return []
+        rows = self._request(
+            "GET",
+            "workspaces",
+            params={
+                "id": f"in.({','.join(workspace_ids)})",
+                "select": "*",
+                "order": "created_at.desc",
+            },
+        )
+        roles_by_workspace = {row["workspace_id"]: row["role"] for row in memberships}
+        return [
+            {**self._workspace_from_row(row), "role": roles_by_workspace.get(str(row["id"]), "viewer")}
+            for row in rows
+        ]
+
+    def create_workspace(self, workspace: dict[str, Any], owner_user_id: str | None = None) -> dict[str, Any]:
         rows = self._request(
             "POST",
             "workspaces",
@@ -60,7 +80,20 @@ class SupabaseStore:
             },
             prefer="return=representation",
         )
-        return self._workspace_from_row(rows[0])
+        created = self._workspace_from_row(rows[0])
+        if owner_user_id and _is_uuid(owner_user_id):
+            self._request(
+                "POST",
+                "workspace_memberships",
+                json={
+                    "workspace_id": created["id"],
+                    "user_id": owner_user_id,
+                    "role": "owner",
+                    "status": "active",
+                },
+                prefer="return=minimal",
+            )
+        return created
 
     def list_projects(self) -> list[dict[str, Any]]:
         rows = self._request(
@@ -69,6 +102,61 @@ class SupabaseStore:
             params={"select": "*", "order": "created_at.desc"},
         )
         return [self._project_from_row(row) for row in rows]
+
+    def list_projects_for_user(self, user_id: str) -> list[dict[str, Any]]:
+        memberships = self.list_workspace_memberships_for_user(user_id)
+        workspace_ids = [row["workspace_id"] for row in memberships]
+        if not workspace_ids:
+            return []
+        rows = self._request(
+            "GET",
+            "projects",
+            params={
+                "workspace_id": f"in.({','.join(workspace_ids)})",
+                "select": "*",
+                "order": "created_at.desc",
+            },
+        )
+        return [self._project_from_row(row) for row in rows]
+
+    def list_workspace_memberships_for_user(self, user_id: str) -> list[dict[str, Any]]:
+        if not _is_uuid(user_id):
+            return []
+        rows = self._request(
+            "GET",
+            "workspace_memberships",
+            params={
+                "user_id": f"eq.{user_id}",
+                "status": "eq.active",
+                "select": "workspace_id,role,status",
+            },
+        )
+        return [
+            {"workspace_id": str(row["workspace_id"]), "role": str(row["role"]), "status": row.get("status") or "active"}
+            for row in rows
+        ]
+
+    def get_workspace_membership_role(self, workspace_id: str, user_id: str) -> str | None:
+        if workspace_id == settings.demo_workspace_id:
+            workspace_id = settings.demo_workspace_db_id
+        if not _is_uuid(workspace_id) or not _is_uuid(user_id):
+            return None
+        rows = self._request(
+            "GET",
+            "workspace_memberships",
+            params={
+                "workspace_id": f"eq.{workspace_id}",
+                "user_id": f"eq.{user_id}",
+                "status": "eq.active",
+                "select": "role",
+                "limit": "1",
+            },
+        )
+        return str(rows[0]["role"]) if rows else None
+
+    def get_project_membership_role(self, project_id: str, user_id: str) -> str | None:
+        workspace_db_id, _ = self._resolve_project(project_id)
+        return self.get_workspace_membership_role(workspace_db_id, user_id)
 
     def create_project(self, workspace_id: str, project: dict[str, Any]) -> dict[str, Any]:
         workspace_db_id = self._resolve_workspace(workspace_id)
@@ -728,6 +816,36 @@ class SupabaseStore:
         )
         return self._certificate_signoff_from_row(signoff_rows[0], certificate_id)
 
+    def record_audit_event(self, event: dict[str, Any]) -> dict[str, Any]:
+        workspace_db_id = _api_workspace_to_db_id(event.get("workspace_id"))
+        project_db_id = None
+        if event.get("project_id"):
+            workspace_db_id, project_db_id = self._resolve_project(str(event["project_id"]))
+        target_id = str(event["target_id"]) if _is_uuid(event.get("target_id")) else None
+        metadata = {
+            **(event.get("metadata") or {}),
+            "api_workspace_id": event.get("workspace_id"),
+            "api_project_id": event.get("project_id"),
+            "external_target_id": event.get("target_id"),
+            "actor": event.get("actor"),
+            "actor_type": event.get("actor_type"),
+        }
+        rows = self._request(
+            "POST",
+            "audit_events",
+            json={
+                "workspace_id": workspace_db_id,
+                "project_id": project_db_id,
+                "actor_user_id": event.get("actor_user_id") if _is_uuid(event.get("actor_user_id")) else None,
+                "action": event["action"],
+                "target_type": event.get("target_type"),
+                "target_id": target_id,
+                "metadata": metadata,
+            },
+            prefer="return=representation",
+        )
+        return {**event, "db_id": rows[0].get("id") if rows else None}
+
     def _replace_pilot_outputs(
         self,
         *,
@@ -1379,6 +1497,22 @@ def _job_status_to_db(status: str) -> str:
         "failed": "failed",
         "canceled": "canceled",
     }.get(status, "queued")
+
+
+def _is_uuid(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return True
+
+
+def _api_workspace_to_db_id(workspace_id: str | None) -> str | None:
+    if workspace_id == settings.demo_workspace_id:
+        return settings.demo_workspace_db_id
+    return workspace_id if _is_uuid(workspace_id) else None
 
 
 def _job_status_from_db(status: str) -> str:

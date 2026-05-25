@@ -15,7 +15,10 @@ from stackcert_service.services.custom_behaviors import build_behavior
 
 class SupabaseStoreTest(unittest.TestCase):
     def test_workspace_project_create_and_list_contract(self) -> None:
+        requests: list[httpx.Request] = []
+
         def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
             url = str(request.url)
             if request.method == "POST" and url.endswith("/rest/v1/workspaces"):
                 payload = json.loads(request.content.decode("utf-8"))
@@ -23,6 +26,11 @@ class SupabaseStoreTest(unittest.TestCase):
                     201,
                     json=[{**payload, "id": "10000000-0000-4000-8000-000000000001", "created_at": "2026-05-23T16:00:00+00:00"}],
                 )
+            if request.method == "POST" and url.endswith("/rest/v1/workspace_memberships"):
+                payload = json.loads(request.content.decode("utf-8"))
+                self.assertEqual(payload["workspace_id"], "10000000-0000-4000-8000-000000000001")
+                self.assertEqual(payload["role"], "owner")
+                return httpx.Response(204)
             if request.method == "POST" and url.endswith("/rest/v1/projects"):
                 payload = json.loads(request.content.decode("utf-8"))
                 return httpx.Response(
@@ -37,7 +45,10 @@ class SupabaseStoreTest(unittest.TestCase):
 
         store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
 
-        workspace = store.create_workspace({"name": "Pilot Lab", "slug": "pilot-lab", "plan": "team"})
+        workspace = store.create_workspace(
+            {"name": "Pilot Lab", "slug": "pilot-lab", "plan": "team"},
+            owner_user_id="20000000-0000-4000-8000-000000000001",
+        )
         project = store.create_project(
             workspace["id"],
             {
@@ -53,6 +64,48 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(workspace["slug"], "pilot-lab")
         self.assertEqual(project["workspace_id"], workspace["id"])
         self.assertEqual(project["setup_status"], "needs_benchmark_suite")
+        self.assertTrue(any("/rest/v1/workspace_memberships" in str(request.url) for request in requests))
+
+    def test_membership_lookup_and_audit_event_contract(self) -> None:
+        captured_audit: dict[str, Any] | None = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_audit
+            url = str(request.url)
+            if request.method == "GET" and "/rest/v1/workspace_memberships" in url:
+                return httpx.Response(200, json=[{"workspace_id": "10000000-0000-4000-8000-000000000001", "role": "security", "status": "active"}])
+            if request.method == "GET" and "/rest/v1/workspaces" in url:
+                return httpx.Response(200, json=[{"id": "10000000-0000-4000-8000-000000000001", "name": "Pilot Lab", "slug": "pilot-lab", "plan": "team", "created_at": "2026-05-23T16:00:00+00:00"}])
+            if request.method == "GET" and "/rest/v1/projects" in url:
+                return httpx.Response(200, json=[{"id": "10000000-0000-4000-8000-000000000101", "workspace_id": "10000000-0000-4000-8000-000000000001", "name": "Support Agent", "slug": "support-agent", "environment": "production", "risk_tier": "high", "data_mode": "redacted_snippets", "setup_status": "evidence_ready", "created_at": "2026-05-23T16:01:00+00:00"}])
+            if request.method == "POST" and "/rest/v1/audit_events" in url:
+                captured_audit = json.loads(request.content.decode("utf-8"))
+                return httpx.Response(201, json=[{"id": "30000000-0000-4000-8000-000000000001", **captured_audit}])
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+
+        role = store.get_project_membership_role("10000000-0000-4000-8000-000000000101", "20000000-0000-4000-8000-000000000001")
+        workspaces = store.list_workspaces_for_user("20000000-0000-4000-8000-000000000001")
+        event = store.record_audit_event(
+            {
+                "action": "guard_connector.created",
+                "workspace_id": "10000000-0000-4000-8000-000000000001",
+                "project_id": "10000000-0000-4000-8000-000000000101",
+                "actor_user_id": "20000000-0000-4000-8000-000000000001",
+                "actor": "20000000-0000-4000-8000-000000000001",
+                "actor_type": "user",
+                "target_type": "guard_connector",
+                "target_id": "guard_external_id",
+                "metadata": {"guard_key": "refund_policy_guard"},
+            }
+        )
+
+        self.assertEqual(role, "security")
+        self.assertEqual(workspaces[0]["role"], "security")
+        self.assertEqual(event["db_id"], "30000000-0000-4000-8000-000000000001")
+        self.assertIsNone(captured_audit["target_id"])
+        self.assertEqual(captured_audit["metadata"]["external_target_id"], "guard_external_id")
 
     def test_create_custom_behavior_posts_redacted_contract(self) -> None:
         captured: list[httpx.Request] = []

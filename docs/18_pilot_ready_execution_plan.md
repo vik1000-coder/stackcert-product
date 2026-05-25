@@ -130,6 +130,11 @@ code:
 Goal: make the current staging app safe enough for a design partner's real
 project metadata and non-secret eval artifacts.
 
+Status: implemented locally on 2026-05-25. The route matrix, access helper
+module, membership lookup, route authorization, and audit writer are in place.
+Remaining trust work has moved into Milestone 2: immutable evidence and private
+artifacts.
+
 This milestone comes first because every later integration depends on exact
 tenant isolation and trustworthy evidence state.
 
@@ -555,6 +560,8 @@ Start here. These are the next tasks in order.
 
 Create a route-by-route access matrix for `stackcert_service/main.py`.
 
+Status: done. See `docs/19_route_access_matrix.md`.
+
 Deliverables:
 
 - document each route's object scope, required role, machine scope, and audit
@@ -572,6 +579,9 @@ Done when:
 Implement `stackcert_service/security/access.py` with role/scope helpers and
 unit tests.
 
+Status: done. Role aliases/groups, app-principal checks, machine-scope checks,
+and demo fallback behavior are covered in `tests_service/test_access_control.py`.
+
 Done when:
 
 - helpers work with in-memory test principals;
@@ -583,6 +593,9 @@ Done when:
 Add workspace/project membership access methods to the Supabase store and local
 fallback store.
 
+Status: done. Supabase membership lookup and local owner-membership fallback are
+implemented, and workspace/project lists are filtered by principal.
+
 Done when:
 
 - tests can create two principals and two workspaces;
@@ -593,6 +606,10 @@ Done when:
 Apply access helpers to workspace, project, suite, custom behavior, connector,
 job, run, certificate, usage, and drift routes.
 
+Status: done. Object-scoped reads/writes now require workspace/project/run or
+certificate access. Existing non-production demo access remains available for
+local/staging smoke flows.
+
 Done when:
 
 - cross-tenant reads and writes are denied;
@@ -602,6 +619,9 @@ Done when:
 ### Ticket 5: Audit Event Service
 
 Add `audit.py` service and wire it into sensitive mutations.
+
+Status: done. The audit service writes to Supabase when configured and keeps a
+memory fallback for local tests.
 
 Done when:
 
