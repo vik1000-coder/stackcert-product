@@ -39,8 +39,10 @@ Password: stackcert-demo
 Cloudflare Workers:
 
 - Worker: `stackcert-staging`
-- Latest observed deployment version during this audit:
-  `08a7a79b-6f32-4085-a091-119264526c1f`
+- Deployment status: verified through both GitHub Actions and direct
+  `wrangler deploy` during this audit. Cloudflare version IDs change on each
+  deploy even when the app bundle is unchanged; use
+  `npx wrangler deployments list --name stackcert-staging` for the latest ID.
 - Behavior: serves `web/dist` static assets and proxies `/api/*` plus
   `/api/mcp` to Cloud Run.
 
