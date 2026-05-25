@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
+import { authDestination } from './pages/AuthPage';
 
 describe('StackCert app', () => {
   it('renders the landing page value proposition', () => {
@@ -62,6 +63,19 @@ describe('StackCert app', () => {
     expect(screen.getByText(/Open the isolated seeded demo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('demo@stackcert.dev');
     expect(screen.getByRole('button', { name: /Open demo sandbox/i })).toBeInTheDocument();
+  });
+
+  it('keeps demo and beta auth destinations separated and normalizes stale demo routes', () => {
+    expect(authDestination(null, 'demo')).toBe('/app/ws_demo/proj_acme_copilot/overview');
+    expect(authDestination('/app/ws_demo/proj_acme_copilot/setup', 'demo')).toBe('/app/ws_demo/proj_acme_copilot/setup');
+    expect(authDestination('/app/ws_demo/proj_acme_copilot/overview?run=latest', 'demo')).toBe(
+      '/app/ws_demo/proj_acme_copilot/overview?run=latest'
+    );
+    expect(authDestination('/app/ws_demo/proj_acme_copilot/scorecards', 'demo')).toBe(
+      '/app/ws_demo/proj_acme_copilot/overview'
+    );
+    expect(authDestination('/onboarding?resume=1', 'beta')).toBe('/onboarding?resume=1');
+    expect(authDestination('/app/ws_demo/proj_acme_copilot/overview', 'beta')).toBe('/onboarding?resume=1');
   });
 
   it('renders onboarding flow shell', () => {

@@ -7,6 +7,18 @@ const fallbackDemoPath = '/app/ws_demo/proj_acme_copilot/overview';
 const fallbackBetaPath = '/onboarding?resume=1';
 const demoEmail = 'demo@stackcert.dev';
 const demoPassword = 'stackcert-demo';
+const demoProjectPath = '/app/ws_demo/proj_acme_copilot';
+const allowedAppSections = new Set([
+  'overview',
+  'ranking',
+  'co-failure',
+  'measurements',
+  'certificate',
+  'drift',
+  'setup',
+  'projects',
+  'admin'
+]);
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -20,7 +32,7 @@ export function AuthPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const destination = useMemo(() => {
-    return safeDestination(search.get('next'), flow);
+    return authDestination(search.get('next'), flow);
   }, [flow, search]);
   const signedInAsDemo = sessionEmail ? isDemoEmail(sessionEmail) : false;
   const sessionFlowMismatch = Boolean(sessionEmail) && (isDemoFlow ? !signedInAsDemo : signedInAsDemo);
@@ -200,14 +212,28 @@ export function AuthPage() {
   );
 }
 
-function safeDestination(next: string | null, flow: 'beta' | 'demo') {
+export function authDestination(next: string | null, flow: 'beta' | 'demo') {
   if (!next) return flow === 'demo' ? fallbackDemoPath : fallbackBetaPath;
   if (flow === 'demo') {
-    return next.startsWith('/app/ws_demo/proj_acme_copilot/') ? next : fallbackDemoPath;
+    return isAllowedDemoDestination(next) ? next : fallbackDemoPath;
   }
   if (next.startsWith('/onboarding')) return next;
   if (next.startsWith('/app/') && !next.startsWith('/app/ws_demo/')) return next;
   return fallbackBetaPath;
+}
+
+function isAllowedDemoDestination(next: string) {
+  try {
+    const parsed = new URL(next, 'https://stackcert.local');
+    if (parsed.origin !== 'https://stackcert.local') return false;
+    const normalizedPath = parsed.pathname.replace(/\/$/, '');
+    if (normalizedPath === demoProjectPath) return true;
+    if (!normalizedPath.startsWith(`${demoProjectPath}/`)) return false;
+    const section = normalizedPath.slice(demoProjectPath.length + 1);
+    return allowedAppSections.has(section);
+  } catch {
+    return false;
+  }
 }
 
 function isDemoEmail(value: string) {
