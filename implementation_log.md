@@ -1506,6 +1506,10 @@ Started: 2026-05-23
   - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
   - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
   - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+- GitHub Actions after push:
+  - `ci` run `26382004865` -> success;
+  - fallback `deploy pages` run `26382004853` -> success;
+  - `deploy cloudflare` run `26382070724` -> success.
 
 ## Pilot-Ready Execution Plan Reset
 

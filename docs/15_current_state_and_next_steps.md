@@ -237,8 +237,10 @@ Latest hosted verification:
   Supabase Auth. The smoke scripts now also call
   `/api/projects/proj_acme_copilot/release-gates/evaluate` and assert the
   response carries scoped non-guarantee assumptions.
-- Latest GitHub Actions runs for commit `086a54b` are green for `ci`,
-  fallback `deploy pages`, and `deploy cloudflare`.
+- Milestone 3/4 push verification for commit `e2ff7a2` is green:
+  - `ci` run `26382004865` -> success;
+  - fallback `deploy pages` run `26382004853` -> success;
+  - `deploy cloudflare` run `26382070724` -> success.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,
