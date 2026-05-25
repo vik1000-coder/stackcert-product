@@ -69,6 +69,11 @@ def main() -> int:
     api_base = args.api_url.rstrip("/")
     health_status, health_body = read_url(f"{api_base}/api/health")
     require(health_status == 200, f"health returned {health_status}: {health_body[:200]}")
+    try:
+        health = json.loads(health_body)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"health did not return JSON: {health_body[:120]}") from exc
+    require(health.get("status") == "ok", f"health payload was unexpected: {health}")
 
     denied_status, _ = read_url(f"{api_base}/api/projects")
     require(denied_status in {401, 403}, f"unauthenticated projects should be denied, got {denied_status}")
@@ -91,6 +96,14 @@ def main() -> int:
         authed_status, authed_body = read_url(f"{api_base}/api/projects", auth_headers)
         require(authed_status == 200, f"authenticated projects returned {authed_status}: {authed_body[:200]}")
         require("proj_acme_copilot" in authed_body, "authenticated projects did not include the demo project")
+
+        overview_status, overview_body = read_url(f"{api_base}/api/runs/real_main_2000/overview?lambda_cost=5", auth_headers)
+        require(overview_status == 200, f"demo overview returned {overview_status}: {overview_body[:200]}")
+        overview = json.loads(overview_body)
+        run = overview.get("run") if isinstance(overview, dict) else None
+        require(isinstance(run, dict), f"demo overview payload was unexpected: {overview}")
+        require(int(run.get("examples") or 0) >= 2000, f"demo overview should use the full seeded examples, got {run}")
+        require(int(run.get("guards") or 0) >= 8, f"demo overview should use the full seeded guard set, got {run}")
 
         readiness_status, readiness_body = read_url(
             f"{api_base}/api/runs/real_main_2000/certificate/readiness?lambda_cost=5",

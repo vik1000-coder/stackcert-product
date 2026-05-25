@@ -27,19 +27,26 @@ USD_PER_AGENT_CELL = 120.0
 FIXTURE_EXAMPLES_PATH = settings.product_root / "demo_data" / "examples_fixture.jsonl"
 FIXTURE_OUTPUTS_PATH = settings.product_root / "demo_data" / "outputs_fixture.jsonl"
 FIXTURE_WEIGHTS_PATH = settings.product_root / "demo_data" / "weights_fixture.json"
+PACKAGED_EXAMPLES_PATH = settings.product_root / "demo_data" / "examples_real_main_2000.jsonl"
+PACKAGED_OUTPUTS_PATH = settings.product_root / "demo_data" / "real_main_2000_8agent_outputs.jsonl"
+PACKAGED_WEIGHTS_PATH = settings.product_root / "demo_data" / "cass_real.json"
 
 
 def _demo_artifact_paths() -> tuple[Path, Path, Path | None, str]:
+    env_configured = "STACKCERT_DEMO_EXAMPLES" in os.environ or "STACKCERT_DEMO_OUTPUTS" in os.environ
     if settings.demo_examples_path.exists() and settings.demo_outputs_path.exists():
         weights_path: Path | None = settings.demo_weights_path if settings.demo_weights_path.exists() else None
         return settings.demo_examples_path, settings.demo_outputs_path, weights_path, "research"
 
-    env_configured = "STACKCERT_DEMO_EXAMPLES" in os.environ or "STACKCERT_DEMO_OUTPUTS" in os.environ
     if env_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Configured demo artifacts are unavailable. Check STACKCERT_DEMO_EXAMPLES and STACKCERT_DEMO_OUTPUTS.",
         )
+
+    if PACKAGED_EXAMPLES_PATH.exists() and PACKAGED_OUTPUTS_PATH.exists():
+        weights_path = PACKAGED_WEIGHTS_PATH if PACKAGED_WEIGHTS_PATH.exists() else None
+        return PACKAGED_EXAMPLES_PATH, PACKAGED_OUTPUTS_PATH, weights_path, "research"
 
     if FIXTURE_EXAMPLES_PATH.exists() and FIXTURE_OUTPUTS_PATH.exists():
         weights_path = FIXTURE_WEIGHTS_PATH if FIXTURE_WEIGHTS_PATH.exists() else None

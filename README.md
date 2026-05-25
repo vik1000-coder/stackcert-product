@@ -84,8 +84,10 @@ Password: stackcert-demo
 
 This hosted version uses Cloudflare Workers static assets for the web app,
 Supabase Auth, and the Cloud Run FastAPI/CASS service as the API runtime.
-GitHub Pages remains configured as a temporary fallback static deployment. See
-`docs/13_production_hosting_setup.md`.
+Cloudflare now also proxies same-origin `/api/*` and `/api/mcp` requests to
+Cloud Run, so the browser, REST smoke tests, and MCP clients can use the
+Cloudflare URL as the app and API base. GitHub Pages remains configured as a
+temporary fallback static deployment. See `docs/13_production_hosting_setup.md`.
 
 Current hosted API base:
 
@@ -93,10 +95,9 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-Current Cloud Run API revision: `stackcert-api-00013-x8r`, deployed from
-code commit `0b932c5` with the staging caps preserved. The latest pushed
-repository commit, `6ad91c3`, is a docs/static-app commit that passed CI and
-Cloudflare deployment without changing the Cloud Run API image.
+Current Cloud Run API revision: `stackcert-api-00014-q9f`, deployed with
+staging caps preserved and the packaged 2,000-example CASS demo artifacts
+available inside the API image.
 
 Current Cloud Run worker job:
 
@@ -117,16 +118,18 @@ comparison, but the Cloudflare-hosted app is now pointed at Cloud Run.
 Current CI/CD:
 
 - `ci` runs Python, frontend, and local Supabase migration checks on PRs and
-  pushes to `main`.
+  pushes to `main`, including a Cloudflare Worker dry-run package check.
 - `deploy pages` publishes the fallback GitHub Pages build and runs smoke
   tests.
 - `deploy cloudflare` runs after `ci` succeeds on `main`, deploys the
-  Cloudflare Workers static app, and smokes Cloudflare + Cloud Run + Supabase
-  Auth plus authenticated hosted MCP release-evidence status and REST
+  Cloudflare Workers static app, and smokes Cloudflare same-origin API proxy +
+  Supabase Auth plus authenticated hosted MCP release-evidence status and REST
   release-gate checks.
 
-Recent verified workflow state on `main`: `ci`, `deploy pages`, and
-`deploy cloudflare` all passed for commit `6ad91c3`.
+Recent hosted verification: Cloudflare `/api/health` returns Cloud Run JSON
+instead of the SPA shell; authenticated deployment and MCP smoke tests pass
+through the Cloudflare URL; browser QA passes sign-in, full demo overview,
+onboarding pilot creation, setup handoff, and 390px mobile onboarding layout.
 
 ## Product App Planning
 
@@ -208,7 +211,8 @@ Deploy command: npx wrangler deploy
 ```
 
 The root `package.json` installs/builds the `web` package with its own lockfile,
-and the root `wrangler.jsonc` deploys `web/dist` as Workers static assets.
+and the root `wrangler.jsonc` deploys `web/dist` as Workers static assets plus
+the `/api/*` Worker proxy.
 
 ## Local App
 

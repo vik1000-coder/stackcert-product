@@ -2090,3 +2090,62 @@ Started: 2026-05-23
     model-judge pilot landed on `/setup#safety-options`, setup showed the
     tailored onboarding handoff and risk weight 8, and 390px mobile onboarding
     had no horizontal overflow.
+
+## Cloudflare Same-Origin API Proxy And Hosted Onboarding Fix
+
+- Added a Cloudflare Worker entrypoint at `cloudflare/worker.ts`:
+  - proxies `/api` and `/api/*` to the Cloud Run API origin;
+  - preserves request method, body stream, query string, and auth/MCP headers;
+  - strips hop-by-hop headers and returns `Cache-Control: no-store` on API
+    responses;
+  - serves static assets through the `ASSETS` binding for non-API routes.
+- Updated root and web `wrangler.jsonc` configs:
+  - Worker `main` is configured;
+  - static assets use the `ASSETS` binding;
+  - `run_worker_first` is limited to `/api` and `/api/*`;
+  - `STACKCERT_API_ORIGIN` points at the Cloud Run staging API;
+  - Worker observability is enabled.
+- Updated Cloudflare CI/CD:
+  - Cloudflare builds now leave `VITE_API_BASE_URL` blank so the frontend uses
+    same-origin `/api`;
+  - deploy smoke tests now target
+    `https://stackcert-staging.savikk129.workers.dev/` as both web and API;
+  - CI now includes a Cloudflare Worker dry-run packaging job.
+- Fixed hosted demo-data parity:
+  - packaged the 2,000-example / 8-safety-option CASS demo artifacts in
+    `demo_data/`;
+  - `demo_project` now uses packaged full artifacts before falling back to the
+    compact clean-clone fixture when external research paths are unavailable;
+  - demo run routes now prefer the reserved seeded demo run over any persisted
+    staging row with the same run id.
+- Applied the remote Supabase migration
+  `20260525142950_add_project_onboarding_profiles.sql` so hosted onboarding can
+  persist workspace/project/profile state.
+- Deployed:
+  - Cloud Run API revision `stackcert-api-00014-q9f`;
+  - Cloudflare Worker version `4cf7ee1b-ccdb-4492-8d21-dbd5ef4788fc`;
+  - hosted app/API URL:
+    `https://stackcert-staging.savikk129.workers.dev/`.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/services/demo_project.py stackcert_service/main.py stackcert_service/services/certificates.py scripts/deployment_smoke.py` -> OK;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17 tests passed;
+  - `uv run python -m unittest discover -s tests_service -p 'test_*.py' -v` -> 107 tests passed;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm run build` -> OK;
+  - `npx wrangler deploy --dry-run` -> OK;
+  - `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --service stackcert-api --max-instances 1` -> OK;
+  - authenticated `scripts/cloud_run_api_smoke.py` against Cloud Run -> OK;
+  - `curl https://stackcert-staging.savikk129.workers.dev/api/health` returned
+    Cloud Run JSON with `content-type: application/json`;
+  - authenticated `scripts/deployment_smoke.py` against Cloudflare same-origin
+    API + Supabase Auth -> OK;
+  - authenticated `scripts/mcp_client_smoke.py` against Cloudflare `/api/mcp`
+    with the official Python MCP SDK -> OK;
+  - `supabase migration list --linked` shows local and remote migrations match
+    through `20260525142950`;
+  - `supabase db advisors --linked --type all --level warn --fail-on error`
+    exits OK with the existing warning that Supabase Auth leaked-password
+    protection is disabled;
+  - hosted Playwright QA passes sign-in, same-origin API usage, full
+    2,000-example demo overview, onboarding pilot creation, setup handoff, and
+    390px mobile onboarding without console or server errors.

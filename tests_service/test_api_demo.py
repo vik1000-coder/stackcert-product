@@ -8,6 +8,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -144,6 +145,56 @@ class DemoApiTest(unittest.TestCase):
         self.assertGreaterEqual(body["run"]["guards"], 4)
         self.assertIn(body["certificate"]["status"], {"valid", "provisional"})
         self.assertGreater(body["stats"]["comparison_count"], 0)
+
+    def test_demo_run_id_prefers_seeded_fixture_over_persisted_collision(self) -> None:
+        with (
+            patch("stackcert_service.main.pilot_runs.has_run", side_effect=AssertionError("demo run should not check persisted runs")),
+            patch("stackcert_service.main.pilot_runs.overview", side_effect=AssertionError("demo run should not use persisted overview")),
+        ):
+            response = self.client.get("/api/runs/real_main_2000/overview?lambda_cost=5")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["run"]["id"], settings.demo_run_id)
+        self.assertEqual(body["run"]["examples"], 2000)
+        self.assertEqual(body["run"]["guards"], 8)
+
+    def test_demo_project_run_list_filters_persisted_demo_id_collision(self) -> None:
+        persisted_collision = {
+            **demo_project.run_summary(5),
+            "examples": 12,
+            "guards": 4,
+            "candidate_stacks": 10,
+            "source": "persisted_staging_seed",
+        }
+        with patch("stackcert_service.main.pilot_runs.list_project_runs", return_value=[persisted_collision]):
+            response = self.client.get("/api/projects/proj_acme_copilot/runs?lambda_cost=5")
+
+        self.assertEqual(response.status_code, 200)
+        runs = response.json()["runs"]
+        demo_runs = [run for run in runs if run["id"] == settings.demo_run_id]
+        self.assertEqual(len(demo_runs), 1)
+        self.assertEqual(demo_runs[0]["examples"], 2000)
+        self.assertEqual(demo_runs[0]["guards"], 8)
+
+    def test_packaged_demo_artifacts_backstop_external_research_paths(self) -> None:
+        old_examples_path = settings.demo_examples_path
+        old_outputs_path = settings.demo_outputs_path
+        old_weights_path = settings.demo_weights_path
+        try:
+            object.__setattr__(settings, "demo_examples_path", Path("/tmp/stackcert_missing_examples.jsonl"))
+            object.__setattr__(settings, "demo_outputs_path", Path("/tmp/stackcert_missing_outputs.jsonl"))
+            object.__setattr__(settings, "demo_weights_path", Path("/tmp/stackcert_missing_weights.json"))
+            demo_project.demo_bundle.cache_clear()
+            summary = demo_project.run_summary(5)
+        finally:
+            object.__setattr__(settings, "demo_examples_path", old_examples_path)
+            object.__setattr__(settings, "demo_outputs_path", old_outputs_path)
+            object.__setattr__(settings, "demo_weights_path", old_weights_path)
+            demo_project.demo_bundle.cache_clear()
+
+        self.assertEqual(summary["examples"], 2000)
+        self.assertEqual(summary["guards"], 8)
 
     def test_ranking_contains_candidate_stacks(self) -> None:
         response = self.client.get("/api/runs/real_main_2000/ranking?lambda_cost=5")
@@ -2045,7 +2096,13 @@ class DemoApiTest(unittest.TestCase):
             object.__setattr__(settings, "demo_examples_path", Path("/tmp/stackcert_missing_examples.jsonl"))
             object.__setattr__(settings, "demo_outputs_path", Path("/tmp/stackcert_missing_outputs.jsonl"))
             object.__setattr__(settings, "demo_weights_path", Path("/tmp/stackcert_missing_weights.json"))
-            response = self.client.get("/api/runs/real_main_2000/overview?lambda_cost=5")
+            with (
+                patch("stackcert_service.services.demo_project.PACKAGED_EXAMPLES_PATH", Path("/tmp/stackcert_missing_packaged_examples.jsonl")),
+                patch("stackcert_service.services.demo_project.PACKAGED_OUTPUTS_PATH", Path("/tmp/stackcert_missing_packaged_outputs.jsonl")),
+                patch("stackcert_service.services.demo_project.PACKAGED_WEIGHTS_PATH", Path("/tmp/stackcert_missing_packaged_weights.json")),
+            ):
+                demo_project.demo_bundle.cache_clear()
+                response = self.client.get("/api/runs/real_main_2000/overview?lambda_cost=5")
             self.assertEqual(response.status_code, 200)
             body = response.json()
             self.assertEqual(body["run"]["examples"], 12)

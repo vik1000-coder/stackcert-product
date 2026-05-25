@@ -651,15 +651,20 @@ Set these Cloudflare build environment variables:
 ```text
 VITE_ROUTER_MODE=browser
 VITE_PUBLIC_BASE=/
-VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+VITE_API_BASE_URL=
 VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
 VITE_SUPABASE_ANON_KEY=<Supabase anon/publishable key>
 ```
 
+Leave `VITE_API_BASE_URL` blank for the Cloudflare Workers deployment. The
+root Worker proxies `/api/*` and `/api/mcp` to Cloud Run through
+`STACKCERT_API_ORIGIN`, which keeps browser API calls same-origin at
+`https://stackcert-staging.savikk129.workers.dev`.
+
 The build command uses the root wrapper to install and build `web` with its own
 lockfile. The deploy command relies on the root `wrangler.jsonc`, which serves
-`./web/dist` as Workers static assets and uses `single-page-application`
-fallback routing.
+`./web/dist` as Workers static assets, invokes the Worker first for `/api/*`,
+and uses `single-page-application` fallback routing for React routes.
 
 Do not add a `_redirects` SPA fallback for the Workers static-assets deploy.
 Cloudflare rejected that rule as an infinite loop; `wrangler.jsonc` already
@@ -667,7 +672,9 @@ handles React routes with:
 
 ```json
 "assets": {
+  "binding": "ASSETS",
   "directory": "./web/dist",
+  "run_worker_first": ["/api", "/api/*"],
   "not_found_handling": "single-page-application"
 }
 ```
@@ -676,12 +683,12 @@ For the GitHub-controlled Cloudflare CD path, use
 `.github/workflows/deploy-cloudflare.yml`. It runs after `ci` succeeds on
 `main`, deploys with a scoped `CLOUDFLARE_API_TOKEN`, and runs
 `scripts/deployment_smoke.py` plus `scripts/mcp_client_smoke.py` against the web
-app, Cloud Run API, Supabase Auth, and authenticated MCP release-evidence tool
-path:
+app, same-origin Cloudflare API proxy, Supabase Auth, and authenticated MCP
+release-evidence tool path:
 
 ```text
 web: https://stackcert-staging.savikk129.workers.dev/
-api: https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+api: https://stackcert-staging.savikk129.workers.dev/
 auth: https://cgwiwmfzpektpyquiveg.supabase.co
 ```
 
@@ -696,9 +703,11 @@ STACKCERT_SMOKE_PASSWORD
 
 Variables:
 CLOUDFLARE_ACCOUNT_ID=2f24b5308743a217ee4b4641246fd5b8
-VITE_API_BASE_URL=https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 VITE_SUPABASE_URL=https://cgwiwmfzpektpyquiveg.supabase.co
 ```
+
+`VITE_API_BASE_URL` may still be used by the fallback GitHub Pages workflow,
+but the Cloudflare deployment overrides it to an empty same-origin value.
 
 For the fallback GitHub Pages deployment, use
 `.github/workflows/deploy-pages.yml`. It builds from this repository, deploys

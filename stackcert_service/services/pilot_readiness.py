@@ -185,7 +185,8 @@ def _project_runs(project_id: str, lambda_cost: float) -> list[dict[str, Any]]:
     if project_id != settings.demo_project_id:
         return runs
     demo_run = demo_project.run_summary(lambda_cost)
-    return runs + [demo_run] if not any(run["id"] == demo_run["id"] for run in runs) else runs
+    persisted_runs = [run for run in runs if run["id"] != demo_run["id"]]
+    return persisted_runs + [demo_run]
 
 
 def _evidence_readiness(latest_run: dict[str, Any] | None, lambda_cost: float) -> dict[str, Any] | None:

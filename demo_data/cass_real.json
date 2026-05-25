@@ -1,0 +1,16 @@
+{
+  "primary": {
+    "K": 2,
+    "lambda_value": 1.0,
+    "rho_prior": 0.6,
+    "budget_grid": [0.0, 0.1, 0.25, 0.5, 1.0]
+  },
+  "benchmark_weights": {
+    "A/HarmBench": 0.18,
+    "A/StrongREJECT": 0.18,
+    "A/ToxicChat-toxic": 0.14,
+    "A/XSTest-unsafe": 0.14,
+    "N/ToxicChat-clean": 0.18,
+    "N/XSTest-safe": 0.18
+  }
+}

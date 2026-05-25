@@ -202,9 +202,15 @@ def evidence_readiness(run_id: str, lambda_cost: float = 5.0) -> dict[str, Any]:
 
 
 def _build_issued_certificate(run_id: str, payload: CertificateIssueRequest, lambda_cost: float) -> dict[str, Any]:
+    if run_id == settings.demo_run_id:
+        return _build_demo_issued_certificate(run_id, payload, lambda_cost)
     if pilot_runs.has_run(run_id):
         return pilot_runs.issue_payload(run_id, payload.expires_in_days, reviewer_note=payload.reviewer_note)
 
+    return _build_demo_issued_certificate(run_id, payload, lambda_cost)
+
+
+def _build_demo_issued_certificate(run_id: str, payload: CertificateIssueRequest, lambda_cost: float) -> dict[str, Any]:
     cert_payload = demo_project.certificate_payload(lambda_cost)
     markdown = cert_payload["markdown"].replace(f"- Run ID: `{settings.demo_run_id}`", f"- Run ID: `{run_id}`")
     issued_at = _now()
@@ -333,20 +339,20 @@ def _issued_markdown(markdown: str, certificate: dict[str, Any], artifact_hash: 
 
 
 def _certificate_payload_for_run(run_id: str, lambda_cost: float) -> dict[str, Any]:
-    if pilot_runs.has_run(run_id):
-        return pilot_runs.certificate_payload(run_id, lambda_cost)
     if run_id == settings.demo_run_id:
         payload = demo_project.certificate_payload(lambda_cost)
         payload["run_id"] = run_id
         return payload
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.certificate_payload(run_id, lambda_cost)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
 
 def _run_summary_for_readiness(run_id: str, lambda_cost: float) -> dict[str, Any] | None:
-    if pilot_runs.has_run(run_id):
-        return pilot_runs.run_summary(run_id)
     if run_id == settings.demo_run_id:
         return demo_project.run_summary(lambda_cost)
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.run_summary(run_id)
     return None
 
 

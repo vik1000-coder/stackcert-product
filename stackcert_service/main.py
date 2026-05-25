@@ -157,10 +157,10 @@ def _require_certificate_access(
 
 
 def _run_for_access(run_id: str, lambda_cost: float = 5.0) -> dict[str, object] | None:
-    if pilot_runs.has_run(run_id):
-        return pilot_runs.run_summary(run_id)
     if run_id == settings.demo_run_id:
         return demo_project.run_summary(lambda_cost)
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.run_summary(run_id)
     return None
 
 
@@ -278,7 +278,8 @@ def list_runs(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0
     if project_id != demo_project.project()["id"]:
         return {"runs": runs}
     demo_run = demo_project.run_summary(lambda_cost)
-    return {"runs": runs + [demo_run] if not any(run["id"] == demo_run["id"] for run in runs) else runs}
+    persisted_runs = [run for run in runs if run["id"] != demo_run["id"]]
+    return {"runs": persisted_runs + [demo_run]}
 
 
 @app.post("/api/projects/{project_id}/runs/uploaded-outputs")
@@ -635,25 +636,25 @@ def mcp_sse_not_supported(_: McpPrincipalDep) -> Response:
 @app.get("/api/runs/{run_id}/overview")
 def get_overview(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        payload = demo_project.overview(lambda_cost)
+        payload["run"]["id"] = run_id
+        return payload
     if pilot_runs.has_run(run_id):
         return pilot_runs.overview(run_id, lambda_cost)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    payload = demo_project.overview(lambda_cost)
-    payload["run"]["id"] = run_id
-    return payload
+    return _not_found("Run not found")
 
 
 @app.get("/api/runs/{run_id}/ranking")
 def get_ranking(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        payload = demo_project.ranking(lambda_cost)
+        payload["run"]["id"] = run_id
+        return payload
     if pilot_runs.has_run(run_id):
         return pilot_runs.ranking(run_id, lambda_cost)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    payload = demo_project.ranking(lambda_cost)
-    payload["run"]["id"] = run_id
-    return payload
+    return _not_found("Run not found")
 
 
 @app.get("/api/runs/{run_id}/ranking.csv")
@@ -668,19 +669,19 @@ def get_ranking_csv(run_id: str, principal: PrincipalDep, lambda_cost: float = 5
         target_id=run_id,
         metadata={"format": "csv", "artifact": "ranking"},
     )
+    if run_id == settings.demo_run_id:
+        return Response(
+            content=demo_project.ranking_csv(lambda_cost),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}_ranking.csv"'},
+        )
     if pilot_runs.has_run(run_id):
         return Response(
             content=pilot_runs.ranking_csv(run_id, lambda_cost),
             media_type="text/csv",
             headers={"Content-Disposition": f'attachment; filename="{run_id}_ranking.csv"'},
         )
-    if run_id != settings.demo_run_id:
-        raise _not_found("Run not found")
-    return Response(
-        content=demo_project.ranking_csv(lambda_cost),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{run_id}_ranking.csv"'},
-    )
+    raise _not_found("Run not found")
 
 
 @app.get("/api/runs/{run_id}/correlations")
@@ -691,36 +692,36 @@ def get_correlations(
     side: str = "adversarial",
 ) -> dict[str, object]:
     _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        payload = demo_project.correlations(lambda_cost, side=side)
+        payload["run"]["id"] = run_id
+        return payload
     if pilot_runs.has_run(run_id):
         return pilot_runs.correlations(run_id, lambda_cost, side=side)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    payload = demo_project.correlations(lambda_cost, side=side)
-    payload["run"]["id"] = run_id
-    return payload
+    return _not_found("Run not found")
 
 
 @app.get("/api/runs/{run_id}/measurements")
 def get_measurements(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        payload = demo_project.measurements(lambda_cost)
+        payload["run"]["id"] = run_id
+        return payload
     if pilot_runs.has_run(run_id):
         return pilot_runs.measurements(run_id, lambda_cost)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    payload = demo_project.measurements(lambda_cost)
-    payload["run"]["id"] = run_id
-    return payload
+    return _not_found("Run not found")
 
 
 @app.get("/api/runs/{run_id}/costs")
 def get_run_costs(run_id: str, principal: PrincipalDep) -> dict[str, object]:
     _require_run_access(run_id, principal)
+    if run_id == settings.demo_run_id:
+        return usage.cost_summary(settings.demo_project_id, run_id)
     if pilot_runs.has_run(run_id):
         run = pilot_runs.run_summary(run_id)
         return usage.cost_summary(str(run["project_id"]), run_id)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    return usage.cost_summary(settings.demo_project_id, run_id)
+    return _not_found("Run not found")
 
 
 @app.post("/api/runs/{run_id}/measurement-plans")
@@ -899,13 +900,13 @@ def create_certificate_signoff(certificate_id: str, payload: CertificateSignoffC
 @app.get("/api/runs/{run_id}/certificate")
 def get_certificate(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        payload = demo_project.certificate_payload(lambda_cost)
+        payload["run_id"] = run_id
+        return payload
     if pilot_runs.has_run(run_id):
         return pilot_runs.certificate_payload(run_id, lambda_cost)
-    if run_id != settings.demo_run_id:
-        return _not_found("Run not found")
-    payload = demo_project.certificate_payload(lambda_cost)
-    payload["run_id"] = run_id
-    return payload
+    return _not_found("Run not found")
 
 
 @app.post("/api/projects/{project_id}/release-gates/evaluate")
@@ -941,13 +942,12 @@ def get_certificate_json(run_id: str, principal: PrincipalDep, lambda_cost: floa
         target_id=run_id,
         metadata={"format": "json", "artifact": "release_evidence"},
     )
-    if pilot_runs.has_run(run_id):
+    if run_id == settings.demo_run_id:
+        payload = demo_project.certificate_payload(lambda_cost)
+    elif pilot_runs.has_run(run_id):
         payload = pilot_runs.certificate_payload(run_id, lambda_cost)
-        payload.pop("markdown", None)
-        return payload
-    if run_id != settings.demo_run_id:
+    else:
         return _not_found("Run not found")
-    payload = demo_project.certificate_payload(lambda_cost)
     payload["run_id"] = run_id
     payload.pop("markdown", None)
     return payload
@@ -965,20 +965,20 @@ def get_certificate_markdown(run_id: str, principal: PrincipalDep, lambda_cost: 
         target_id=run_id,
         metadata={"format": "markdown", "artifact": "release_evidence"},
     )
+    if run_id == settings.demo_run_id:
+        markdown = demo_project.certificate_markdown(lambda_cost).replace(f"- Run ID: `{settings.demo_run_id}`", f"- Run ID: `{run_id}`")
+        return Response(
+            content=markdown,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}_certificate.md"'},
+        )
     if pilot_runs.has_run(run_id):
         return Response(
             content=pilot_runs.certificate_markdown(run_id, lambda_cost),
             media_type="text/markdown",
             headers={"Content-Disposition": f'attachment; filename="{run_id}_certificate.md"'},
         )
-    if run_id != settings.demo_run_id:
-        raise _not_found("Run not found")
-    markdown = demo_project.certificate_markdown(lambda_cost).replace(f"- Run ID: `{settings.demo_run_id}`", f"- Run ID: `{run_id}`")
-    return Response(
-        content=markdown,
-        media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="{run_id}_certificate.md"'},
-    )
+    raise _not_found("Run not found")
 
 
 @app.get("/api/projects/{project_id}/drift")

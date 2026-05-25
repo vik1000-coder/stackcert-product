@@ -1,9 +1,19 @@
 {
   "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
   "name": "stackcert-staging",
-  "compatibility_date": "2026-05-24",
+  "main": "../cloudflare/worker.ts",
+  "compatibility_date": "2026-05-25",
   "assets": {
+    "binding": "ASSETS",
     "directory": "./dist",
+    "run_worker_first": ["/api", "/api/*"],
     "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "STACKCERT_API_ORIGIN": "https://stackcert-api-oaw2bwdgyq-uc.a.run.app"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }

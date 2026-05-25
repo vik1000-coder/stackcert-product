@@ -11,7 +11,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   VITE_ROUTER_MODE: browser
   VITE_PUBLIC_BASE: /
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_API_BASE_URL: ""
   VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
   VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
@@ -60,12 +60,12 @@ jobs:
           python -m pip install -e .
           python scripts/deployment_smoke.py \
             --web-url "https://stackcert-staging.savikk129.workers.dev/" \
-            --api-url "${{ vars.VITE_API_BASE_URL }}" \
+            --api-url "https://stackcert-staging.savikk129.workers.dev/" \
             --supabase-url "${{ vars.VITE_SUPABASE_URL }}" \
             --email "${{ secrets.STACKCERT_SMOKE_EMAIL }}" \
             --password "${{ secrets.STACKCERT_SMOKE_PASSWORD }}"
           python scripts/mcp_client_smoke.py \
-            --api-url "${{ vars.VITE_API_BASE_URL }}" \
+            --api-url "https://stackcert-staging.savikk129.workers.dev/" \
             --supabase-url "${{ vars.VITE_SUPABASE_URL }}" \
             --email "${{ secrets.STACKCERT_SMOKE_EMAIL }}" \
             --password "${{ secrets.STACKCERT_SMOKE_PASSWORD }}"

@@ -47,6 +47,22 @@ jobs:
             echo "web/package.json not present yet; skipping frontend checks"
           fi
 
+  cloudflare-package:
+    name: cloudflare worker package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Build and dry-run Cloudflare Worker
+        run: |
+          npm ci
+          npm run build
+          npx wrangler deploy --dry-run
+
   supabase:
     name: supabase migration checks
     runs-on: ubuntu-latest

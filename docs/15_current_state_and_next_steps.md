@@ -96,6 +96,9 @@ https://vik1000-coder.github.io/stackcert-product/#/auth/sign-in
 The hosted demo is useful for product walkthroughs. It is still staging:
 
 - Cloudflare Workers serves the static web app.
+- Cloudflare Workers proxies same-origin `/api/*` and `/api/mcp` traffic to
+  Cloud Run, so hosted browser and MCP clients can use
+  `https://stackcert-staging.savikk129.workers.dev` as both web and API base.
 - Supabase Auth handles sign-in/sign-up.
 - Supabase Edge Function `stackcert-api` mirrors the product API enough for
   fallback demos, including MCP discovery/RPC routes.
@@ -242,11 +245,10 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready Cloud Run API revision is `stackcert-api-00013-x8r`, deployed
-  from code commit `0b932c5`. The later `6ad91c3` commit updated docs and
-  re-ran the web/static CI/CD path without changing the Cloud Run API image.
+- Latest ready Cloud Run API revision is `stackcert-api-00014-q9f`, deployed
+  with the staging cost caps preserved.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:70a67b1-staging-202605251548-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
   the same image with service account
   `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`,
@@ -261,14 +263,23 @@ Latest hosted verification:
   the public demo user can see the seeded walkthrough while real production
   deployments can leave that flag unset.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
-  memory `512Mi`, timeout `60s`, concurrency `40`.
+  memory `1Gi`, timeout `60s`, concurrency `40`.
+- The linked Supabase staging project includes
+  `20260525142950_add_project_onboarding_profiles.sql`, so hosted onboarding
+  can create workspace/project/profile records end to end.
+- The API image now includes the packaged 2,000-example / 8-safety-option CASS
+  demo artifacts under `demo_data/`, so Cloud Run no longer falls back to the
+  compact clean-clone fixture.
 - The current Cloud Run revision passes unauthenticated and authenticated
   `scripts/cloud_run_api_smoke.py`, authenticated `scripts/mcp_client_smoke.py`
   against the hosted `/api/mcp` endpoint with the official Python MCP SDK, and
-  full `scripts/deployment_smoke.py` against Cloudflare + Cloud Run +
+  full `scripts/deployment_smoke.py` against Cloudflare same-origin API +
   Supabase Auth. The smoke scripts now also call
   `/api/projects/proj_acme_copilot/release-gates/evaluate` and assert the
   response carries scoped non-guarantee assumptions.
+- Hosted browser QA passes sign-in, same-origin API usage, full 2,000-example
+  demo overview, onboarding pilot creation, setup handoff, and mobile
+  onboarding layout without console/server errors.
 - The hosted Milestone 5 uploaded-output preview endpoint was smoke-tested with
   a temporary authenticated Supabase project and committed custom suite; the
   preview returned `coverage=1.0` before run creation.
