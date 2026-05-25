@@ -100,7 +100,7 @@ uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 80 tests passed
+  -> 82 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -208,8 +208,13 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00007-vc9`, deployed from commit
-  `325ea1a`.
+- Latest ready revision is `stackcert-api-00009-sb6`, deployed from commit
+  `086a54b`.
+- Latest image:
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:086a54b-staging-202605250309-amd64`.
+- Cloud Run staging explicitly sets `STACKCERT_ENABLE_DEMO_WORKSPACE=true` so
+  the public demo user can see the seeded walkthrough while real production
+  deployments can leave that flag unset.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
 - The current Cloud Run revision passes unauthenticated and authenticated
@@ -217,6 +222,8 @@ Latest hosted verification:
   against the hosted `/api/mcp` endpoint with the official Python MCP SDK, and
   full `scripts/deployment_smoke.py` against Cloudflare + Cloud Run +
   Supabase Auth.
+- Latest GitHub Actions runs for commit `086a54b` are green for `ci`,
+  fallback `deploy pages`, and `deploy cloudflare`.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,

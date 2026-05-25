@@ -1626,3 +1626,45 @@ Started: 2026-05-23
   - Playwright local responsive smoke against `http://127.0.0.1:5173/app/ws_demo/proj_acme_copilot/certificate` with API on `127.0.0.1:18082` -> desktop and 390px mobile layouts rendered after issuing evidence.
 - Local Supabase reset was not rerun in this resumed session because Docker was
   not reachable at `/Users/vik/.docker/run/docker.sock`.
+
+## Milestone 2 Hosted Deployment And Smoke Closure
+
+- Committed and pushed the Milestone 2 implementation:
+  - `ca61bc2` `Implement pilot trust layer`;
+  - `325ea1a` `Implement immutable evidence artifacts`;
+  - `bf2ac7e` `Gate demo workspace behind staging flag`;
+  - `086a54b` `Avoid demo audit foreign keys`.
+- Deployed the FastAPI/CASS API to Cloud Run with staging cost caps preserved:
+  - service: `stackcert-api`;
+  - region: `us-central1`;
+  - project: `project-e7840c42-f298-4bd9-bff`;
+  - revision: `stackcert-api-00009-sb6`;
+  - image:
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:086a54b-staging-202605250309-amd64`;
+  - max instances `1`, min instances `0`, CPU `1`, memory `512Mi`,
+    concurrency `40`, timeout `60s`.
+- Added `STACKCERT_ENABLE_DEMO_WORKSPACE`:
+  - default remains disabled for real production tenants;
+  - Cloud Run staging sets it to `true` so the public demo user can access the
+    seeded `proj_acme_copilot` walkthrough while auth remains required.
+- Adjusted Supabase audit persistence for the synthetic demo workspace:
+  - audit events keep demo workspace/project IDs in metadata;
+  - nullable database FK columns are left empty when the demo objects are not
+    real Supabase rows;
+  - user actions and MCP calls no longer fail with audit FK violations in the
+    staging demo.
+- Hosted verification after the final deploy:
+  - `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
+  - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
+  - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+- GitHub Actions after the final push:
+  - `ci` on `086a54b` -> success;
+  - fallback `deploy pages` on `086a54b` -> success after rerun against the
+    updated API revision;
+  - `deploy cloudflare` on `086a54b` -> success.
+- Local verification after the final follow-up:
+  - `uv run python -m unittest discover -s tests_service` -> 82 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `git diff --check` -> OK.

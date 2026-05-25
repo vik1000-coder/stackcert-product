@@ -243,11 +243,12 @@ supabase db push --linked --dry-run
 Goal: make evidence packets reconstructable, tamper-resistant, and private by
 default.
 
-Status: implemented locally and applied to linked Supabase staging on
-2026-05-25. Evidence issue now runs readiness gates, stores immutable packet
-snapshots, persists private JSON/Markdown artifact metadata, supports
-authorized signed URLs, verifies SHA-256 hashes, and exposes readiness/artifact
-diagnostics in the release-evidence UI.
+Status: implemented, applied to linked Supabase staging, deployed to Cloud Run
+staging, and verified through hosted Cloudflare/Pages smokes on 2026-05-25.
+Evidence issue now runs readiness gates, stores immutable packet snapshots,
+persists private JSON/Markdown artifact metadata, supports authorized signed
+URLs, verifies SHA-256 hashes, and exposes readiness/artifact diagnostics in
+the release-evidence UI.
 
 ### User Stories
 
