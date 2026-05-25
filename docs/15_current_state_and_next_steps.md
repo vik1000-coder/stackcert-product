@@ -354,6 +354,11 @@ Current trust-layer status:
   uploaded-output runs, connector/job/work creation, measurement plans,
   evidence issue/signoff/export, retest queueing, custom behaviors, and MCP tool
   calls.
+- benchmark/example imports now expose a schema endpoint, field-mapping support
+  for external dataset column names, source/normalized SHA-256 fingerprints, and
+  trace-import previews for LangSmith/Langfuse/OpenTelemetry-style JSONL traces.
+- release-gate integration examples now cover GitHub Actions, GitLab CI,
+  CircleCI, and a generic webhook payload under `integrations/release-gates/`.
 
 Current immutable-evidence status:
 
@@ -369,6 +374,10 @@ Current immutable-evidence status:
 - artifact signed URLs and hash verification require certificate access first;
 - deployment smoke scripts now check the hosted evidence-readiness endpoint in
   addition to auth, MCP, and app-shell checks.
+- evidence packets now include release-context hashes and fields for model,
+  prompt, policy, tool, retrieval, traffic, benchmark-suite, and guard-version
+  context when supplied by uploaded-output or worker runs. Release gates compare
+  supplied context and block mismatches.
 
 ## What To Do Next
 
@@ -385,12 +394,14 @@ into a five-milestone executable roadmap:
    Status: secret metadata/rotation, Secret Manager refs, lease renewal, and
    retry/dead-letter logic are implemented; the separate Cloud Run worker/job
    is deployed and smoke-tested. Workspace-level budget caps and provider
-   rate-limit/backoff settings remain.
+   rate-limit/backoff settings are now implemented through environment-driven
+   workspace caps and connector runtime controls; production still needs an
+   operator-owned budget policy.
 4. Release gates and agent-friendly surfaces: conservative REST release-gate
    API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
    Status: REST API, scoped tokens, script support, reusable GitHub workflow,
-   MCP project scoping, audit, and smoke coverage are implemented; GitLab/Circle
-   examples remain.
+   MCP project scoping, audit, smoke coverage, GitLab/Circle examples, and
+   release-context comparisons are implemented.
 5. Pilot UX and operational readiness: import/setup polish, evidence readiness
    UI, dead-letter UI, production monitoring, backups, terms, and privacy.
    Status: uploaded-output preview diagnostics, JSONL/CSV templates, setup
@@ -401,11 +412,12 @@ into a five-milestone executable roadmap:
 
 The immediate execution queue is now:
 
-1. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
-   with release-gate machine tokens.
-2. Persist model/prompt/policy hashes into evidence packets so release gates can
-   compare those fields instead of returning them as assumptions.
-3. Add workspace-level budget caps and provider rate-limit/backoff settings.
+1. Replace environment-driven workspace budget caps with workspace/project
+   settings UI and persisted policy records.
+2. Add real trace-ingestion commit flows after the current trace-import preview
+   proves useful with design-partner exports.
+3. Add signed generic deployment webhooks and provider-specific adapters for the
+   first customer platform that needs them.
 4. Finish the production operations checklist: Sentry or equivalent, uptime
    checks, backup/restore rehearsal, auth email templates/sender domain, and
    explicit budget alerts for GCP, Supabase, and provider spend.
@@ -415,15 +427,15 @@ The immediate execution queue is now:
 The next engineering milestone should be:
 
 ```text
-Release-gate integration examples + workspace budget/rate controls + production operations checklist
+Persisted budget policy UI + trace import commit flow + production operations checklist
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run API, Cloud Run
 worker job, Cloudflare, and GitHub CI/CD are wired and smoke-tested. The worker
 can now move a pilot team from uploaded outputs to deterministic, REST, or
 model-judge managed runs with retry-safe evidence writes, managed secret refs,
-lease renewal, cost accounting, release-gate checks, and operator-facing
-queue/dead-letter health. The highest-value remaining production work is to
-persist model/prompt/policy hashes in issued evidence, wire non-GitHub deploy
-systems, and complete workspace budget/rate controls plus monitoring/backup
+lease renewal, cost accounting, release-gate checks, release-context matching,
+and operator-facing queue/dead-letter health. The highest-value remaining
+production work is to persist budget policies in the app rather than env vars,
+turn trace previews into reviewed import commits, and complete monitoring/backup
 setup.

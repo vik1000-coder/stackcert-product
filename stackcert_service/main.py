@@ -23,6 +23,7 @@ from stackcert_service.schemas import (
     McpRpcRequest,
     ProjectCreate,
     ReleaseGateEvaluateRequest,
+    TraceImportPreviewRequest,
     UploadedOutputRunCreate,
     UploadedOutputPreviewRequest,
     WorkspaceCreate,
@@ -41,6 +42,7 @@ from stackcert_service.services import mcp
 from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import release_gates
+from stackcert_service.services import trace_imports
 from stackcert_service.services import usage
 
 
@@ -256,10 +258,22 @@ def list_benchmark_suites(project_id: str, principal: PrincipalDep, lambda_cost:
     return {"suites": committed + demo_payload["suites"]}
 
 
+@app.get("/api/projects/{project_id}/benchmark-suites/schema")
+def get_benchmark_import_schema(project_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal)
+    return {"project_id": project_id, "schema": benchmark_imports.import_schema()}
+
+
 @app.post("/api/projects/{project_id}/benchmark-suites/preview")
 def preview_benchmark_import(project_id: str, payload: BenchmarkImportPreviewRequest, principal: PrincipalDep) -> dict[str, object]:
     _require_project_access(project_id, principal, required="project_maintainer")
     return {"project_id": project_id, "import_preview": benchmark_imports.preview_import(payload)}
+
+
+@app.post("/api/projects/{project_id}/trace-imports/preview")
+def preview_trace_import(project_id: str, payload: TraceImportPreviewRequest, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal, required="project_maintainer")
+    return {"project_id": project_id, "trace_import_preview": trace_imports.preview_trace_import(payload)}
 
 
 @app.post("/api/projects/{project_id}/benchmark-suites")
@@ -520,6 +534,12 @@ def get_certificate_status(project_id: str, principal: PrincipalDep, lambda_cost
 def list_agent_platforms(principal: PrincipalDep) -> dict[str, object]:
     access.require_app_principal(principal)
     return integrations.agent_platforms()
+
+
+@app.get("/api/integrations/release-gates")
+def list_release_gate_integrations(principal: PrincipalDep) -> dict[str, object]:
+    access.require_app_principal(principal)
+    return integrations.release_gate_examples()
 
 
 @app.get("/api/mcp/manifest")

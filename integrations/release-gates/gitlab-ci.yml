@@ -1,0 +1,20 @@
+stackcert_release_gate:
+  stage: deploy
+  image: python:3.12-slim
+  variables:
+    STACKCERT_REQUIRED_STATUS: valid
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install -e .
+  script:
+    - >
+      python scripts/certificate_gate.py --release-gate
+      --api-url "$STACKCERT_API_URL"
+      --project-id "$STACKCERT_PROJECT_ID"
+      --token "$STACKCERT_API_TOKEN"
+      --environment "${CI_ENVIRONMENT_NAME:-production}"
+      --commit-sha "$CI_COMMIT_SHA"
+      --deployment-ref "$CI_PIPELINE_URL"
+      --required-status "$STACKCERT_REQUIRED_STATUS"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

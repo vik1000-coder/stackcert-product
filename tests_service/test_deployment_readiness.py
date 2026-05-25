@@ -83,6 +83,24 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("scripts/mcp_client_smoke.py", pages_workflow)
         self.assertIn("scripts/mcp_client_smoke.py", cloudflare_workflow)
 
+    def test_release_gate_and_data_loading_integration_artifacts_exist(self):
+        api = self.read("stackcert_service/main.py")
+        integrations = self.read("stackcert_service/services/integrations.py")
+        gitlab = self.read("integrations/release-gates/gitlab-ci.yml")
+        circle = self.read("integrations/release-gates/circleci-config.yml")
+        webhook = self.read("integrations/release-gates/generic-webhook-request.json")
+        docs = self.read("docs/20_release_gate_integrations.md")
+
+        self.assertIn("/api/projects/{project_id}/benchmark-suites/schema", api)
+        self.assertIn("/api/projects/{project_id}/trace-imports/preview", api)
+        self.assertIn("/api/integrations/release-gates", api)
+        self.assertIn("gitlab_ci", integrations)
+        self.assertIn("circleci", integrations)
+        self.assertIn("certificate_gate.py --release-gate", gitlab)
+        self.assertIn("certificate_gate.py --release-gate", circle)
+        self.assertIn("prompt_hash", webhook)
+        self.assertIn("Context Matching", docs)
+
     def test_cloud_run_worker_entrypoint_and_admin_surface_exist(self):
         worker_module = self.read("stackcert_service/worker.py")
         api = self.read("stackcert_service/main.py")

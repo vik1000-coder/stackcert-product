@@ -39,6 +39,9 @@ class GuardConnectorCreate(BaseModel):
     input_price_per_1m_tokens_usd: float | None = Field(default=None, ge=0, le=10_000)
     output_price_per_1m_tokens_usd: float | None = Field(default=None, ge=0, le=10_000)
     threshold: float | None = Field(default=None, ge=0, le=1)
+    rate_limit_per_minute: int | None = Field(default=None, ge=1, le=60_000)
+    retry_max_attempts: int | None = Field(default=None, ge=1, le=10)
+    retry_backoff_base_seconds: int | None = Field(default=None, ge=1, le=3600)
 
 
 class GuardConnectorSecretUpdate(BaseModel):
@@ -81,6 +84,13 @@ class EvaluationJobCreate(BaseModel):
     max_k: int = Field(default=2, ge=1, le=2)
     max_cost_usd: float | None = Field(default=None, ge=0)
     failure_mode: str | None = Field(default=None, pattern="^(provider_timeout|provider_rate_limited|invalid_configuration)$")
+    model_id: str | None = Field(default=None, max_length=160)
+    model_version: str | None = Field(default=None, max_length=160)
+    prompt_hash: str | None = Field(default=None, max_length=160)
+    policy_hash: str | None = Field(default=None, max_length=160)
+    tool_config_hash: str | None = Field(default=None, max_length=160)
+    retrieval_config_hash: str | None = Field(default=None, max_length=160)
+    traffic_profile_hash: str | None = Field(default=None, max_length=160)
 
 
 class MeasurementPlanCreate(BaseModel):
@@ -97,6 +107,9 @@ class AdminWorkerRunRequest(BaseModel):
 class BenchmarkImportPreviewRequest(BaseModel):
     format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
     content: str = Field(min_length=10, max_length=1_000_000)
+    field_mapping: dict[str, str] = Field(default_factory=dict, max_length=20)
+    source_name: str | None = Field(default=None, max_length=240)
+    source_uri: str | None = Field(default=None, max_length=500)
 
 
 class BenchmarkImportCommitRequest(BenchmarkImportPreviewRequest):
@@ -114,12 +127,27 @@ class UploadedOutputRunCreate(BaseModel):
     rho_prior: float = Field(default=0.6, ge=-1, le=1)
     max_k: int = Field(default=2, ge=1, le=2)
     name: str | None = Field(default=None, max_length=120)
+    model_id: str | None = Field(default=None, max_length=160)
+    model_version: str | None = Field(default=None, max_length=160)
+    prompt_hash: str | None = Field(default=None, max_length=160)
+    policy_hash: str | None = Field(default=None, max_length=160)
+    tool_config_hash: str | None = Field(default=None, max_length=160)
+    retrieval_config_hash: str | None = Field(default=None, max_length=160)
+    traffic_profile_hash: str | None = Field(default=None, max_length=160)
 
 
 class UploadedOutputPreviewRequest(BaseModel):
     benchmark_suite_id: str | None = Field(default=None, min_length=2, max_length=120)
     format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
     content: str = Field(min_length=10, max_length=2_000_000)
+
+
+class TraceImportPreviewRequest(BaseModel):
+    source: str = Field(default="auto", pattern="^(auto|langsmith|langfuse|opentelemetry|generic_jsonl)$")
+    content: str = Field(min_length=10, max_length=2_000_000)
+    default_side: str = Field(default="benign", pattern="^(adversarial|benign)$")
+    default_policy_category: str = Field(default="production_trace", min_length=2, max_length=80)
+    max_examples: int = Field(default=50, ge=1, le=500)
 
 
 class CertificateIssueRequest(BaseModel):

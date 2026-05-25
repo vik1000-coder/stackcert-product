@@ -1,0 +1,19 @@
+{
+  "environment": "production",
+  "model_id": "customer-support-agent",
+  "model_version": "2026-05-25",
+  "prompt_hash": "sha256:replace-with-prompt-bundle-hash",
+  "policy_hash": "sha256:replace-with-policy-bundle-hash",
+  "guard_connector_versions": {
+    "refund_policy_guard": "v1",
+    "pii_check": "v3"
+  },
+  "benchmark_suite_id": "replace-with-stackcert-suite-id",
+  "benchmark_suite_version": "v1",
+  "run_id": "replace-with-stackcert-run-id",
+  "deployment_ref": "https://ci.example.com/builds/123",
+  "commit_sha": "replace-with-git-sha",
+  "changed_since_evidence": [],
+  "required_status": "valid",
+  "mode": "fail"
+}

@@ -19,6 +19,17 @@ from stackcert_service.schemas import BenchmarkImportCommitRequest, BenchmarkImp
 REQUIRED_FIELDS = {"name", "prompt", "side", "policy_category", "expected_safe_behavior", "unsafe_behavior"}
 VALID_SIDES = {"adversarial", "benign"}
 VALID_SEVERITIES = {"low", "medium", "high", "critical"}
+SCHEMA_VERSION = "stackcert.examples.v1"
+FIELD_ALIASES = {
+    "name": ("name", "title", "label", "example_name"),
+    "prompt": ("prompt", "input", "user_input", "question", "query"),
+    "side": ("side", "risk_side", "example_side"),
+    "policy_category": ("policy_category", "category", "policy", "risk_category", "topic"),
+    "severity": ("severity", "risk_severity"),
+    "expected_safe_behavior": ("expected_safe_behavior", "expected", "expected_behavior", "safe_behavior"),
+    "unsafe_behavior": ("unsafe_behavior", "unsafe", "bad_behavior", "failure_mode"),
+    "external_id": ("external_id", "id", "example_id"),
+}
 
 _committed_suites: dict[str, list[dict[str, Any]]] = {}
 _committed_bundles: dict[str, dict[str, dict[str, Any]]] = {}
@@ -70,7 +81,8 @@ def _validated_rows(payload: BenchmarkImportPreviewRequest) -> tuple[str, int, l
     normalized: list[dict[str, Any]] = []
     seen_prompts: set[str] = set()
 
-    for index, row in enumerate(rows, start=1):
+    for index, raw_row in enumerate(rows, start=1):
+        row = _canonical_row(raw_row, payload.field_mapping)
         if row.get("_parse_error"):
             issues.append({"severity": "error", "row": index, "code": "parse_error", "message": row["_parse_error"]})
             continue
@@ -100,6 +112,7 @@ def _validated_rows(payload: BenchmarkImportPreviewRequest) -> tuple[str, int, l
             severity = "medium"
         normalized.append(
             {
+                "external_id": str(row.get("external_id") or "").strip()[:160],
                 "name": str(row["name"]).strip()[:120],
                 "prompt": prompt,
                 "prompt_hash": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
@@ -131,11 +144,33 @@ def preview_import(payload: BenchmarkImportPreviewRequest) -> dict[str, Any]:
             "by_category": dict(sorted(by_category.items())),
             "warnings": sum(1 for issue in issues if issue["severity"] == "warning"),
             "errors": len(blocking_errors),
+            "duplicate_prompts": sum(1 for issue in issues if issue["code"] == "duplicate_prompt"),
         },
+        "fingerprint": _import_fingerprint(payload.content, normalized),
+        "schema": import_schema(),
         "preview": [
             {key: item[key] for key in ("name", "prompt_redacted", "side", "policy_category", "severity")}
             for item in normalized[:10]
         ],
+    }
+
+
+def import_schema() -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "formats": ["jsonl", "csv"],
+        "required_fields": sorted(REQUIRED_FIELDS),
+        "optional_fields": ["external_id", "severity"],
+        "valid_values": {
+            "side": sorted(VALID_SIDES),
+            "severity": sorted(VALID_SEVERITIES),
+        },
+        "aliases": {field: list(aliases) for field, aliases in FIELD_ALIASES.items()},
+        "limits": {
+            "content_bytes": 1_000_000,
+            "max_preview_rows": 10,
+        },
+        "field_mapping_contract": "Map StackCert canonical field names to source column names, for example {'prompt': 'input', 'policy_category': 'category'}.",
     }
 
 
@@ -221,7 +256,7 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
         for row_index, row in enumerate(rows, start=1):
             examples.append(
                 {
-                    "external_id": f"{cell_key}_{row_index:04d}",
+                    "external_id": row["external_id"] or f"{cell_key}_{row_index:04d}",
                     "cell_id": cell_id,
                     "prompt_hash": row["prompt_hash"],
                     "prompt_redacted": row["prompt_redacted"],
@@ -248,13 +283,20 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
             "license": payload.license,
             "created_at": now.isoformat(),
             "artifact": None,
+            "source_metadata": {
+                "schema_version": SCHEMA_VERSION,
+                "source_name": payload.source_name,
+                "source_uri": payload.source_uri,
+                "field_mapping": payload.field_mapping,
+                "fingerprint": preview["fingerprint"],
+            },
         },
         "cells": cells,
         "examples": examples,
         "source_content": payload.content.strip() + "\n",
         "source_format": detected,
         "preview": preview,
-    }
+}
 
 
 def clear_committed_suites() -> None:
@@ -282,6 +324,45 @@ def _memory_suite_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
 def _highest_severity(values: Any) -> str:
     rank = {"low": 0, "medium": 1, "high": 2, "critical": 3}
     return max(values, key=lambda value: rank.get(str(value), 1))
+
+
+def _canonical_row(row: dict[str, Any], field_mapping: dict[str, str]) -> dict[str, Any]:
+    if row.get("_parse_error"):
+        return row
+    canonical: dict[str, Any] = dict(row)
+    for target, source in field_mapping.items():
+        if target in FIELD_ALIASES and source in row and not str(canonical.get(target) or "").strip():
+            canonical[target] = row.get(source)
+    for target, aliases in FIELD_ALIASES.items():
+        if str(canonical.get(target) or "").strip():
+            continue
+        for alias in aliases:
+            if alias in row and str(row.get(alias) or "").strip():
+                canonical[target] = row.get(alias)
+                break
+    return canonical
+
+
+def _import_fingerprint(content: str, normalized: list[dict[str, Any]]) -> dict[str, Any]:
+    source = content.strip().encode("utf-8")
+    normalized_payload = [
+        {
+            "external_id": row.get("external_id") or "",
+            "prompt_hash": row["prompt_hash"],
+            "side": row["side"],
+            "policy_category": row["policy_category"],
+            "severity": row["severity"],
+        }
+        for row in normalized
+    ]
+    normalized_bytes = json.dumps(normalized_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {
+        "algorithm": "sha256",
+        "source_sha256": hashlib.sha256(source).hexdigest(),
+        "normalized_sha256": hashlib.sha256(normalized_bytes).hexdigest(),
+        "source_bytes": len(source),
+        "normalized_rows": len(normalized),
+    }
 
 
 def _persistent_store():

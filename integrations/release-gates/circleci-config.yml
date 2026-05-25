@@ -1,0 +1,34 @@
+version: 2.1
+
+jobs:
+  stackcert_release_gate:
+    docker:
+      - image: cimg/python:3.12
+    environment:
+      STACKCERT_REQUIRED_STATUS: valid
+    steps:
+      - checkout
+      - run:
+          name: Install StackCert gate dependencies
+          command: |
+            python -m pip install --upgrade pip
+            python -m pip install -e .
+      - run:
+          name: Check StackCert release evidence
+          command: |
+            python scripts/certificate_gate.py --release-gate \
+              --api-url "$STACKCERT_API_URL" \
+              --project-id "$STACKCERT_PROJECT_ID" \
+              --token "$STACKCERT_API_TOKEN" \
+              --environment "${STACKCERT_ENVIRONMENT:-production}" \
+              --commit-sha "$CIRCLE_SHA1" \
+              --deployment-ref "$CIRCLE_BUILD_URL" \
+              --required-status "$STACKCERT_REQUIRED_STATUS"
+
+workflows:
+  stackcert_release:
+    jobs:
+      - stackcert_release_gate:
+          filters:
+            branches:
+              only: main

@@ -41,6 +41,7 @@ lookup.
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/health` | none | public | none |
 | `GET` | `/api/integrations/agent-platforms` | authenticated global docs | authenticated user or machine read scope if exposed through MCP later | none |
+| `GET` | `/api/integrations/release-gates` | authenticated global docs | authenticated user | none |
 
 ## Workspace And Project Routes
 
@@ -57,7 +58,9 @@ lookup.
 | Method | Route | Scope | Requirement | Audit |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/projects/{project_id}/benchmark-suites` | project | `viewer` | none |
+| `GET` | `/api/projects/{project_id}/benchmark-suites/schema` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/benchmark-suites/preview` | project | `project_maintainer` | none |
+| `POST` | `/api/projects/{project_id}/trace-imports/preview` | project | `project_maintainer` | none |
 | `POST` | `/api/projects/{project_id}/benchmark-suites` | project | `project_maintainer` | `benchmark_suite.committed` |
 | `GET` | `/api/projects/{project_id}/guards` | project | `viewer` | none |
 | `GET` | `/api/projects/{project_id}/guard-connectors` | project | `viewer` | none |

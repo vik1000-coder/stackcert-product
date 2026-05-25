@@ -1557,6 +1557,7 @@ class SupabaseStore:
             "k": int(summary.get("k") or row.get("k") or 2),
             "sampled_example_ids": summary.get("sampled_example_ids") or [],
             "job_id": summary.get("job_id"),
+            "release_context": summary.get("release_context") or {},
             "created_at": row.get("created_at"),
             "completed_at": row.get("completed_at"),
         }
@@ -1582,6 +1583,7 @@ class SupabaseStore:
             "measurement_actions": int(summary.get("measurement_actions") or 0),
             "benchmark_suite_id": str(row["benchmark_suite_id"]) if row.get("benchmark_suite_id") else summary.get("benchmark_suite_id"),
             "benchmark_suite_name": summary.get("benchmark_suite_name"),
+            "release_context": summary.get("release_context") or {},
             "created_at": row.get("created_at"),
             "completed_at": row.get("completed_at"),
             "source": summary.get("source") or "uploaded_outputs",

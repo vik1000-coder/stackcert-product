@@ -56,7 +56,10 @@ const initialConnector: GuardConnectorInput = {
   request_price_usd: 0.0002,
   input_price_per_1m_tokens_usd: 0,
   output_price_per_1m_tokens_usd: 0,
-  threshold: 0.8
+  threshold: 0.8,
+  rate_limit_per_minute: 120,
+  retry_max_attempts: 3,
+  retry_backoff_base_seconds: 30
 };
 
 const sampleOutputContent = [
@@ -84,6 +87,8 @@ export function SetupPage() {
   const [outputFormat, setOutputFormat] = useState<'auto' | 'jsonl' | 'csv'>('jsonl');
   const [suiteName, setSuiteName] = useState('Pilot app example suite');
   const [suiteVersion, setSuiteVersion] = useState('v1');
+  const [sourceName, setSourceName] = useState('Manual setup import');
+  const [sourceUri, setSourceUri] = useState('');
   const [connector, setConnector] = useState<GuardConnectorInput>(initialConnector);
   const suites = useQuery({ queryKey: ['benchmark-suites', projectId], queryFn: () => api.benchmarkSuites(projectId) });
   const guards = useQuery({ queryKey: ['guards', projectId], queryFn: () => api.guards(projectId) });
@@ -125,7 +130,7 @@ export function SetupPage() {
     }
   });
   const previewImport = useMutation({
-    mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) => api.previewProjectBenchmarkImport(projectId, payload)
+    mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string; source_name?: string; source_uri?: string }) => api.previewProjectBenchmarkImport(projectId, payload)
   });
   const previewOutputs = useMutation({
     mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
@@ -327,6 +332,11 @@ export function SetupPage() {
               <Field label="Input $ / 1M" value={String(connector.input_price_per_1m_tokens_usd ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, input_price_per_1m_tokens_usd: value ? Number(value) : undefined }))} />
               <Field label="Output $ / 1M" value={String(connector.output_price_per_1m_tokens_usd ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, output_price_per_1m_tokens_usd: value ? Number(value) : undefined }))} />
             </div>
+            <div className="setup-grid-three">
+              <Field label="Rate / min" value={String(connector.rate_limit_per_minute ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, rate_limit_per_minute: value ? Number(value) : undefined }))} />
+              <Field label="Retry attempts" value={String(connector.retry_max_attempts ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, retry_max_attempts: value ? Number(value) : undefined }))} />
+              <Field label="Backoff sec" value={String(connector.retry_backoff_base_seconds ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, retry_backoff_base_seconds: value ? Number(value) : undefined }))} />
+            </div>
             <button className="btn primary" type="submit" disabled={createConnector.isPending}>
               {createConnector.isPending ? 'Saving connector...' : 'Save connector'}
             </button>
@@ -500,12 +510,20 @@ export function SetupPage() {
               <span className="stat-label">Version</span>
               <input className="btn setup-input" style={{ marginTop: 6 }} value={suiteVersion} onChange={(event) => setSuiteVersion(event.currentTarget.value)} />
             </label>
+            <label>
+              <span className="stat-label">Source</span>
+              <input className="btn setup-input" style={{ marginTop: 6 }} value={sourceName} onChange={(event) => setSourceName(event.currentTarget.value)} />
+            </label>
+            <label>
+              <span className="stat-label">Source URI</span>
+              <input className="btn setup-input" style={{ marginTop: 6 }} value={sourceUri} onChange={(event) => setSourceUri(event.currentTarget.value)} />
+            </label>
           </div>
           <button
             className="btn primary"
             style={{ marginTop: 12 }}
             disabled={previewImport.isPending || importContent.trim().length < 10}
-            onClick={() => previewImport.mutate({ format: 'auto', content: importContent })}
+            onClick={() => previewImport.mutate({ format: 'auto', content: importContent, source_name: sourceName || undefined, source_uri: sourceUri || undefined })}
           >
             {previewImport.isPending ? 'Validating...' : 'Preview import'}
           </button>
@@ -522,6 +540,8 @@ export function SetupPage() {
               createSuite.mutate({
                 format: 'auto',
                 content: importContent,
+                source_name: sourceName || undefined,
+                source_uri: sourceUri || undefined,
                 name: suiteName,
                 version: suiteVersion || undefined
               })
@@ -547,6 +567,9 @@ export function SetupPage() {
                 <MiniStat label="Errors" value={String(previewImport.data.import_preview.summary.errors)} />
                 <MiniStat label="Warnings" value={String(previewImport.data.import_preview.summary.warnings)} />
                 <MiniStat label="Format" value={previewImport.data.import_preview.format} />
+              </div>
+              <div className="mono muted" style={{ fontSize: 11 }}>
+                Source SHA-256 {previewImport.data.import_preview.fingerprint.source_sha256.slice(0, 16)} · normalized {previewImport.data.import_preview.fingerprint.normalized_sha256.slice(0, 16)}
               </div>
               <div style={{ display: 'grid', gap: 8 }}>
                 {previewImport.data.import_preview.preview.slice(0, 4).map((item, index) => (

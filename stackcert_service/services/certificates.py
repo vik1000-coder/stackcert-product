@@ -281,6 +281,7 @@ def _attach_evidence_packet(
             "certified_label": evidence_payload.get("certified_label"),
             "status": evidence_payload.get("status_compact"),
         },
+        "release_context": evidence_payload.get("release_context") or {},
         "assumptions": evidence_payload.get("assumptions") or {},
         "limitations": certificate.get("limitations") or evidence_payload.get("limitations") or [],
         "retest_triggers": evidence_payload.get("recertification_triggers") or [],

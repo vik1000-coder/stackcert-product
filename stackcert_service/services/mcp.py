@@ -529,6 +529,7 @@ def release_evidence_status(project_id: str, lambda_cost: float = 5.0) -> dict[s
     run_id = str(latest["id"])
     overview = _overview_for_run(run_id, lambda_cost)
     ranking = _ranking_for_run(run_id, lambda_cost)
+    packet = release_evidence_packet(run_id, lambda_cost)
     status_value = str(overview["certificate"]["status"])
     blocking = [] if status_value == "valid" else [f"release_evidence_{status_value}"]
     decision = "pass" if status_value == "valid" else "review"
@@ -548,6 +549,7 @@ def release_evidence_status(project_id: str, lambda_cost: float = 5.0) -> dict[s
         },
         "blocking_reasons": blocking,
         "not_a_guarantee": True,
+        "release_context": packet.get("release_context") or {},
         "theory": _theory_summary_from_overview(overview, ranking),
         "recertification_required_on": RECERTIFICATION_TRIGGERS,
         "resources": [link["uri"] for link in _resource_links_for_status({"project_id": project_id, "run_id": run_id})],

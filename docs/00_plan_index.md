@@ -111,6 +111,10 @@ The implementation is past planning. The working app now includes:
 - MCP endpoints for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts, with Supabase user auth and MCP-only machine bearer tokens.
+- Import hardening for field-mapped JSONL/CSV examples, source fingerprints,
+  and trace-import previews from LangSmith/Langfuse/OpenTelemetry-style JSONL.
+- GitLab/Circle/generic release-gate integration examples, release-context
+  hashes in evidence, and workspace budget/provider runtime controls.
 
 Milestones 1 and 2 are implemented, and most of Milestone 3 is now live in
 staging: service-layer tenancy/RBAC, membership-aware lists, route
@@ -118,8 +122,9 @@ authorization, audit events, immutable evidence semantics, private artifact
 handling, export verification, readiness diagnostics, managed connector-secret
 refs, retry/dead-letter controls, lease renewal, an independent Cloud Run
 worker job, and a workspace admin operations dashboard. The current priority is
-the remaining production hardening slice: release-gate examples, workspace
-budget/rate controls, evidence-context hashes, and operations setup. See
+the remaining production hardening slice: persisted budget policy UI,
+reviewed trace-import commits, signed deployment webhooks, and operations
+setup. See
 `15_current_state_and_next_steps.md`,
 `18_pilot_ready_execution_plan.md`, and `19_route_access_matrix.md`.
 

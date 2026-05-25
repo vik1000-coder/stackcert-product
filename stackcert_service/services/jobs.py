@@ -21,6 +21,7 @@ from stackcert_service.security.auth import Principal
 from stackcert_service.schemas import EvaluationJobCreate, MeasurementPlanCreate
 from stackcert_service.services import audit
 from stackcert_service.services import benchmark_imports
+from stackcert_service.services import budget_controls
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
 from stackcert_service.services import pilot_runs
@@ -73,9 +74,9 @@ def _update(job: dict[str, Any]) -> dict[str, Any]:
     return job
 
 
-def _reliability_fields() -> dict[str, Any]:
+def _reliability_fields(max_attempts: int | None = None) -> dict[str, Any]:
     return {
-        "max_attempts": DEFAULT_MAX_JOB_ATTEMPTS,
+        "max_attempts": max_attempts or DEFAULT_MAX_JOB_ATTEMPTS,
         "lease_expires_at": None,
         "locked_by": None,
         "retry_after": None,
@@ -169,6 +170,8 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Estimated worker run costs ${estimated_cost_usd:.4f}, above the ${payload.max_cost_usd:.4f} budget cap",
             )
+        budget_controls.enforce_workspace_budget(project_id, pending_cost_usd=estimated_cost_usd)
+        provider_controls = _provider_runtime_controls(project_id, requested_guard_ids, len(sampled_examples))
         suite_context = {
             "source": "worker_evaluation",
             "benchmark_suite_id": suite_bundle["suite"]["id"],
@@ -181,6 +184,8 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
             "max_k": payload.max_k,
             "estimated_cost_usd": estimated_cost_usd,
             "budget_cap_usd": payload.max_cost_usd,
+            "release_context": _release_context_from_payload(payload),
+            "provider_controls": provider_controls,
         }
 
     run_id = f"eval_{uuid.uuid4().hex[:10]}"
@@ -213,13 +218,15 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
             "errors": 0,
             "estimated_cost_usd": estimated_cost_usd,
             "budget_cap_usd": payload.max_cost_usd,
+            "workspace_budget": budget_controls.workspace_budget_state(project_id, pending_cost_usd=estimated_cost_usd),
+            "provider_controls": suite_context.get("provider_controls", {}),
         },
         "artifact_preview": [],
         "next_steps": [
             "Worker will execute selected guard/cell bundles with provider rate limits.",
             "Outputs will be written idempotently and the certificate recomputed.",
         ],
-        **_reliability_fields(),
+        **_reliability_fields(_job_max_attempts(suite_context.get("provider_controls", {}))),
     }
     if payload.execution_mode == "queued":
         return _store(job)
@@ -372,6 +379,54 @@ def _connector_price_cards(project_id: str) -> dict[str, dict[str, Any]]:
     for guard_id, connector in _project_connector_map(project_id).items():
         cards[guard_id] = pricing.connector_price_card(connector)
     return cards
+
+
+def _provider_runtime_controls(project_id: str, guard_ids: list[str], example_count: int) -> dict[str, Any]:
+    connectors = _project_connector_map(project_id)
+    controls: dict[str, Any] = {"guards": {}, "max_attempts": DEFAULT_MAX_JOB_ATTEMPTS, "estimated_min_runtime_seconds": 0}
+    max_runtime = 0.0
+    retry_attempts: list[int] = []
+    for guard_id in guard_ids:
+        connector = connectors.get(guard_id) or {}
+        config = connector.get("config") or {}
+        rate_limit = config.get("rate_limit_per_minute")
+        retry_max = config.get("retry_max_attempts")
+        backoff_base = config.get("retry_backoff_base_seconds")
+        guard_control: dict[str, Any] = {
+            "request_count": example_count,
+            "rate_limit_per_minute": rate_limit,
+            "retry_max_attempts": retry_max,
+            "retry_backoff_base_seconds": backoff_base,
+        }
+        if rate_limit:
+            seconds = 60.0 * max(0, example_count - 1) / max(1, int(rate_limit))
+            guard_control["estimated_min_runtime_seconds"] = round(seconds, 3)
+            max_runtime = max(max_runtime, seconds)
+        if retry_max:
+            retry_attempts.append(int(retry_max))
+        controls["guards"][guard_id] = guard_control
+    if retry_attempts:
+        controls["max_attempts"] = max(1, min(retry_attempts))
+    controls["estimated_min_runtime_seconds"] = round(max_runtime, 3)
+    return controls
+
+
+def _job_max_attempts(provider_controls: dict[str, Any]) -> int | None:
+    value = provider_controls.get("max_attempts")
+    return int(value) if value else None
+
+
+def _release_context_from_payload(payload: EvaluationJobCreate) -> dict[str, Any]:
+    context = {
+        "model_id": payload.model_id,
+        "model_version": payload.model_version,
+        "prompt_hash": payload.prompt_hash,
+        "policy_hash": payload.policy_hash,
+        "tool_config_hash": payload.tool_config_hash,
+        "retrieval_config_hash": payload.retrieval_config_hash,
+        "traffic_profile_hash": payload.traffic_profile_hash,
+    }
+    return {key: str(value).strip() for key, value in context.items() if value is not None and str(value).strip()}
 
 
 def _provider_adapters(project_id: str, run_id: str, guard_ids: list[str], adapter_mode: str):
@@ -684,7 +739,7 @@ def _handle_job_failure(job: dict[str, Any], exc: Exception) -> dict[str, Any]:
     }
 
     if can_retry:
-        delay_seconds = _retry_delay_seconds(attempts)
+        delay_seconds = _retry_delay_seconds(attempts, job)
         retry_after = _future(delay_seconds)
         job["status"] = "queued"
         job["progress"] = 0.0
@@ -726,8 +781,17 @@ def _handle_job_failure(job: dict[str, Any], exc: Exception) -> dict[str, Any]:
     return job
 
 
-def _retry_delay_seconds(attempts: int) -> int:
-    return min(MAX_RETRY_DELAY_SECONDS, 30 * (2 ** max(0, attempts - 1)))
+def _retry_delay_seconds(attempts: int, job: dict[str, Any] | None = None) -> int:
+    base = 30
+    controls = ((job or {}).get("input") or {}).get("provider_controls") or {}
+    backoffs = [
+        int(control["retry_backoff_base_seconds"])
+        for control in (controls.get("guards") or {}).values()
+        if control.get("retry_backoff_base_seconds")
+    ]
+    if backoffs:
+        base = max(1, min(backoffs))
+    return min(MAX_RETRY_DELAY_SECONDS, base * (2 ** max(0, attempts - 1)))
 
 
 def _classify_job_error(exc: Exception) -> str:
@@ -865,6 +929,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Estimated worker run costs ${estimated_cost:.4f}, above the ${float(budget_cap):.4f} budget cap",
         )
+    budget_controls.enforce_workspace_budget(project_id, pending_cost_usd=estimated_cost)
 
     if payload.adapter_mode in {"rest_guard", "model_judge"}:
         _audit_provider_secret_use(project_id, requested_guard_ids, str(job.get("locked_by") or "worker"), payload.adapter_mode)
@@ -896,6 +961,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
         max_k=payload.max_k,
         name=f"{suite_bundle['suite']['name']} worker evaluation",
         job_id=str(job["id"]),
+        release_context=job_input.get("release_context") or _release_context_from_payload(payload),
     )
     recorded_events = usage.record_usage_events(project_id, job, _usage_events_from_evaluation(job, outputs, examples, requested_guard_ids, payload.adapter_mode))
     actual_cost = round(sum(float(event.get("actual_cost_usd") or 0) for event in recorded_events), 4)
@@ -935,6 +1001,8 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
         "actual_cost_usd": actual_cost,
         "usage_event_count": len(recorded_events),
         "budget_cap_usd": budget_cap,
+        "workspace_budget": budget_controls.workspace_budget_state(project_id, pending_cost_usd=actual_cost),
+        "provider_controls": job_input.get("provider_controls") or _provider_runtime_controls(project_id, requested_guard_ids, len(examples)),
     }
     job["artifact_preview"] = preview
     job["next_steps"] = [

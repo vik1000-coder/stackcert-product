@@ -51,7 +51,11 @@ def evaluate_project_gate(project_id: str, payload: ReleaseGateEvaluateRequest) 
     benchmark_blockers = _benchmark_blockers(evidence, payload)
     blocking_reasons.extend(benchmark_blockers)
 
-    if any([payload.model_id, payload.model_version, payload.prompt_hash, payload.policy_hash]):
+    context_blockers, context_warnings = _release_context_findings(evidence, payload)
+    blocking_reasons.extend(context_blockers)
+    warnings.extend(context_warnings)
+
+    if any([payload.model_id, payload.model_version, payload.prompt_hash, payload.policy_hash]) and not (evidence.get("release_context") or {}):
         warnings.append("model_prompt_policy_context_recorded_as_assumption_not_verified_against_packet")
 
     blocking_reasons = _dedupe(blocking_reasons)
@@ -133,10 +137,15 @@ def _evidence_context(project_id: str, payload: ReleaseGateEvaluateRequest) -> d
             "recertification_required_on": packet.get("recertification_triggers") or mcp.RECERTIFICATION_TRIGGERS,
             "resources": [f"stackcert://runs/{payload.run_id}/release-evidence"],
             "run_summary": _run_summary(payload.run_id),
+            "release_context": packet.get("release_context") or ((packet.get("assumptions") or {}).get("release_context") or {}),
         }
 
     status_payload = mcp.release_evidence_status(project_id, payload.lambda_cost)
-    return {**status_payload, "run_summary": _run_summary(str(status_payload.get("run_id") or ""))}
+    return {
+        **status_payload,
+        "run_summary": _run_summary(str(status_payload.get("run_id") or "")),
+        "release_context": status_payload.get("release_context") or {},
+    }
 
 
 def _guard_version_blockers(project_id: str, expected_versions: dict[str, str]) -> list[str]:
@@ -166,6 +175,30 @@ def _benchmark_blockers(evidence: dict[str, Any], payload: ReleaseGateEvaluateRe
     if evidence_suite_id and str(evidence_suite_id) != payload.benchmark_suite_id:
         return [f"benchmark_suite_mismatch:expected_{payload.benchmark_suite_id}:evidence_{evidence_suite_id}"]
     return []
+
+
+def _release_context_findings(evidence: dict[str, Any], payload: ReleaseGateEvaluateRequest) -> tuple[list[str], list[str]]:
+    context = evidence.get("release_context") or {}
+    expected = {
+        "model_id": payload.model_id,
+        "model_version": payload.model_version,
+        "prompt_hash": payload.prompt_hash,
+        "policy_hash": payload.policy_hash,
+        "benchmark_suite_id": payload.benchmark_suite_id,
+        "benchmark_suite_version": payload.benchmark_suite_version,
+    }
+    blockers: list[str] = []
+    warnings: list[str] = []
+    for key, expected_value in expected.items():
+        if not expected_value:
+            continue
+        actual_value = context.get(key)
+        if actual_value is None:
+            warnings.append(f"release_context_missing:{key}")
+            continue
+        if str(actual_value) != str(expected_value):
+            blockers.append(f"release_context_mismatch:{key}:expected_{expected_value}:evidence_{actual_value}")
+    return blockers, warnings
 
 
 def _project_id_for_run(run_id: str) -> str | None:
@@ -203,8 +236,8 @@ def _context_binding_assumptions(payload: ReleaseGateEvaluateRequest) -> dict[st
     return {
         "guard_connector_versions_checked": bool(payload.guard_connector_versions),
         "benchmark_suite_checked": bool(payload.benchmark_suite_id),
-        "model_prompt_policy_checked": False,
-        "model_prompt_policy_note": "Current evidence packets do not yet persist model/prompt/policy hashes; provided values are returned as assumptions and should trigger retest when changed.",
+        "model_prompt_policy_checked": bool(any([payload.model_id, payload.model_version, payload.prompt_hash, payload.policy_hash])),
+        "model_prompt_policy_note": "Release gates compare supplied model/prompt/policy identifiers when the evidence packet includes matching release-context fields; missing fields warn and mismatches block.",
         "explicit_run_requested": bool(payload.run_id),
     }
 

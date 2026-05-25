@@ -42,6 +42,7 @@ export type RunSummary = {
   created_at?: string;
   completed_at?: string;
   source?: string;
+  release_context?: Record<string, unknown>;
 };
 
 export type RankingRow = {
@@ -345,6 +346,7 @@ export type BenchmarkSuite = {
     byte_size: number;
     sha256: string;
   } | null;
+  source_metadata?: Record<string, unknown>;
   cells: Array<{
     cell_id: string;
     side: string;
@@ -401,6 +403,9 @@ export type GuardConnectorInput = {
   input_price_per_1m_tokens_usd?: number;
   output_price_per_1m_tokens_usd?: number;
   threshold?: number;
+  rate_limit_per_minute?: number;
+  retry_max_attempts?: number;
+  retry_backoff_base_seconds?: number;
 };
 
 export type CandidateStack = {
@@ -457,6 +462,13 @@ export type EvaluationJobInput = {
   rho_prior?: number;
   max_k?: number;
   max_cost_usd?: number;
+  model_id?: string;
+  model_version?: string;
+  prompt_hash?: string;
+  policy_hash?: string;
+  tool_config_hash?: string;
+  retrieval_config_hash?: string;
+  traffic_profile_hash?: string;
 };
 
 export type UploadedOutputRunInput = {
@@ -467,6 +479,13 @@ export type UploadedOutputRunInput = {
   rho_prior?: number;
   max_k?: number;
   name?: string;
+  model_id?: string;
+  model_version?: string;
+  prompt_hash?: string;
+  policy_hash?: string;
+  tool_config_hash?: string;
+  retrieval_config_hash?: string;
+  traffic_profile_hash?: string;
 };
 
 export type UploadedOutputPreviewInput = {
@@ -529,7 +548,16 @@ export type BenchmarkImportPreview = {
     by_category: Record<string, number>;
     warnings: number;
     errors: number;
+    duplicate_prompts: number;
   };
+  fingerprint: {
+    algorithm: 'sha256';
+    source_sha256: string;
+    normalized_sha256: string;
+    source_bytes: number;
+    normalized_rows: number;
+  };
+  schema: Record<string, unknown>;
   preview: Array<{
     name: string;
     prompt_redacted: string;
@@ -542,10 +570,26 @@ export type BenchmarkImportPreview = {
 export type BenchmarkImportCommitInput = {
   format: 'auto' | 'jsonl' | 'csv';
   content: string;
+  field_mapping?: Record<string, string>;
+  source_name?: string;
+  source_uri?: string;
   name: string;
   version?: string;
   description?: string;
   license?: string;
+};
+
+export type TraceImportPreview = {
+  source: string;
+  rows_seen: number;
+  draft_examples: number;
+  status: 'valid' | 'invalid';
+  issues: Array<{ severity: 'error' | 'warning'; row?: number; code: string; message: string }>;
+  benchmark_import_content: string;
+  fingerprint: { algorithm: 'sha256'; source_sha256: string; draft_sha256: string };
+  preview: Array<{ external_id: string; name: string; side: string; policy_category: string; severity: string; prompt_hash: string }>;
+  review_required: boolean;
+  review_note: string;
 };
 
 export type WorkspaceInput = {
@@ -748,8 +792,17 @@ export const api = {
     request<{ suites: BenchmarkSuite[] }>(`/api/projects/${projectId}/benchmark-suites?lambda_cost=5`),
   previewBenchmarkImport: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
     post<{ project_id: string; import_preview: BenchmarkImportPreview }>('/api/projects/proj_acme_copilot/benchmark-suites/preview', payload),
-  previewProjectBenchmarkImport: (projectId: string, payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
+  benchmarkImportSchema: (projectId: string) =>
+    request<{ project_id: string; schema: Record<string, unknown> }>(`/api/projects/${projectId}/benchmark-suites/schema`),
+  previewProjectBenchmarkImport: (
+    projectId: string,
+    payload: { format: 'auto' | 'jsonl' | 'csv'; content: string; field_mapping?: Record<string, string>; source_name?: string; source_uri?: string }
+  ) =>
     post<{ project_id: string; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites/preview`, payload),
+  previewTraceImport: (
+    projectId: string,
+    payload: { source?: 'auto' | 'langsmith' | 'langfuse' | 'opentelemetry' | 'generic_jsonl'; content: string; default_side?: 'adversarial' | 'benign'; default_policy_category?: string; max_examples?: number }
+  ) => post<{ project_id: string; trace_import_preview: TraceImportPreview }>(`/api/projects/${projectId}/trace-imports/preview`, payload),
   createBenchmarkSuite: (projectId: string, payload: BenchmarkImportCommitInput) =>
     post<{ project_id: string; suite: BenchmarkSuite; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites`, payload),
   guards: (projectId: string) => request<{ guards: GuardCatalogItem[] }>(`/api/projects/${projectId}/guards?lambda_cost=5`),

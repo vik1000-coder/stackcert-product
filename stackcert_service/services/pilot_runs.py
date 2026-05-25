@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import uuid
 from collections import Counter
@@ -204,6 +205,7 @@ def create_uploaded_output_run(project_id: str, payload: UploadedOutputRunCreate
         "source": "uploaded_outputs",
         "benchmark_suite_id": suite_bundle["suite"]["id"],
         "benchmark_suite_name": suite_bundle["suite"]["name"],
+        "release_context": _release_context_from_payload(payload),
         "created_at": now,
         "completed_at": now,
     }
@@ -258,6 +260,7 @@ def create_worker_evaluation_run(
     max_k: int = 2,
     name: str | None = None,
     job_id: str | None = None,
+    release_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     project = projects.get_project(project_id)
     if not project:
@@ -299,6 +302,7 @@ def create_worker_evaluation_run(
         "benchmark_suite_name": suite_bundle["suite"]["name"],
         "sampled_example_ids": [example.example_id for example in examples],
         "job_id": job_id,
+        "release_context": _clean_release_context(release_context or {}),
         "created_at": now,
         "completed_at": now,
     }
@@ -365,6 +369,7 @@ def run_summary(run_id: str) -> dict[str, Any]:
         "measurement_actions": len(scheduled.actions),
         "benchmark_suite_id": run.get("benchmark_suite_id"),
         "benchmark_suite_name": run.get("benchmark_suite_name"),
+        "release_context": _run_release_context(bundle),
         "created_at": run.get("created_at"),
         "completed_at": run.get("completed_at"),
         "source": run.get("source"),
@@ -621,6 +626,11 @@ def certificate_payload(run_id: str, lambda_cost: float | None = None) -> dict[s
     data["status_compact"] = compact_status(certificate.status)
     data["recommended_label"] = stack_label(certificate.recommended_architecture.guard_ids)
     data["certified_label"] = stack_label(certificate.certified_architecture.guard_ids) if certificate.certified_architecture else None
+    data["release_context"] = _run_release_context(bundle)
+    data["assumptions"] = {
+        **(data.get("assumptions") or {}),
+        "release_context": data["release_context"],
+    }
     data["markdown"] = render_certificate_markdown(certificate, engine=engine)
     return data
 
@@ -703,6 +713,7 @@ def issue_payload(run_id: str, expires_in_days: int, reviewer_note: str | None =
         "expires_at": expires_at.isoformat(),
         "limitations": payload["limitations"],
         "assumptions": payload["assumptions"],
+        "release_context": payload.get("release_context") or {},
         "markdown": payload["markdown"],
     }
     import hashlib
@@ -728,6 +739,7 @@ def issue_payload(run_id: str, expires_in_days: int, reviewer_note: str | None =
             "not_a_guarantee": True,
             "acknowledged_limitations": True,
             "reviewer_note": reviewer_note or "",
+            "release_context": payload.get("release_context") or {},
         },
         "signoffs": [],
     }
@@ -801,6 +813,64 @@ def _bundle_from_source(source: dict[str, Any]) -> dict[str, Any]:
         "scheduled": scheduled,
         "certificate": scheduled.final_engine.build_certificate(measurement_actions=scheduled.actions),
     }
+
+
+def _release_context_from_payload(payload: Any) -> dict[str, Any]:
+    return _clean_release_context(
+        {
+            "model_id": getattr(payload, "model_id", None),
+            "model_version": getattr(payload, "model_version", None),
+            "prompt_hash": getattr(payload, "prompt_hash", None),
+            "policy_hash": getattr(payload, "policy_hash", None),
+            "tool_config_hash": getattr(payload, "tool_config_hash", None),
+            "retrieval_config_hash": getattr(payload, "retrieval_config_hash", None),
+            "traffic_profile_hash": getattr(payload, "traffic_profile_hash", None),
+        }
+    )
+
+
+def _clean_release_context(context: dict[str, Any]) -> dict[str, Any]:
+    cleaned: dict[str, Any] = {}
+    for key, value in context.items():
+        if key == "context_hash" or value is None:
+            continue
+        if isinstance(value, dict):
+            nested = {str(nested_key): str(nested_value).strip() for nested_key, nested_value in value.items() if str(nested_value).strip()}
+            if nested:
+                cleaned[key] = dict(sorted(nested.items()))
+            continue
+        stripped = str(value).strip()
+        if stripped:
+            cleaned[key] = stripped
+    if cleaned:
+        cleaned["context_hash"] = _context_hash(cleaned)
+    return cleaned
+
+
+def _run_release_context(bundle: dict[str, Any]) -> dict[str, Any]:
+    run_context = _clean_release_context(bundle["run"].get("release_context") or {})
+    suite = bundle.get("suite") or {}
+    suite_metadata = suite.get("source_metadata") or {}
+    suite_fingerprint = suite_metadata.get("fingerprint") or {}
+    guard_versions = {
+        guard.guard_id: guard.version
+        for guard in bundle["engine"].guards
+        if guard.version
+    }
+    context = {
+        **run_context,
+        "benchmark_suite_id": suite.get("id") or bundle["run"].get("benchmark_suite_id"),
+        "benchmark_suite_version": suite.get("version"),
+        "benchmark_source_sha256": suite_fingerprint.get("source_sha256"),
+        "benchmark_normalized_sha256": suite_fingerprint.get("normalized_sha256"),
+        "guard_connector_versions": guard_versions,
+    }
+    return _clean_release_context(context)
+
+
+def _context_hash(context: dict[str, Any]) -> str:
+    payload = {key: value for key, value in context.items() if key != "context_hash"}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def _output_to_store_row(output: GuardOutput) -> dict[str, Any]:

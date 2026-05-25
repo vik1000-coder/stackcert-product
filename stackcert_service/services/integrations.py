@@ -62,3 +62,64 @@ def agent_platforms() -> dict[str, list[dict[str, Any]]]:
             },
         ]
     }
+
+
+def release_gate_examples(api_url: str = "$STACKCERT_API_URL", project_id: str = "$STACKCERT_PROJECT_ID") -> dict[str, Any]:
+    command = (
+        "python scripts/certificate_gate.py --release-gate "
+        f"--api-url {api_url} --project-id {project_id} "
+        "--token \"$STACKCERT_API_TOKEN\" --environment production --required-status valid"
+    )
+    return {
+        "contract": {
+            "endpoint": f"{api_url.rstrip('/')}/api/projects/{project_id}/release-gates/evaluate",
+            "method": "POST",
+            "auth": "Bearer token scoped to release_gate:read for the target project",
+            "fails_closed": True,
+            "decision_values": ["pass", "warn", "block"],
+        },
+        "github_actions": {
+            "script": "scripts/certificate_gate.py --release-gate",
+            "workflow": ".github/workflows/certificate-gate.yml",
+        },
+        "gitlab_ci": {
+            "file": "integrations/release-gates/gitlab-ci.yml",
+            "snippet": (
+                "stackcert_release_gate:\n"
+                "  image: python:3.12-slim\n"
+                "  script:\n"
+                "    - pip install stackcert\n"
+                f"    - {command}\n"
+            ),
+        },
+        "circleci": {
+            "file": "integrations/release-gates/circleci-config.yml",
+            "snippet": (
+                "jobs:\n"
+                "  stackcert_release_gate:\n"
+                "    docker:\n"
+                "      - image: cimg/python:3.12\n"
+                "    steps:\n"
+                "      - checkout\n"
+                f"      - run: {command}\n"
+            ),
+        },
+        "generic_webhook": {
+            "file": "integrations/release-gates/generic-webhook-request.json",
+            "payload_fields": [
+                "environment",
+                "model_id",
+                "model_version",
+                "prompt_hash",
+                "policy_hash",
+                "guard_connector_versions",
+                "benchmark_suite_id",
+                "benchmark_suite_version",
+                "run_id",
+                "deployment_ref",
+                "commit_sha",
+                "changed_since_evidence",
+                "mode",
+            ],
+        },
+    }

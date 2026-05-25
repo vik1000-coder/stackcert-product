@@ -346,9 +346,11 @@ connector-secret register/rotate/disable APIs, local/env/Google Secret Manager
 secret reference resolution, audit events, lease renewal, retry/dead-letter
 behavior, multi-job worker CLI support, a separate Cloud Run worker job, hosted
 worker smoke coverage, job cancel, and a workspace admin dashboard are
-implemented and tested. Remaining production work is workspace-level budget
-caps, provider rate-limit/backoff controls, and worker-only machine auth for
-execution routes if we want non-operator automation to claim work.
+implemented and tested. Environment-driven workspace budget caps and connector
+rate-limit/retry/backoff controls are now implemented. Remaining production work
+is persisted budget-policy management, richer provider throttling observability,
+and worker-only machine auth for execution routes if we want non-operator
+automation to claim work.
 
 ### User Stories
 
@@ -432,14 +434,13 @@ uv run python scripts/deployment_smoke.py --web-url "$STACKCERT_WEB_URL" --api-u
 Goal: make StackCert operationally sticky by letting CI, deployment platforms,
 and agent runtimes check release evidence conservatively.
 
-Status as of 2026-05-25: partially implemented. The REST release-gate endpoint,
+Status as of 2026-05-25: substantially implemented for staging. The REST release-gate endpoint,
 release-gate-only hash-scoped machine tokens, project scoping, audit event,
 `scripts/certificate_gate.py --release-gate`, reusable GitHub workflow support,
-token hash helper, MCP project scoping, and hosted smoke-script coverage are
-implemented and tested. The remaining Milestone 4 work is packaging
-GitLab/Circle examples and persisting model/prompt/policy hashes in evidence
-packets so release gates can compare them directly rather than treating them as
-assumptions.
+token hash helper, MCP project scoping, hosted smoke-script coverage,
+GitLab/Circle examples, generic webhook payloads, and release-context evidence
+comparisons are implemented and tested. Remaining Milestone 4 work is signed
+generic deployment webhooks and deeper platform-specific adapters.
 
 ### User Stories
 
@@ -742,9 +743,9 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 ## Current Next Move
 
-The next implementation move is the post-worker production hardening slice:
-GitLab/Circle release-gate examples, model/prompt/policy hashes in issued
-evidence packets, workspace-level budget caps, provider rate-limit/backoff
-controls, and the production operations checklist. Keep the existing GCP
+The next implementation move is the production-operations and persisted-policy
+slice: workspace/project budget settings UI and storage, trace-import commit
+flows after preview review, signed generic deployment webhooks, monitoring,
+backup/restore rehearsal, and auth sender-domain setup. Keep the existing GCP
 guardrails in place: Cloud Run API max instances `1`, worker job task count
 `1`, worker parallelism `1`, and the `StackCert staging $10` budget.

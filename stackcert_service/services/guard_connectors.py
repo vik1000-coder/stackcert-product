@@ -99,6 +99,9 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "secret_env_var": secret_config.secret_env_var,
         "secret_status": secret_config.secret_status,
         "price_card": price_card,
+        "rate_limit_per_minute": payload.rate_limit_per_minute,
+        "retry_max_attempts": payload.retry_max_attempts,
+        "retry_backoff_base_seconds": payload.retry_backoff_base_seconds,
     }
     if secret_config.has_secret:
         config["secret_metadata"] = {

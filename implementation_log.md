@@ -1622,7 +1622,11 @@ Started: 2026-05-23
   - `npm --prefix web test -- --run` -> 6 tests passed;
   - `npm --prefix web run build` -> OK;
   - `npm run build` -> OK;
-  - `git diff --check` -> OK.
+  - `git diff --check` -> OK;
+  - Playwright browser QA against local API/web servers -> OK:
+    setup page loaded, import source metadata/fingerprint preview worked,
+    connector execution controls saved, console errors were empty, and desktop
+    plus mobile viewports had no horizontal overflow.
 
 ## Milestone 2 Immutable Evidence And Private Artifacts
 
@@ -1972,3 +1976,52 @@ Started: 2026-05-23
 - Re-ran the deployed smoke locally against Cloudflare + Cloud Run + Supabase
   Auth after the workflow deploy:
   - `scripts/deployment_smoke.py` -> `deployment smoke OK`.
+
+## Production Hardening Slice: Integrations, Loading, Budgets, Context
+
+- Added example-suite data-loading hardening:
+  - `/api/projects/{project_id}/benchmark-suites/schema`;
+  - optional field mapping for JSONL/CSV imports;
+  - source metadata and source/normalized SHA-256 fingerprints;
+  - setup UI fields for source name/URI and preview fingerprint display.
+- Added trace-import preview:
+  - `/api/projects/{project_id}/trace-imports/preview`;
+  - parses LangSmith/Langfuse/OpenTelemetry/generic JSONL-like traces into
+    reviewable StackCert example-suite draft rows;
+  - returns draft JSONL, source/draft hashes, preview rows, and review-required
+    status.
+- Added release-gate integration packaging:
+  - `integrations/release-gates/gitlab-ci.yml`;
+  - `integrations/release-gates/circleci-config.yml`;
+  - `integrations/release-gates/generic-webhook-request.json`;
+  - `/api/integrations/release-gates`;
+  - `docs/20_release_gate_integrations.md`.
+- Added execution controls:
+  - environment-driven workspace budget caps through
+    `STACKCERT_WORKSPACE_BUDGET_CAP_USD` or
+    `STACKCERT_WORKSPACE_BUDGET_CAPS_JSON`;
+  - worker job preflight and execution budget enforcement;
+  - connector-level `rate_limit_per_minute`, `retry_max_attempts`, and
+    `retry_backoff_base_seconds` controls;
+  - job summaries now expose workspace budget state and provider controls.
+- Added release-context evidence comparison:
+  - uploaded-output and worker runs can carry model/prompt/policy/tool/retrieval
+    and traffic hashes;
+  - evidence packets include release context and a deterministic context hash;
+  - release gates now warn on missing context and block mismatched supplied
+    model/prompt/policy/suite fields.
+- Updated current-state docs, execution plan, plan index, route access matrix,
+  README, and release-gate integration docs.
+- Verification:
+  - `uv run python -m py_compile ...` -> OK with `UV_CACHE_DIR=/private/tmp/uv-cache`;
+  - targeted new API tests -> OK;
+  - `uv run python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 101 tests passed when rerun with local loopback socket access for
+    temporary provider servers;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
+    tests passed when rerun with local loopback socket access for adapter tests;
+  - `npm --prefix web run lint` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `git diff --check` -> OK.

@@ -231,6 +231,18 @@ Set `SUPABASE_URL`, backend-only `SUPABASE_SECRET_KEY`, and
 `STACKCERT_PERSISTENCE_BACKEND=supabase` to persist custom behavior drafts and
 managed job records.
 
+Data loading now supports:
+
+- JSONL/CSV example-suite preview and commit.
+- Field mapping for source exports with different column names.
+- Source and normalized SHA-256 fingerprints.
+- Trace-import preview for LangSmith, Langfuse, OpenTelemetry, and generic
+  JSONL traces through `/api/projects/{project_id}/trace-imports/preview`.
+
+Release gates now have examples for GitHub Actions, GitLab CI, CircleCI, and
+generic webhook callers. See `docs/20_release_gate_integrations.md` and
+`integrations/release-gates/`.
+
 For MCP-only machine callers, generate a token hash with
 `scripts/hash_mcp_machine_token.py`, then set
 `STACKCERT_MCP_MACHINE_TOKEN_HASHES` and
