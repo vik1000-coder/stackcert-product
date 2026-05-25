@@ -2,9 +2,6 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { Badge, ButtonLink, Card, Chip, LogoMark } from '../components/Primitives';
 import { blogPosts, getBlogPost, type BlogBlock, type BlogPost } from '../data/blogPosts';
 
-const demoOverviewPath = '/app/ws_demo/proj_acme_copilot/overview';
-const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath)}`;
-
 function BlogNav() {
   return (
     <header className="landing-nav">
@@ -48,7 +45,7 @@ export function BlogIndexPage() {
                 <ButtonLink to={`/blog/${featured.slug}`} variant="primary">
                   Read the overview
                 </ButtonLink>
-                <ButtonLink to={demoSignInPath}>Open demo</ButtonLink>
+                <ButtonLink to="/demo">Open demo</ButtonLink>
               </div>
             </div>
             <Card>

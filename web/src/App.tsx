@@ -7,6 +7,7 @@ import { AuthPage } from './pages/AuthPage';
 import { BlogIndexPage, BlogPostPage } from './pages/BlogPage';
 import { CertificatePage } from './pages/CertificatePage';
 import { CorrelationsPage } from './pages/CorrelationsPage';
+import { DemoPage } from './pages/DemoPage';
 import { DriftPage } from './pages/DriftPage';
 import { LandingPage } from './pages/LandingPage';
 import { MeasurementsPage } from './pages/MeasurementsPage';
@@ -35,6 +36,7 @@ export function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/blog" element={<BlogIndexPage />} />
         <Route path="/blog/:postSlug" element={<BlogPostPage />} />
+        <Route path="/demo" element={<DemoPage />} />
         <Route path="/auth/sign-in" element={<AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/app/:workspaceId/:projectId" element={<AppShell lambda={lambda} onLambdaChange={setLambda} />}>

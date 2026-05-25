@@ -18,11 +18,11 @@ describe('StackCert app', () => {
     expect(screen.getByText(/What teams often do instead/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View support-copilot demo/i })).toHaveAttribute(
       'href',
-      '/auth/sign-in?next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview'
+      '/demo'
     );
   });
 
-  it('renders local demo sign-in when auth route is opened', async () => {
+  it('renders beta sign-in by default instead of prefilled demo credentials', async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter initialEntries={['/auth/sign-in']}>
@@ -30,10 +30,38 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Continue with the seeded demo account/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Continue to demo/i })).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to your beta workspace/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue to beta/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email/i)).toHaveValue('');
     await user.click(screen.getByRole('button', { name: /Create account/i }));
-    expect(screen.getByText(/Create an LLM app workspace/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a beta workspace account/i)).toBeInTheDocument();
+  });
+
+  it('keeps the seeded demo behind an explicit sandbox flow', () => {
+    render(
+      <MemoryRouter initialEntries={['/demo']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /Explore StackCert without mixing it with a beta workspace/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Demo sandbox/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: /Continue to demo sandbox/i })).toHaveAttribute(
+      'href',
+      '/auth/sign-in?flow=demo&next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview'
+    );
+  });
+
+  it('prefills credentials only for the explicit demo auth flow', () => {
+    render(
+      <MemoryRouter initialEntries={['/auth/sign-in?flow=demo&next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/Open the isolated seeded demo/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email/i)).toHaveValue('demo@stackcert.dev');
+    expect(screen.getByRole('button', { name: /Open demo sandbox/i })).toBeInTheDocument();
   });
 
   it('renders onboarding flow shell', () => {

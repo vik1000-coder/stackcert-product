@@ -18,7 +18,7 @@ class Principal:
     user_id: str
     email: str | None
     role: str = "owner"
-    workspace_ids: tuple[str, ...] = (settings.demo_workspace_id,)
+    workspace_ids: tuple[str, ...] = ()
     principal_type: str = "user"
     scopes: tuple[str, ...] = ("app:read", "app:write", "mcp:read", "mcp:write")
     allowed_project_ids: tuple[str, ...] = ()
@@ -175,7 +175,7 @@ def current_principal(authorization: Annotated[str | None, Header()] = None) -> 
     if authorization and authorization.lower().startswith("bearer "):
         return _authenticate_bearer_token(authorization.split(" ", 1)[1].strip())
     if settings.environment != "production":
-        return Principal(user_id="demo_user", email="demo@stackcert.local")
+        return Principal(user_id="demo_user", email="demo@stackcert.local", workspace_ids=(settings.demo_workspace_id,))
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
 
 

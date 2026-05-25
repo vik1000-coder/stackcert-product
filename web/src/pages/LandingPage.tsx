@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Badge, ButtonLink, Card, Chip, LogoMark } from '../components/Primitives';
 
-const demoOverviewPath = '/app/ws_demo/proj_acme_copilot/overview';
-const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath)}`;
-
 export function LandingPage() {
   return (
     <div className="landing">
@@ -60,7 +57,7 @@ export function LandingPage() {
               <ButtonLink to="/onboarding" variant="primary">
                 Start a pilot
               </ButtonLink>
-              <ButtonLink to={demoSignInPath}>View support-copilot demo</ButtonLink>
+              <ButtonLink to="/demo">View support-copilot demo</ButtonLink>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 12.5 }}>
               <span>App-specific tests</span>

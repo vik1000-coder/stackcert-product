@@ -54,6 +54,11 @@ class Settings:
     demo_run_id: str = "real_main_2000"
     demo_workspace_db_id: str = "00000000-0000-4000-8000-000000000001"
     demo_project_db_id: str = "00000000-0000-4000-8000-000000000101"
+    demo_user_emails: tuple[str, ...] = tuple(
+        email.strip().lower()
+        for email in os.getenv("STACKCERT_DEMO_USER_EMAILS", "demo@stackcert.dev,demo@stackcert.local").split(",")
+        if email.strip()
+    )
     enable_demo_workspace: bool = os.getenv("STACKCERT_ENABLE_DEMO_WORKSPACE", "").strip().lower() in {
         "1",
         "true",

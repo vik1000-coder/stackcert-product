@@ -686,6 +686,78 @@ tr:last-child td {
   font-size: 12.5px;
 }
 
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: var(--sc-bg);
+  padding: 20px;
+}
+
+.auth-card {
+  width: 380px;
+  max-width: 100%;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 22px;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.auth-context {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.auth-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.demo-access-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 28px;
+  align-items: start;
+}
+
+.demo-access-copy {
+  max-width: 760px;
+}
+
+.demo-access-copy .section-title {
+  margin-top: 18px;
+}
+
+.demo-access-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.demo-boundary-list {
+  display: grid;
+  gap: 16px;
+}
+
+.demo-boundary-list p {
+  margin: 6px 0 0;
+  color: var(--sc-ink-2);
+  line-height: 1.55;
+}
+
 .onboarding-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
@@ -1909,6 +1981,7 @@ tr:last-child td {
   }
 
   .footer-grid,
+  .demo-access-grid,
   .onboarding-layout,
   .blog-hero-grid,
   .blog-section-head,

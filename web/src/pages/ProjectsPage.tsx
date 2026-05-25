@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, type ProjectInput, type WorkspaceInput } from '../lib/api';
 import { Badge, Card, ErrorState, LoadingState, PageHeader } from '../components/Primitives';
 
@@ -40,7 +40,22 @@ export function ProjectsPage() {
     }
   });
 
-  const workspaceOptions = useMemo(() => workspaces.data?.workspaces ?? [], [workspaces.data]);
+  const workspaceOptions = useMemo(
+    () => (workspaces.data?.workspaces ?? []).filter((workspace) => workspace.id !== 'ws_demo'),
+    [workspaces.data]
+  );
+  const demoProjects = useMemo(() => (projects.data?.projects ?? []).filter((project) => project.workspace_id === 'ws_demo'), [projects.data]);
+  const betaProjects = useMemo(() => (projects.data?.projects ?? []).filter((project) => project.workspace_id !== 'ws_demo'), [projects.data]);
+
+  useEffect(() => {
+    if (workspaceOptions.length === 0) {
+      setSelectedWorkspaceId('');
+      return;
+    }
+    if (!workspaceOptions.some((workspace) => workspace.id === selectedWorkspaceId)) {
+      setSelectedWorkspaceId(workspaceOptions[0].id);
+    }
+  }, [selectedWorkspaceId, workspaceOptions]);
 
   function submitWorkspace(event: FormEvent) {
     event.preventDefault();
@@ -49,6 +64,7 @@ export function ProjectsPage() {
 
   function submitProject(event: FormEvent) {
     event.preventDefault();
+    if (!selectedWorkspaceId) return;
     createProject.mutate({ workspace_id: selectedWorkspaceId, ...projectDraft });
   }
 
@@ -87,6 +103,7 @@ export function ProjectsPage() {
             <label>
               <span className="stat-label">Workspace</span>
               <select className="btn setup-input" style={{ marginTop: 6 }} value={selectedWorkspaceId} onChange={(event) => setSelectedWorkspaceId(event.currentTarget.value)}>
+                {workspaceOptions.length === 0 ? <option value="">Create a beta workspace first</option> : null}
                 {workspaceOptions.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
                 ))}
@@ -114,7 +131,12 @@ export function ProjectsPage() {
               </label>
             </div>
             <Field label="Description" value={projectDraft.description ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, description: value }))} textarea />
-            <button className="btn primary" type="submit" disabled={createProject.isPending}>
+            {demoProjects.length > 0 ? (
+              <div className="notice">
+                The demo sandbox is listed separately and cannot be used as the parent for beta projects.
+              </div>
+            ) : null}
+            <button className="btn primary" type="submit" disabled={createProject.isPending || !selectedWorkspaceId}>
               {createProject.isPending ? 'Creating...' : 'Create project'}
             </button>
             {createProject.isSuccess ? <div className="notice">Project created: {createProject.data.project.name}</div> : null}
@@ -124,7 +146,8 @@ export function ProjectsPage() {
       <Card style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Workspace apps</h2>
         <div style={{ display: 'grid', gap: 10 }}>
-          {projects.data!.projects.map((project) => (
+          {betaProjects.length === 0 ? <div className="notice">No beta apps yet. Create a workspace and project to start testing your own agent.</div> : null}
+          {betaProjects.map((project) => (
             <div key={project.id} className="project-row">
               <div>
                 <strong>{project.name}</strong>
@@ -135,6 +158,12 @@ export function ProjectsPage() {
               <span className="muted">{project.setup_status ?? 'ready_for_setup'}</span>
             </div>
           ))}
+          {demoProjects.length > 0 ? (
+            <div className="notice">
+              Demo sandbox: {demoProjects.map((project) => project.name).join(', ')}. Open it from the dedicated demo
+              page when you want sample data.
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>

@@ -13,10 +13,8 @@ import {
 } from '../lib/api';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
 
-const demoOverviewPath = '/app/ws_demo/proj_acme_copilot/overview';
-const demoSetupPath = '/app/ws_demo/proj_acme_copilot/setup';
-const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath)}`;
-const demoSetupSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoSetupPath)}`;
+const demoPath = '/demo';
+const demoSetupPathLink = '/demo?next=setup';
 const draftKey = 'stackcert:onboarding-draft:v1';
 
 type OnboardingDraft = {
@@ -232,7 +230,7 @@ export function OnboardingPage() {
             <span style={{ fontWeight: 650, fontSize: 15 }}>StackCert</span>
           </Link>
           <div style={{ flex: 1 }} />
-          <ButtonLink to={demoSignInPath}>Open demo</ButtonLink>
+          <ButtonLink to={demoPath}>Open demo</ButtonLink>
         </div>
       </header>
 
@@ -279,7 +277,7 @@ export function OnboardingPage() {
                 </button>
                 <div style={{ flex: 1 }} />
                 {draft.evidenceMode === 'demo_first' && activeStep.id === 'review' ? (
-                  <ButtonLink to={demoSetupSignInPath} variant="primary">
+                  <ButtonLink to={demoSetupPathLink} variant="primary">
                     Open demo walkthrough
                   </ButtonLink>
                 ) : null}

@@ -1,9 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
 
-const demoOverviewPath = '/app/ws_demo/proj_acme_copilot/overview';
-const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath)}`;
-
 type StaticContent = {
   eyebrow: string;
   title: string;
@@ -269,7 +266,7 @@ export function StaticPage() {
             <h2>Ready to try the workflow?</h2>
             <p>Start with the seeded demo or create a pilot shell for one production agent.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <ButtonLink to={demoSignInPath} variant="primary">
+              <ButtonLink to="/demo" variant="primary">
                 Open demo
               </ButtonLink>
               <ButtonLink to="/onboarding">Start pilot</ButtonLink>

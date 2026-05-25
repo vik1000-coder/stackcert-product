@@ -63,7 +63,7 @@ class AccessHelperTest(unittest.TestCase):
 
     def test_non_production_demo_workspace_is_owner_for_local_user(self) -> None:
         object.__setattr__(settings, "environment", "local")
-        principal = Principal(user_id="demo_user", email="demo@example.com", role="viewer", workspace_ids=())
+        principal = Principal(user_id="demo_user", email="demo@stackcert.local", role="viewer", workspace_ids=())
 
         grant = access.grant_from_workspace(principal, settings.demo_workspace_id, required="project_maintainer")
 
@@ -72,7 +72,7 @@ class AccessHelperTest(unittest.TestCase):
     def test_production_demo_exception_is_disabled(self) -> None:
         object.__setattr__(settings, "environment", "production")
         object.__setattr__(settings, "enable_demo_workspace", False)
-        principal = Principal(user_id="demo_user", email="demo@example.com", role="owner", workspace_ids=())
+        principal = Principal(user_id="demo_user", email="demo@stackcert.dev", role="owner", workspace_ids=())
 
         with self.assertRaises(HTTPException) as context:
             access.grant_from_workspace(principal, settings.demo_workspace_id)
@@ -82,11 +82,30 @@ class AccessHelperTest(unittest.TestCase):
     def test_production_demo_exception_can_be_explicitly_enabled_for_staging(self) -> None:
         object.__setattr__(settings, "environment", "production")
         object.__setattr__(settings, "enable_demo_workspace", True)
-        principal = Principal(user_id="demo_user", email="demo@example.com", role="viewer", workspace_ids=())
+        principal = Principal(user_id="demo_user", email="demo@stackcert.dev", role="viewer", workspace_ids=())
 
         grant = access.grant_from_workspace(principal, settings.demo_workspace_id, required="project_maintainer")
 
         self.assertEqual(grant.role, "owner")
+
+    def test_production_demo_exception_does_not_apply_to_beta_users(self) -> None:
+        object.__setattr__(settings, "environment", "production")
+        object.__setattr__(settings, "enable_demo_workspace", True)
+        principal = Principal(user_id="beta_user", email="beta@example.com", role="owner", workspace_ids=())
+
+        with self.assertRaises(HTTPException) as context:
+            access.grant_from_workspace(principal, settings.demo_workspace_id)
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_beta_user_project_listing_excludes_demo_project(self) -> None:
+        object.__setattr__(settings, "environment", "production")
+        object.__setattr__(settings, "enable_demo_workspace", True)
+        principal = Principal(user_id="beta_user", email="beta@example.com", role="owner", workspace_ids=())
+
+        visible_projects = projects.list_projects(principal)
+
+        self.assertNotIn(settings.demo_project_id, {project["id"] for project in visible_projects})
 
     def test_project_access_uses_supplied_membership_role(self) -> None:
         principal = Principal(user_id="user_1", email="user@example.com", role="viewer", workspace_ids=())
@@ -188,6 +207,24 @@ class RouteAccessTest(unittest.TestCase):
 
         denied = self.client.get(f"/api/projects/{project_b['id']}")
         self.assertEqual(denied.status_code, 403)
+
+    def test_beta_user_cannot_open_demo_project_or_run(self) -> None:
+        self._as(Principal(user_id="beta", email="beta@example.com", role="owner", workspace_ids=()))
+
+        project_response = self.client.get(f"/api/projects/{settings.demo_project_id}")
+        run_response = self.client.get(f"/api/runs/{settings.demo_run_id}/overview?lambda_cost=5")
+
+        self.assertEqual(project_response.status_code, 403)
+        self.assertEqual(run_response.status_code, 403)
+
+    def test_demo_user_can_open_demo_project_and_run(self) -> None:
+        self._as(Principal(user_id="demo_user", email="demo@stackcert.local", role="viewer", workspace_ids=()))
+
+        project_response = self.client.get(f"/api/projects/{settings.demo_project_id}")
+        run_response = self.client.get(f"/api/runs/{settings.demo_run_id}/overview?lambda_cost=5")
+
+        self.assertEqual(project_response.status_code, 200)
+        self.assertEqual(run_response.status_code, 200)
 
     def test_viewer_can_read_project_but_cannot_create_connector(self) -> None:
         owner = Principal(user_id="owner", email="owner@example.com", role="owner", workspace_ids=())

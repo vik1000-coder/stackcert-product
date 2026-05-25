@@ -174,6 +174,16 @@ def can_use_app_routes(principal: Principal) -> bool:
     return principal.principal_type == "user"
 
 
+def can_use_demo_workspace(principal: Principal, workspace_id: str) -> bool:
+    if workspace_id not in {settings.demo_workspace_id, settings.demo_workspace_db_id}:
+        return False
+    if principal.principal_type != "user":
+        return False
+    if settings.environment == "production" and not settings.enable_demo_workspace:
+        return False
+    return _is_demo_principal(principal)
+
+
 def require_app_principal(principal: Principal) -> Principal:
     if not can_use_app_routes(principal):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Machine tokens cannot access app routes")
@@ -201,8 +211,15 @@ def _workspace_role_for_principal(
 
 
 def _is_demo_workspace(principal: Principal, workspace_id: str) -> bool:
-    if workspace_id not in {settings.demo_workspace_id, settings.demo_workspace_db_id}:
-        return False
-    if settings.environment == "production" and not settings.enable_demo_workspace:
-        return False
-    return principal.principal_type == "user"
+    return can_use_demo_workspace(principal, workspace_id)
+
+
+def _is_demo_principal(principal: Principal) -> bool:
+    email = (principal.email or "").strip().lower()
+    if email and email in settings.demo_user_emails:
+        return True
+    if settings.environment != "production" and principal.user_id == "demo_user":
+        return True
+    if settings.environment != "production" and settings.demo_workspace_id in principal.workspace_ids:
+        return True
+    return False

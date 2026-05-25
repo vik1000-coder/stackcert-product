@@ -4,38 +4,93 @@ import { ButtonLink, Card, LogoMark } from '../components/Primitives';
 import { supabase } from '../lib/supabase';
 
 const fallbackDemoPath = '/app/ws_demo/proj_acme_copilot/overview';
+const fallbackBetaPath = '/onboarding?resume=1';
+const demoEmail = 'demo@stackcert.dev';
+const demoPassword = 'stackcert-demo';
 
 export function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
-  const [email, setEmail] = useState('demo@stackcert.dev');
-  const [password, setPassword] = useState('stackcert-demo');
+  const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const flow = search.get('flow') === 'demo' ? 'demo' : 'beta';
+  const isDemoFlow = flow === 'demo';
+  const [mode, setMode] = useState<'sign-in' | 'sign-up'>(search.get('mode') === 'sign-up' ? 'sign-up' : 'sign-in');
+  const [email, setEmail] = useState(isDemoFlow ? demoEmail : '');
+  const [password, setPassword] = useState(isDemoFlow ? demoPassword : '');
   const [message, setMessage] = useState<string | null>(null);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const destination = useMemo(() => {
-    const next = new URLSearchParams(location.search).get('next');
-    return next?.startsWith('/app/') ? next : fallbackDemoPath;
-  }, [location.search]);
-  const isDemoDestination = destination.includes('/proj_acme_copilot/overview');
+    return safeDestination(search.get('next'), flow);
+  }, [flow, search]);
+  const signedInAsDemo = sessionEmail ? isDemoEmail(sessionEmail) : false;
+  const sessionFlowMismatch = Boolean(sessionEmail) && (isDemoFlow ? !signedInAsDemo : signedInAsDemo);
+
+  useEffect(() => {
+    if (isDemoFlow) {
+      setMode('sign-in');
+      setEmail(demoEmail);
+      setPassword(demoPassword);
+    } else if (email === demoEmail && password === demoPassword) {
+      setEmail('');
+      setPassword('');
+    }
+  }, [isDemoFlow]);
 
   useEffect(() => {
     let mounted = true;
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (mounted && data.session) {
+      if (!mounted) return;
+      const activeEmail = data.session?.user.email ?? null;
+      setSessionEmail(activeEmail);
+      if (!activeEmail) return;
+      const activeIsDemo = isDemoEmail(activeEmail);
+      if (isDemoFlow && !activeIsDemo) {
+        setMessage('You are signed in to a beta workspace. Sign out to open the isolated demo sandbox.');
+        return;
+      }
+      if (!isDemoFlow && activeIsDemo) {
+        setMessage('You are signed in with the demo sandbox account. Sign out before creating or testing a real beta workspace.');
+        return;
+      }
+      if (data.session) {
         navigate(destination, { replace: true });
       }
     });
     return () => {
       mounted = false;
     };
-  }, [destination, navigate]);
+  }, [destination, isDemoFlow, navigate]);
+
+  async function signOutCurrentSession() {
+    setMessage(null);
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setSessionEmail(null);
+    if (isDemoFlow) {
+      setEmail(demoEmail);
+      setPassword(demoPassword);
+      setMessage('Signed out of the beta workspace. Continue with the demo sandbox account.');
+    } else {
+      setEmail('');
+      setPassword('');
+      setMessage('Signed out of the demo sandbox. Continue with your beta account.');
+    }
+  }
 
   async function submitAuth(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setMessage(null);
     if (!supabase) {
       navigate(destination);
+      return;
+    }
+    if (sessionFlowMismatch) {
+      setMessage(
+        isDemoFlow
+          ? 'Sign out of the beta workspace before opening the demo sandbox.'
+          : 'Sign out of the demo sandbox before using the beta workspace.'
+      );
       return;
     }
 
@@ -65,30 +120,40 @@ export function AuthPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--sc-bg)', padding: 20 }}>
+    <div className="auth-page">
       <Card>
-        <div style={{ width: 360, maxWidth: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 22 }}>
+        <div className="auth-card">
+          <div className="auth-brand">
             <LogoMark />
             <div>
               <div style={{ fontWeight: 650 }}>StackCert</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {mode === 'sign-in' && isDemoDestination
-                  ? 'Continue with the seeded demo account'
+                {isDemoFlow
+                  ? 'Open the isolated seeded demo'
                   : mode === 'sign-in'
-                    ? 'Sign in to the StackCert workbench'
-                    : 'Create an LLM app workspace'}
+                    ? 'Sign in to your beta workspace'
+                    : 'Create a beta workspace account'}
               </div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-            <button className={`btn ${mode === 'sign-in' ? 'accent' : ''}`} onClick={() => setMode('sign-in')}>
-              Sign in
-            </button>
-            <button className={`btn ${mode === 'sign-up' ? 'accent' : ''}`} onClick={() => setMode('sign-up')}>
-              Create account
-            </button>
-          </div>
+          {isDemoFlow ? (
+            <div className="notice auth-context">
+              <strong>Demo sandbox</strong>
+              <span>
+                This opens seeded support-copilot data only. It does not create a beta workspace, upload your data, or
+                represent your agent.
+              </span>
+            </div>
+          ) : (
+            <div className="auth-tabs">
+              <button className={`btn ${mode === 'sign-in' ? 'accent' : ''}`} onClick={() => setMode('sign-in')}>
+                Sign in
+              </button>
+              <button className={`btn ${mode === 'sign-up' ? 'accent' : ''}`} onClick={() => setMode('sign-up')}>
+                Create account
+              </button>
+            </div>
+          )}
           <form onSubmit={submitAuth}>
             <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
               <span className="stat-label">Email</span>
@@ -112,17 +177,39 @@ export function AuthPage() {
             </label>
             {message ? <div className="notice" style={{ marginBottom: 12 }}>{message}</div> : null}
             <button className="btn primary" style={{ width: '100%' }} type="submit">
-              {mode === 'sign-in' && isDemoDestination ? 'Continue to demo' : mode === 'sign-in' ? 'Continue' : 'Create account'}
+              {isDemoFlow ? 'Open demo sandbox' : mode === 'sign-in' ? 'Continue to beta' : 'Create beta account'}
             </button>
           </form>
+          {sessionFlowMismatch ? (
+            <button className="btn" style={{ width: '100%', marginTop: 10 }} type="button" onClick={signOutCurrentSession}>
+              Sign out of {signedInAsDemo ? 'demo sandbox' : 'beta workspace'}
+            </button>
+          ) : null}
           <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-            {isDemoDestination
-              ? 'The demo account is prefilled. In local mode, Continue opens the seeded project without a Supabase session.'
-              : 'The hosted demo uses Supabase Auth. Without Supabase env vars, this route opens the seeded local project.'}
+            {isDemoFlow
+              ? 'The demo account is prefilled and intentionally separate from beta accounts.'
+              : 'Use this path for real beta testing. To inspect sample data, open the separate demo sandbox.'}
           </p>
-          <ButtonLink to="/">Back to landing</ButtonLink>
+          <div className="auth-links">
+            <ButtonLink to="/">Back to landing</ButtonLink>
+            {isDemoFlow ? <ButtonLink to="/onboarding">Start beta pilot</ButtonLink> : <ButtonLink to="/demo">View demo sandbox</ButtonLink>}
+          </div>
         </div>
       </Card>
     </div>
   );
+}
+
+function safeDestination(next: string | null, flow: 'beta' | 'demo') {
+  if (!next) return flow === 'demo' ? fallbackDemoPath : fallbackBetaPath;
+  if (flow === 'demo') {
+    return next.startsWith('/app/ws_demo/proj_acme_copilot/') ? next : fallbackDemoPath;
+  }
+  if (next.startsWith('/onboarding')) return next;
+  if (next.startsWith('/app/') && !next.startsWith('/app/ws_demo/')) return next;
+  return fallbackBetaPath;
+}
+
+function isDemoEmail(value: string) {
+  return value.trim().toLowerCase() === demoEmail;
 }

@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import ProjectCreate, WorkspaceCreate
+from stackcert_service.security import access
 from stackcert_service.security.auth import Principal
 from stackcert_service.services import demo_project
 
@@ -171,10 +172,7 @@ def _with_demo_project(rows: list[dict[str, Any]], principal: Principal | None) 
 
 
 def _can_use_demo_workspace(workspace_id: str, principal: Principal) -> bool:
-    if settings.environment == "production":
-        if not settings.enable_demo_workspace:
-            return False
-    return principal.principal_type == "user" and workspace_id in {settings.demo_workspace_id, settings.demo_workspace_db_id}
+    return access.can_use_demo_workspace(principal, workspace_id)
 
 
 def _now() -> str:
