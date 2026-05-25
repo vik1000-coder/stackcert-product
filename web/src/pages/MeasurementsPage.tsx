@@ -6,7 +6,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { fmtNumber, fmtUsd } from '../lib/format';
 
 export function MeasurementsPage({ lambda }: { lambda: number }) {
-  const { activeRunId, projectId } = useStackCertApp();
+  const { activeRunId, projectId, runsLoading } = useStackCertApp();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['measurements', activeRunId, lambda], queryFn: () => api.measurements(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const costs = useQuery({ queryKey: ['run-costs', activeRunId], queryFn: () => api.runCosts(activeRunId!), enabled: Boolean(activeRunId) });
@@ -45,6 +45,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
 
   const actualCost = costs.data?.summary.actual_cost_usd ?? 0;
 
+  if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) return <NoRunState title="No test plan yet" />;
   if (query.isLoading || costs.isLoading || overview.isLoading) return <LoadingState />;
   if (query.error || costs.error || overview.error) return <ErrorState error={query.error || costs.error || overview.error} />;

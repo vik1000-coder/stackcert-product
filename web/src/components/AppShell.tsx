@@ -50,6 +50,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
     workspaceId,
     projectId,
     activeRunId,
+    runsLoading: runs.isLoading,
     runs: runs.data?.runs ?? []
   };
   const [profileLambdaApplied, setProfileLambdaApplied] = useState(false);

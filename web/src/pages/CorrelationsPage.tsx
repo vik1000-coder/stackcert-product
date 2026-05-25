@@ -7,7 +7,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { fmtNumber, fmtPercent } from '../lib/format';
 
 export function CorrelationsPage({ lambda }: { lambda: number }) {
-  const { activeRunId } = useStackCertApp();
+  const { activeRunId, runsLoading } = useStackCertApp();
   const [side, setSide] = useState<'adversarial' | 'benign'>('adversarial');
   const [selected, setSelected] = useState<{ row: number; column: number } | null>(null);
   const query = useQuery({ queryKey: ['correlations', activeRunId, lambda, side], queryFn: () => api.correlations(activeRunId!, lambda, side), enabled: Boolean(activeRunId) });
@@ -19,6 +19,7 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
     return query.data.details.find((row) => row.guard_ids.includes(a) && row.guard_ids.includes(b)) ?? query.data.top_rows[0];
   }, [query.data, selected]);
 
+  if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) return <NoRunState title="No overlap analysis yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;

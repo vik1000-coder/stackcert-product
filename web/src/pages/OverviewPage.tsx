@@ -7,11 +7,12 @@ import { BenchmarkMix, WelfareMovementChart } from '../components/Charts';
 import { useStackCertApp } from '../lib/appContext';
 
 export function OverviewPage({ lambda }: { lambda: number }) {
-  const { projectId, activeRunId } = useStackCertApp();
+  const { projectId, activeRunId, runsLoading } = useStackCertApp();
   const readiness = useQuery({ queryKey: ['pilot-readiness', projectId, lambda], queryFn: () => api.pilotReadiness(projectId, lambda) });
   const overview = useQuery({ queryKey: ['overview', activeRunId, lambda], queryFn: () => api.overview(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const ranking = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
 
+  if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) {
     return (
       <div className="page">

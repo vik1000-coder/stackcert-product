@@ -5,7 +5,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader } from '../components/Primitives';
 
 export function CertificatePage({ lambda }: { lambda: number }) {
-  const { activeRunId } = useStackCertApp();
+  const { activeRunId, runsLoading } = useStackCertApp();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['certificate', activeRunId, lambda], queryFn: () => api.certificate(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const readinessQuery = useQuery({
@@ -53,6 +53,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     }
   });
 
+  if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) return <NoRunState title="No release evidence yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;

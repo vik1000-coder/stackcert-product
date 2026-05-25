@@ -6,6 +6,7 @@ export type StackCertAppContext = {
   workspaceId: string;
   projectId: string;
   activeRunId?: string;
+  runsLoading: boolean;
   runs: RunSummary[];
 };
 

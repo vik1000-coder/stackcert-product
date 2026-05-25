@@ -8,7 +8,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 type SortKey = 'full_welfare' | 'first_order_welfare' | 'movement' | 'estimated_latency_ms' | 'estimated_cost_usd_per_1k';
 
 export function RankingPage({ lambda }: { lambda: number }) {
-  const { activeRunId } = useStackCertApp();
+  const { activeRunId, runsLoading } = useStackCertApp();
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState<SortKey>('full_welfare');
   const query = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
@@ -20,6 +20,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
       .sort((a, b) => Number(b[sort]) - Number(a[sort]));
   }, [query.data?.rows, sort, status]);
 
+  if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) return <NoRunState title="No options to compare yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
