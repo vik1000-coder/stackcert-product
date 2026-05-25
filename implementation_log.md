@@ -2122,7 +2122,9 @@ Started: 2026-05-23
   `20260525142950_add_project_onboarding_profiles.sql` so hosted onboarding can
   persist workspace/project/profile state.
 - Deployed:
-  - Cloud Run API revision `stackcert-api-00014-q9f`;
+  - Cloud Run API revision `stackcert-api-00015-pw7`;
+  - Cloud Run API image
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:6087da9-staging-202605251603-amd64`;
   - Cloudflare Worker version `4cf7ee1b-ccdb-4492-8d21-dbd5ef4788fc`;
   - hosted app/API URL:
     `https://stackcert-staging.savikk129.workers.dev/`.

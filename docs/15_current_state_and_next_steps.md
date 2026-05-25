@@ -245,10 +245,10 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready Cloud Run API revision is `stackcert-api-00014-q9f`, deployed
-  with the staging cost caps preserved.
+- Latest ready Cloud Run API revision is `stackcert-api-00015-pw7`, deployed
+  from commit `6087da9` with the staging cost caps preserved.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:70a67b1-staging-202605251548-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:6087da9-staging-202605251603-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
   the same image with service account
   `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`,

@@ -95,7 +95,8 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-Current Cloud Run API revision: `stackcert-api-00014-q9f`, deployed with
+Current Cloud Run API revision: `stackcert-api-00015-pw7`, deployed from
+commit `6087da9` with
 staging caps preserved and the packaged 2,000-example CASS demo artifacts
 available inside the API image.
 
