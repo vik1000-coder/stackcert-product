@@ -120,18 +120,21 @@ supabase db advisors --linked --type all --level warn --fail-on error
 Recent deployment verification from the hosted staging stack:
 
 ```text
-docker build -f Dockerfile.api -t stackcert-api:cloudrun-prep .
-docker run ... stackcert-api:cloudrun-prep
-.venv/bin/python scripts/cloud_run_api_smoke.py --api-url http://127.0.0.1:18080
+docker buildx build --platform linux/amd64 -f Dockerfile.api ...
+gcloud run deploy stackcert-api ...
+uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
   -> OK
 
-.venv/bin/python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
   -> OK
 
-Authenticated Cloud Run smoke with Supabase demo user
+uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
   -> OK
 
-.venv/bin/python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
+  -> OK
+
+uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1
   -> OK
 ```
 
@@ -150,7 +153,7 @@ Latest hosted verification:
   hosted MCP endpoint and calls `get_release_evidence_status` with an
   authenticated Supabase session.
 - Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
-  `deploy cloudflare`.
+  `deploy cloudflare` on commit `b022c1c`.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
   browser-safe Supabase key, and the smoke-test user credentials.
@@ -167,13 +170,15 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00004-qv9`, deployed from commit
-  `c761a3f`.
+- Latest ready revision is `stackcert-api-00006-4qd`, deployed from commit
+  `b022c1c`.
 - Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
   memory `512Mi`, timeout `60s`, concurrency `40`.
-- The current Cloud Run revision passes `scripts/cloud_run_api_smoke.py` and
-  authenticated `scripts/mcp_client_smoke.py` against the hosted `/api/mcp`
-  endpoint with the official Python MCP SDK.
+- The current Cloud Run revision passes unauthenticated and authenticated
+  `scripts/cloud_run_api_smoke.py`, authenticated `scripts/mcp_client_smoke.py`
+  against the hosted `/api/mcp` endpoint with the official Python MCP SDK, and
+  full `scripts/deployment_smoke.py` against Cloudflare + Cloud Run +
+  Supabase Auth.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,

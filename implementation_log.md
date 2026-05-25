@@ -1470,3 +1470,39 @@ Started: 2026-05-23
     GitHub release rate limit;
   - pinned the CI Supabase CLI version to `2.101.0`, matching the local CLI
     used for the migration push.
+
+## Worker Idempotency Slice Hosted Rollout
+
+- Pushed follow-up commit `b022c1c` with the pinned Supabase CLI CI fix.
+- GitHub Actions on `b022c1c`:
+  - `ci` -> success;
+  - fallback `deploy pages` -> success;
+  - `deploy cloudflare` -> success, including hosted Cloudflare + Cloud Run +
+    Supabase Auth smoke.
+- Ran the read-only GCP cost preflight before deployment:
+  - billing enabled for `project-e7840c42-f298-4bd9-bff`;
+  - visible project budget: `StackCert staging $10`;
+  - existing `stackcert-api` service retained staging-safe scale annotations.
+- Built and pushed the Cloud Run API image:
+  - first local Docker image was arm64-only and Cloud Run rejected it before
+    creating a serving revision;
+  - rebuilt with `docker buildx build --platform linux/amd64 --push`;
+  - final image tag:
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:b022c1c-staging-202605250046-amd64`.
+- Deployed Cloud Run service `stackcert-api` with staging caps preserved:
+  min instances `0`, max instances `1`, CPU `1`, memory `512Mi`,
+  concurrency `40`, timeout `60s`, Supabase Secret Manager bindings, and the
+  existing Cloudflare/GitHub/local CORS origins.
+- New ready revision:
+  - `stackcert-api-00006-4qd`
+- Hosted URLs:
+  - Cloudflare app:
+    `https://stackcert-staging.savikk129.workers.dev/auth/sign-in`
+  - Cloud Run API:
+    `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`
+- Hosted verification:
+  - `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
+  - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
+  - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
