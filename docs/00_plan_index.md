@@ -1,6 +1,6 @@
 # StackCert Production Plan Index
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 This directory is the living implementation plan for turning the CASS prototype
 into a production-ready StackCert company product.
@@ -66,6 +66,10 @@ Latest primary files:
 - `14_product_language_guide.md`: current public/demo vocabulary and copy rules.
 - `15_current_state_and_next_steps.md`: concise current implementation status,
   known boundaries, verification baseline, and next engineering priorities.
+- `16_pilot_ready_release_evidence_plan.md`: imported pilot-readiness
+  implementation plan focused on release evidence and integrations.
+- `17_pilot_ready_plan_review.md`: feasibility review of that imported plan
+  against the current codebase and hosted deployment state.
 
 ## Current Hosted Demo
 
