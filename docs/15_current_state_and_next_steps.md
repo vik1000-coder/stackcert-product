@@ -1,6 +1,6 @@
 # Current State And Next Steps
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 This document is the short operational view of the product. The older planning
 docs still matter, but this page should be the first place to check when
@@ -30,12 +30,18 @@ StackCert is now a usable prototype with a real product shape:
 - Managed worker path: users can configure REST safety-check and model-judge
   connectors, enqueue provider-style evaluation jobs against a committed suite,
   enforce a run budget cap, and persist the resulting CASS evidence run.
+- Worker-produced evidence writes are idempotent across retries: jobs, guard
+  outputs, measurement recommendations, and usage events now have stable
+  conflict keys instead of duplicate-prone append behavior.
+- Connector price cards are captured at setup and propagated through run
+  estimates, provider token accounting, and usage ledgers.
 - Supabase-backed persistence for custom behaviors, benchmark suites, guard
   connectors, jobs, usage events, issued evidence, signoffs, and uploaded-output
   pilot runs.
 - Agent/MCP surface for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
-  prompts.
+  prompts. MCP can authenticate with Supabase bearer tokens or MCP-only machine
+  bearer tokens scoped to `mcp:read` / `mcp:write`.
 
 ## Hosted Demo State
 
@@ -74,19 +80,19 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-uv run python -m py_compile stackcert/guards/model_judge_adapter.py stackcert/guards/rest_adapter.py stackcert_service/services/provider_secrets.py stackcert_service/services/guard_connectors.py stackcert_service/services/jobs.py stackcert_service/schemas.py scripts/mcp_client_smoke.py scripts/deployment_smoke.py scripts/cloud_run_api_smoke.py
+uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py
   -> OK
 
 uv run python -m unittest discover -s tests_service
-  -> 60 tests passed
+  -> 64 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
 
-uv run python scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18081
+uv run python scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18082 --bearer-token <mcp-machine-token>
   -> mcp client smoke OK
 
-npm --prefix web run typecheck -- --pretty false
+npm --prefix web run typecheck
   -> OK
 
 npm --prefix web test -- --run
@@ -97,6 +103,18 @@ npm --prefix web run build
 
 npm run build
   -> OK
+
+supabase db push --linked --dry-run before applying the migration
+  -> would apply 20260525001842_worker_idempotency_and_usage_keys.sql
+
+supabase db push --linked --yes
+  -> applied 20260525001842_worker_idempotency_and_usage_keys.sql
+
+supabase migration list
+  -> local and remote include 20260525001842
+
+supabase db advisors --linked --type all --level warn --fail-on error
+  -> OK exit; existing warning that Supabase Auth leaked-password protection is disabled
 ```
 
 Recent deployment verification from the hosted staging stack:
@@ -120,7 +138,7 @@ Authenticated Cloud Run smoke with Supabase demo user
 Latest hosted verification:
 
 - Supabase remote migration history matches local migrations:
-  `20260523151421`, `20260523192827`, `20260524023733`.
+  `20260523151421`, `20260523192827`, `20260524023733`, `20260525001842`.
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
 - Cloudflare deployment list shows the latest `stackcert-staging` deployment
@@ -192,15 +210,22 @@ Current worker status:
 - model-judge adapters execute OpenAI-compatible, Ollama-style, or direct-JSON
   judge endpoints using the same worker contract and persisted CASS evidence
   path;
+- worker-produced outputs and measurement recommendations are upserted by
+  stable run/guard/example and run/action keys, so retrying the same job does
+  not duplicate evidence rows;
 - connector secrets now resolve through a backend-only provider-secret resolver:
   local development can use process-memory secrets for fake providers, while
   production connector configs point workers at explicit environment-secret
   refs such as `STACKCERT_GUARD_SECRET_<GUARD_KEY>`;
+- connector price cards now support per-request, input-token, and output-token
+  cost estimates, with provider-reported token usage used when REST/model-judge
+  endpoints return it;
 - jobs enforce a run-level budget cap before execution;
 - worker outputs create a persisted `worker_evaluation` evidence run;
 - CASS recommendation, overlap, measurement-plan, cost, and release-evidence
   pages can read that worker-produced run;
-- usage events are recorded per evaluated safety check;
+- usage events are recorded per evaluated safety check with stable external
+  event ids for retry-safe persistence;
 - retry, lease, dead-letter, manual retry, and run-next worker APIs remain in
   place from the earlier worker hardening slice.
 
@@ -215,10 +240,8 @@ already have provider endpoints and CI gates.
 Needed work:
 
 - provider-specific retry/backoff/rate-limit policy by connector;
-- idempotent output writes across worker retries and duplicate claims;
 - managed Secret Manager/Vault storage instead of the current
   env-ref plus local-memory resolver;
-- connector-level price cards and provider-specific token accounting;
 - lease renewal for long-running jobs;
 - per-workspace and per-run budget caps backed by database policy;
 - dead-letter review UI;
@@ -250,7 +273,8 @@ The MCP surface now has client-level proof through
 
 Next MCP tasks:
 
-- add scoped API tokens or OAuth-style access for machine users;
+- provision and rotate MCP-only machine tokens through Cloud Run/Secret Manager
+  or an admin UI instead of manual environment edits;
 - add MCP client compatibility checks for at least one desktop/agent runtime
   beyond the Python SDK;
 - decide which tools are read-only by default and which require explicit human
@@ -276,11 +300,13 @@ After staging works end to end:
 The next engineering milestone should be:
 
 ```text
-Connector price cards + idempotent worker output writes + machine auth for MCP
+Cloud Run worker deployment + managed secret storage + tenancy/RBAC hardening
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
-from uploaded outputs to deterministic, REST, or model-judge managed runs. The
-next value milestone is making provider execution resilient and auditable enough
-for design partners.
+from uploaded outputs to deterministic, REST, or model-judge managed runs with
+retry-safe evidence writes and cost accounting. The next value milestone is
+turning the worker into an independently deployed service/job, adding managed
+secret storage and rotation, and replacing prototype workspace assumptions with
+real tenant membership/role enforcement.

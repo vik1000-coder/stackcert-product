@@ -53,6 +53,9 @@ const initialConnector: GuardConnectorInput = {
   model: '',
   system_prompt: '',
   timeout_sec: 60,
+  request_price_usd: 0.0002,
+  input_price_per_1m_tokens_usd: 0,
+  output_price_per_1m_tokens_usd: 0,
   threshold: 0.8
 };
 
@@ -286,6 +289,11 @@ export function SetupPage() {
                 </label>
               </div>
             ) : null}
+            <div className="setup-grid-three">
+              <Field label="Per request $" value={String(connector.request_price_usd ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, request_price_usd: value ? Number(value) : undefined }))} />
+              <Field label="Input $ / 1M" value={String(connector.input_price_per_1m_tokens_usd ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, input_price_per_1m_tokens_usd: value ? Number(value) : undefined }))} />
+              <Field label="Output $ / 1M" value={String(connector.output_price_per_1m_tokens_usd ?? '')} onChange={(value) => setConnector((draft) => ({ ...draft, output_price_per_1m_tokens_usd: value ? Number(value) : undefined }))} />
+            </div>
             <button className="btn primary" type="submit" disabled={createConnector.isPending}>
               {createConnector.isPending ? 'Saving connector...' : 'Save connector'}
             </button>

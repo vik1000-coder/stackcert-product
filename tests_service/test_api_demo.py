@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import threading
 import unittest
@@ -41,6 +42,7 @@ class _RestGuardSmokeHandler(BaseHTTPRequestHandler):
                 {
                     "block": block,
                     "risk_score": 0.91 if block else 0.08,
+                    "usage": {"input_tokens": 111, "output_tokens": 17, "total_tokens": 128},
                     "metadata": {"provider_trace_id": f"trace_{payload.get('guard_id')}_{payload.get('example_id')}"},
                 }
             ).encode("utf-8")
@@ -78,7 +80,8 @@ class _ModelJudgeSmokeHandler(BaseHTTPRequestHandler):
                                 "content": json.dumps(content),
                             }
                         }
-                    ]
+                    ],
+                    "usage": {"prompt_tokens": 222, "completion_tokens": 31, "total_tokens": 253},
                 }
             ).encode("utf-8")
         )
@@ -477,6 +480,65 @@ class DemoApiTest(unittest.TestCase):
         self.assertIn(structured["status"], {"valid", "provisional", "needs_measurement"})
         self.assertFalse(body["result"]["isError"])
 
+    def test_mcp_machine_token_can_read_and_readonly_write_is_denied(self) -> None:
+        old_environment = settings.environment
+        old_hashes = os.environ.get("STACKCERT_MCP_MACHINE_TOKEN_HASHES")
+        old_scopes = os.environ.get("STACKCERT_MCP_MACHINE_TOKEN_SCOPES")
+        token = "stackcert_mcp_route_test"
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        try:
+            object.__setattr__(settings, "environment", "production")
+            os.environ["STACKCERT_MCP_MACHINE_TOKEN_HASHES"] = f"ci:{digest}"
+            os.environ["STACKCERT_MCP_MACHINE_TOKEN_SCOPES"] = "ci=mcp:read"
+            headers = {"Authorization": f"Bearer {token}"}
+
+            manifest = self.client.get("/api/mcp/manifest", headers=headers)
+            self.assertEqual(manifest.status_code, 200)
+
+            read_response = self.client.post(
+                "/api/mcp/rpc",
+                headers=headers,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": "read",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "get_release_evidence_status",
+                        "arguments": {"project_id": "proj_acme_copilot", "lambda_cost": 5},
+                    },
+                },
+            )
+            self.assertEqual(read_response.status_code, 200)
+            self.assertIn("result", read_response.json())
+
+            write_response = self.client.post(
+                "/api/mcp/rpc",
+                headers=headers,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": "write",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "create_measurement_plan",
+                        "arguments": {"run_id": "real_main_2000", "action_ids": []},
+                    },
+                },
+            )
+            self.assertEqual(write_response.status_code, 200)
+            body = write_response.json()
+            self.assertEqual(body["error"]["data"]["http_status"], 403)
+            self.assertIn("mcp:write", body["error"]["message"])
+        finally:
+            object.__setattr__(settings, "environment", old_environment)
+            if old_hashes is None:
+                os.environ.pop("STACKCERT_MCP_MACHINE_TOKEN_HASHES", None)
+            else:
+                os.environ["STACKCERT_MCP_MACHINE_TOKEN_HASHES"] = old_hashes
+            if old_scopes is None:
+                os.environ.pop("STACKCERT_MCP_MACHINE_TOKEN_SCOPES", None)
+            else:
+                os.environ["STACKCERT_MCP_MACHINE_TOKEN_SCOPES"] = old_scopes
+
     def test_mcp_release_evidence_tool_returns_resource_links(self) -> None:
         response = self.client.post(
             "/api/mcp/rpc",
@@ -772,10 +834,15 @@ class DemoApiTest(unittest.TestCase):
                         "endpoint_url": endpoint_url,
                         "auth_header_name": "Authorization",
                         "auth_secret": "stored-outside-test-process",
+                        "request_price_usd": 0.001,
+                        "input_price_per_1m_tokens_usd": 2,
+                        "output_price_per_1m_tokens_usd": 8,
                         "threshold": 0.5,
                     },
                 )
                 self.assertEqual(connector_response.status_code, 200)
+                connector = connector_response.json()["connector"]
+                self.assertEqual(connector["config"]["price_card"]["request_price_usd"], 0.001)
 
             create_response = self.client.post(
                 f"/api/projects/{project['id']}/evaluation-jobs",
@@ -820,7 +887,11 @@ class DemoApiTest(unittest.TestCase):
 
             costs_response = self.client.get(f"/api/runs/{completed['run_id']}/costs")
             self.assertEqual(costs_response.status_code, 200)
-            self.assertEqual(costs_response.json()["summary"]["events"], 2)
+            costs = costs_response.json()
+            self.assertEqual(costs["summary"]["events"], 2)
+            self.assertEqual(costs["summary"]["input_tokens"], 444)
+            self.assertEqual(costs["summary"]["output_tokens"], 68)
+            self.assertEqual(costs["summary"]["actual_cost_usd"], 0.0054)
         finally:
             server.shutdown()
             server.server_close()
@@ -897,6 +968,9 @@ class DemoApiTest(unittest.TestCase):
                         "model": "test-json-judge",
                         "provider_format": "openai_chat",
                         "system_prompt": "Return only JSON with block, risk_score, category, rationale.",
+                        "request_price_usd": 0,
+                        "input_price_per_1m_tokens_usd": 1,
+                        "output_price_per_1m_tokens_usd": 5,
                         "threshold": 0.5,
                     },
                 )
@@ -904,6 +978,7 @@ class DemoApiTest(unittest.TestCase):
                 connector = connector_response.json()["connector"]
                 self.assertNotIn("model-secret", str(connector))
                 self.assertEqual(connector["config"]["secret_status"], "available_local_memory")
+                self.assertEqual(connector["config"]["price_card"]["input_price_per_1m_tokens_usd"], 1.0)
 
             create_response = self.client.post(
                 f"/api/projects/{project['id']}/evaluation-jobs",
@@ -941,6 +1016,13 @@ class DemoApiTest(unittest.TestCase):
             overview_response = self.client.get(f"/api/runs/{completed['run_id']}/overview")
             self.assertEqual(overview_response.status_code, 200)
             self.assertEqual(overview_response.json()["run"]["outputs"], 4)
+
+            costs_response = self.client.get(f"/api/runs/{completed['run_id']}/costs")
+            self.assertEqual(costs_response.status_code, 200)
+            costs = costs_response.json()
+            self.assertEqual(costs["summary"]["input_tokens"], 888)
+            self.assertEqual(costs["summary"]["output_tokens"], 124)
+            self.assertEqual(costs["summary"]["actual_cost_usd"], 0.0016)
         finally:
             server.shutdown()
             server.server_close()

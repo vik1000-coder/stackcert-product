@@ -125,9 +125,15 @@ class HTTPJSONModelJudgeAdapter:
             decision = _decision_from_text(raw_output)
         if decision is None:
             raise ValueError("Model judge response must include JSON with block/risk_score or safe/binary_pass")
-        return self._output_from_decision(example, decision, raw_output)
+        return self._output_from_decision(example, decision, raw_output, data)
 
-    def _output_from_decision(self, example: BenchmarkExample, decision: dict[str, Any], raw_output: str | None) -> GuardOutput:
+    def _output_from_decision(
+        self,
+        example: BenchmarkExample,
+        decision: dict[str, Any],
+        raw_output: str | None,
+        data: dict[str, Any],
+    ) -> GuardOutput:
         block_probability = _coerce_optional_probability(
             decision.get("block_probability", decision.get("risk_score", decision.get("score")))
         )
@@ -156,6 +162,7 @@ class HTTPJSONModelJudgeAdapter:
             "rationale": rationale,
             "parse_failed": not bool(decision),
         }
+        metadata.update(_usage_metadata(data, decision))
         if raw_output and bool(self.metadata.get("include_raw_model_output")):
             metadata["raw_output"] = raw_output[:2000]
         return normalize_decision(
@@ -277,3 +284,28 @@ def _safe_endpoint_host(endpoint_url: str) -> str:
         return urllib.parse.urlparse(endpoint_url).netloc
     except Exception:
         return "unknown"
+
+
+def _usage_metadata(data: dict[str, Any], decision: dict[str, Any]) -> dict[str, int]:
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    decision_usage = decision.get("usage") if isinstance(decision.get("usage"), dict) else {}
+    candidates = {
+        "usage_input_tokens": data.get(
+            "input_tokens",
+            usage.get("input_tokens", usage.get("prompt_tokens", decision_usage.get("input_tokens"))),
+        ),
+        "usage_output_tokens": data.get(
+            "output_tokens",
+            usage.get("output_tokens", usage.get("completion_tokens", decision_usage.get("output_tokens"))),
+        ),
+        "usage_total_tokens": data.get("total_tokens", usage.get("total_tokens", decision_usage.get("total_tokens"))),
+    }
+    parsed: dict[str, int] = {}
+    for key, value in candidates.items():
+        if value is None:
+            continue
+        try:
+            parsed[key] = max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+    return parsed

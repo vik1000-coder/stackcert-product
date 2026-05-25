@@ -91,12 +91,14 @@ The implementation is past planning. The working app now includes:
 - Uploaded-output pilot flow through scoped release evidence.
 - Deterministic, REST, and model-judge worker evaluation paths that persist
   `worker_evaluation` evidence runs.
+- Idempotent worker output/usage persistence and connector price-card/token
+  accounting for provider-backed runs.
 - MCP endpoints for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
-  prompts.
+  prompts, with Supabase user auth and MCP-only machine bearer tokens.
 
-The current priority is connector price cards, idempotent worker output writes,
-machine auth for MCP, and tenancy/security hardening. See
+The current priority is Cloud Run worker deployment, managed secret storage,
+tenancy/RBAC hardening, and production observability. See
 `15_current_state_and_next_steps.md`.
 
 ## Test Cadence

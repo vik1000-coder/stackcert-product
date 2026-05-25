@@ -3,7 +3,7 @@
 This plan is intentionally iterative. Each phase should produce a usable slice,
 run tests, and leave the codebase deployable.
 
-## Implementation Status As Of 2026-05-24
+## Implementation Status As Of 2026-05-25
 
 The project has moved beyond the original planning pass.
 
@@ -21,19 +21,21 @@ Completed or substantially implemented:
   release evidence for user-created pilot runs.
 - Parts of Phase 5 and Phase 6: safety-check connector records, queued jobs,
   deterministic and REST provider adapter execution, provider
-  retry/dead-letter tests, cost ledgers, release-evidence issue/signoff, and
-  durable Supabase persistence for pilot runs.
+  retry/dead-letter tests, idempotent worker output/usage writes, connector
+  price cards/token accounting, cost ledgers, release-evidence issue/signoff,
+  and durable Supabase persistence for pilot runs.
 - Agent/MCP integration slice: authenticated MCP endpoints, release-evidence
   status, theory cards, measurement recommendations, cost ledgers, integration
-  guides, deployment-review prompts, and authenticated hosted MCP smoke coverage.
+  guides, deployment-review prompts, MCP-only machine bearer tokens, and
+  authenticated hosted MCP smoke coverage.
 - Phase 8 staging deployment: Cloud Run FastAPI/CASS API, Supabase persistence,
   Cloudflare Workers static frontend, GitHub Pages fallback, and CI-gated
   deployment smoke are working for staging.
 
 Still not complete:
 
-- Production provider hardening: secret manager integration, provider-specific
-  rate limits/retries, idempotent output writes, and model-judge execution.
+- Production provider hardening: managed secret storage, provider-specific
+  rate limits/retries, lease renewal for long jobs, and worker deployment.
 - Production environment separate from staging.
 - Full workspace membership/RBAC enforcement beyond the current prototype
   assumptions.
@@ -42,7 +44,7 @@ Still not complete:
 Current next milestone:
 
 ```text
-Provider secret management + model-judge adapter + real MCP client compatibility
+Cloud Run worker deployment + managed secret storage + tenancy/RBAC hardening
 ```
 
 ## Phase 0: Planning And Design Ingestion
@@ -259,9 +261,10 @@ Acceptance criteria:
 Status: partially implemented. Connector records, redaction, queued jobs,
 leases, retries, budget checks, usage records, deterministic provider-style
 worker execution, authenticated REST guard execution, model-judge execution,
-and backend-only connector secret refs exist. Managed Secret Manager/Vault
-storage, provider-specific rate limits, idempotent output writes, and long-job
-lease renewal remain the major gaps.
+backend-only connector secret refs, idempotent worker writes, connector price
+cards, and provider token accounting exist. Managed Secret Manager/Vault
+storage, provider-specific rate limits, independent worker deployment, and
+long-job lease renewal remain the major gaps.
 
 Goal: Move from uploaded outputs to managed evaluations.
 
@@ -296,7 +299,7 @@ Acceptance criteria:
   for a real project.
 - Test plan can queue executable targeted-test jobs.
 - A production REST/model-provider adapter can execute with provider-specific
-  retries, rate limits, and idempotent writes.
+  retries, rate limits, managed secrets, and idempotent writes.
 
 ## Phase 6: Cost, Governance, And Release Evidence Workflow
 

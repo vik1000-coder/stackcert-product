@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from stackcert_service.config import settings
 from stackcert_service.observability import configure_logging, request_middleware
-from stackcert_service.security.auth import PrincipalDep
+from stackcert_service.security.auth import McpPrincipalDep, PrincipalDep
 from stackcert_service.schemas import (
     BenchmarkImportCommitRequest,
     BenchmarkImportPreviewRequest,
@@ -223,25 +223,25 @@ def list_agent_platforms(_: PrincipalDep) -> dict[str, object]:
 
 
 @app.get("/api/mcp/manifest")
-def get_mcp_manifest(_: PrincipalDep) -> dict[str, object]:
+def get_mcp_manifest(_: McpPrincipalDep) -> dict[str, object]:
     return mcp.manifest()
 
 
 @app.post("/api/mcp/rpc")
-def mcp_rpc(payload: McpRpcRequest, _: PrincipalDep) -> dict[str, object]:
-    return mcp.handle_rpc(payload.method, payload.params, payload.id)
+def mcp_rpc(payload: McpRpcRequest, principal: McpPrincipalDep) -> dict[str, object]:
+    return mcp.handle_rpc(payload.method, payload.params, payload.id, principal=principal)
 
 
 @app.post("/api/mcp")
-async def mcp_streamable_http(request: Request, _: PrincipalDep) -> Response:
-    status_code, body = mcp.handle_http_message(await request.json())
+async def mcp_streamable_http(request: Request, principal: McpPrincipalDep) -> Response:
+    status_code, body = mcp.handle_http_message(await request.json(), principal=principal)
     if body is None:
         return Response(status_code=status_code)
     return JSONResponse(content=body, status_code=status_code)
 
 
 @app.get("/api/mcp")
-def mcp_sse_not_supported(_: PrincipalDep) -> Response:
+def mcp_sse_not_supported(_: McpPrincipalDep) -> Response:
     return Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 

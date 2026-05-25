@@ -168,11 +168,12 @@ supabase db push --linked --yes
 supabase migration list --linked
 ```
 
-Remote migration history was verified on 2026-05-24 and includes:
+Remote migration history was verified on 2026-05-25 and includes:
 
 - `20260523151421_initial_stackcert_schema.sql`
 - `20260523192827_add_usage_event_metadata.sql`
 - `20260524023733_add_project_setup_status.sql`
+- `20260525001842_worker_idempotency_and_usage_keys.sql`
 
 Do not run multiple Supabase database CLI commands against the same linked
 project in parallel. The CLI creates a temporary login role, and parallel

@@ -204,7 +204,7 @@ class SupabaseStoreTest(unittest.TestCase):
         def handler(request: httpx.Request) -> httpx.Response:
             nonlocal stored_job
             url = str(request.url)
-            if request.method == "POST" and url.endswith("/rest/v1/jobs"):
+            if request.method == "POST" and "/rest/v1/jobs" in url:
                 payload = json.loads(request.content.decode("utf-8"))
                 stored_job = {
                     **payload,
@@ -217,10 +217,11 @@ class SupabaseStoreTest(unittest.TestCase):
                 return httpx.Response(200, json=[{"id": "00000000-0000-4000-8000-000000000901"}])
             if request.method == "GET" and "/rest/v1/evaluation_runs" in url:
                 return httpx.Response(200, json=[])
-            if request.method == "POST" and url.endswith("/rest/v1/usage_events"):
+            if request.method == "POST" and "/rest/v1/usage_events" in url:
                 payload = json.loads(request.content.decode("utf-8"))
                 self.assertEqual(payload[0]["job_id"], "00000000-0000-4000-8000-000000000901")
                 self.assertIsNone(payload[0]["run_id"])
+                self.assertEqual(payload[0]["external_event_id"], "use_job_usage_act_demo")
                 self.assertEqual(payload[0]["metadata"]["action_id"], "act_demo")
                 stored_events.extend(
                     {
@@ -274,6 +275,7 @@ class SupabaseStoreTest(unittest.TestCase):
         listed = store.list_usage_events(settings.demo_project_id, settings.demo_run_id)
 
         self.assertEqual(recorded[0]["id"], event["id"])
+        self.assertEqual(listed[0]["id"], "use_job_usage_act_demo")
         self.assertEqual(listed[0]["job_id"], "job_usage")
         self.assertEqual(listed[0]["actual_cost_usd"], 240.0)
         self.assertEqual(stored_job["attempts"], 0)
@@ -534,7 +536,7 @@ class SupabaseStoreTest(unittest.TestCase):
             if request.method == "DELETE" and "/rest/v1/guard_outputs" in url:
                 stored_outputs = []
                 return httpx.Response(204)
-            if request.method == "POST" and url.endswith("/rest/v1/guard_outputs"):
+            if request.method == "POST" and "/rest/v1/guard_outputs" in url:
                 stored_outputs = json.loads(request.content.decode("utf-8"))
                 self.assertEqual(stored_outputs[0]["example_id"], example_id)
                 self.assertEqual(stored_outputs[0]["guard_key"], "refund_policy_guard")
@@ -544,7 +546,7 @@ class SupabaseStoreTest(unittest.TestCase):
             if request.method == "DELETE" and "/rest/v1/measurement_recommendations" in url:
                 stored_measurements = []
                 return httpx.Response(204)
-            if request.method == "POST" and url.endswith("/rest/v1/measurement_recommendations"):
+            if request.method == "POST" and "/rest/v1/measurement_recommendations" in url:
                 stored_measurements = json.loads(request.content.decode("utf-8"))
                 self.assertEqual(stored_measurements[0]["action_key"], "measure_1")
                 return httpx.Response(204)
@@ -622,6 +624,118 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(source["suite_bundle"]["suite"]["id"], suite_id)
         self.assertEqual(source["outputs"][0]["guard_id"], "refund_policy_guard")
 
+    def test_worker_run_outputs_are_upserted_without_delete(self) -> None:
+        run_db_id = "10000000-0000-4000-8000-000000000A01"
+        suite_id = "10000000-0000-4000-8000-000000000701"
+        example_id = "10000000-0000-4000-8000-000000000703"
+        stored_run: dict[str, Any] | None = None
+        stored_outputs: dict[tuple[str, str, str], dict[str, Any]] = {}
+        stored_measurements: dict[tuple[str, str], dict[str, Any]] = {}
+        methods: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal stored_run
+            methods.append(f"{request.method} {request.url.path}")
+            url = str(request.url)
+            params = request.url.params
+            if request.method == "GET" and "/rest/v1/projects" in url:
+                return httpx.Response(200, json=[{"id": settings.demo_project_db_id, "workspace_id": settings.demo_workspace_db_id}])
+            if request.method == "GET" and "/rest/v1/evaluation_runs" in url:
+                if params.get("select") == "id":
+                    return httpx.Response(200, json=([{"id": run_db_id}] if stored_run else []))
+                return httpx.Response(200, json=([stored_run] if stored_run else []))
+            if request.method == "POST" and url.endswith("/rest/v1/evaluation_runs"):
+                payload = json.loads(request.content.decode("utf-8"))
+                stored_run = {**payload, "id": run_db_id, "created_at": "2026-05-24T02:00:03+00:00"}
+                return httpx.Response(201, json=[stored_run])
+            if request.method == "PATCH" and "/rest/v1/evaluation_runs" in url:
+                stored_run = {**stored_run, **json.loads(request.content.decode("utf-8"))}
+                return httpx.Response(204)
+            if request.method == "GET" and "/rest/v1/examples" in url:
+                return httpx.Response(200, json=[{"id": example_id, "external_id": "adversarial_tool_misuse_0001"}])
+            if request.method == "GET" and "/rest/v1/guard_definitions" in url:
+                return httpx.Response(200, json=[])
+            if request.method == "DELETE" and "/rest/v1/guard_outputs" in url:
+                self.fail("worker_evaluation output persistence should not delete before write")
+            if request.method == "DELETE" and "/rest/v1/measurement_recommendations" in url:
+                self.fail("worker_evaluation measurement persistence should not delete before write")
+            if request.method == "POST" and "/rest/v1/guard_outputs" in url:
+                self.assertEqual(request.url.params.get("on_conflict"), "run_id,guard_key,external_example_id")
+                payload = json.loads(request.content.decode("utf-8"))
+                for row in payload:
+                    key = (row["run_id"], row["guard_key"], row["external_example_id"])
+                    stored_outputs[key] = row
+                return httpx.Response(204)
+            if request.method == "POST" and "/rest/v1/measurement_recommendations" in url:
+                self.assertEqual(request.url.params.get("on_conflict"), "run_id,action_key")
+                payload = json.loads(request.content.decode("utf-8"))
+                for row in payload:
+                    stored_measurements[(row["run_id"], row["action_key"])] = row
+                return httpx.Response(204)
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        run = {
+            "id": "eval_worker_idempotent",
+            "project_id": settings.demo_project_id,
+            "workspace_id": settings.demo_workspace_id,
+            "status": "complete",
+            "name": "Worker evaluation run",
+            "source": "worker_evaluation",
+            "benchmark_suite_id": suite_id,
+            "benchmark_suite_name": "Pilot suite",
+            "sampled_example_ids": ["adversarial_tool_misuse_0001"],
+            "job_id": "job_worker_idempotent",
+            "created_at": "2026-05-24T02:00:03+00:00",
+            "completed_at": "2026-05-24T02:00:03+00:00",
+        }
+        summary = {
+            "id": run["id"],
+            "project_id": settings.demo_project_id,
+            "workspace_id": settings.demo_workspace_id,
+            "status": "complete",
+            "k": 2,
+            "rho_prior": 0.6,
+            "lambda_cost": 5.0,
+            "examples": 1,
+            "guards": 2,
+            "candidate_stacks": 3,
+            "benchmark_cells": 1,
+            "outputs": 1,
+            "certificate_id": "evidence_worker",
+            "certificate_status": "provisional",
+            "measurement_actions": 1,
+            "source": "worker_evaluation",
+        }
+        outputs = [
+            {
+                "example_id": "adversarial_tool_misuse_0001",
+                "guard_id": "refund_policy_guard",
+                "pass_probability": 0.1,
+                "block_probability": 0.9,
+                "binary_pass": False,
+                "metadata": {"source": "test"},
+            }
+        ]
+        actions = [
+            {
+                "id": "measure_1",
+                "guard_ids": ["refund_policy_guard", "pii_check"],
+                "cell_id": "adversarial_tool_misuse",
+                "expected_radius_reduction": 0.1,
+                "cost_usd": 18.0,
+                "eta_minutes": 4,
+                "status": "recommended",
+            }
+        ]
+
+        store.store_pilot_run(settings.demo_project_id, run, summary, outputs, actions, {"certificate_id": "evidence_worker"})
+        store.store_pilot_run(settings.demo_project_id, run, summary, outputs, actions, {"certificate_id": "evidence_worker"})
+
+        self.assertEqual(len(stored_outputs), 1)
+        self.assertEqual(len(stored_measurements), 1)
+        self.assertTrue(any("guard_outputs" in method for method in methods))
+
     def test_create_guard_connector_persists_redacted_config(self) -> None:
         calls: list[httpx.Request] = []
 
@@ -637,6 +751,7 @@ class SupabaseStoreTest(unittest.TestCase):
             if url.endswith("/rest/v1/guard_versions"):
                 payload = json.loads(request.content.decode("utf-8"))
                 self.assertTrue(payload["config"]["has_secret"])
+                self.assertEqual(payload["config"]["price_card"]["request_price_usd"], 0.001)
                 self.assertNotIn("super-secret-token", json.dumps(payload))
                 return httpx.Response(
                     201,
@@ -660,11 +775,19 @@ class SupabaseStoreTest(unittest.TestCase):
                     "auth_header_name": "Authorization",
                     "has_secret": True,
                     "secret_ref": "pending-vault://refund_policy_guard",
+                    "price_card": {
+                        "currency": "USD",
+                        "billing_unit": "request_plus_tokens",
+                        "request_price_usd": 0.001,
+                        "input_price_per_1m_tokens_usd": 2,
+                        "output_price_per_1m_tokens_usd": 8,
+                    },
                 },
             },
         )
 
         self.assertEqual(connector["guard_key"], "refund_policy_guard")
+        self.assertEqual(connector["price_card"]["output_price_per_1m_tokens_usd"], 8.0)
         self.assertTrue(connector["redaction"]["auth_secret_stored"])
         self.assertEqual([call.method for call in calls], ["POST", "POST"])
 

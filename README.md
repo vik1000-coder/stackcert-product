@@ -11,8 +11,10 @@ with scoped release evidence instead of broad safety claims.
 
 The current scope includes the CASS core under the hood, a product API, a React
 LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
-worker-backed deterministic, REST, and model-judge evaluation runs, and a
-hosted Supabase free-tier demo. The core engine includes:
+worker-backed deterministic, REST, and model-judge evaluation runs, idempotent
+worker evidence persistence, connector price cards/token accounting, MCP
+machine-token auth, and a hosted Supabase free-tier demo. The core engine
+includes:
 
 - data schemas and JSONL/CSV import;
 - safety-check adapters and offline evaluation runner;
@@ -31,7 +33,8 @@ The product direction is now a production-oriented full-stack app:
   agent deployment reviews;
 - deterministic, REST, and model-judge provider-style worker execution for real
   project benchmark suites, with budget checks, usage events, backend-only
-  connector secrets, and persisted CASS evidence runs;
+  connector secrets, idempotent writes, connector price cards, provider token
+  accounting, and persisted CASS evidence runs;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
 - GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.
@@ -128,6 +131,7 @@ Cloud Run staging helpers live in:
 - `scripts/cloud_run_secrets.py`
 - `scripts/cloud_run_api_smoke.py`
 - `scripts/mcp_client_smoke.py`
+- `scripts/hash_mcp_machine_token.py`
 
 Run the cost preflight before any GCP deployment. It is read-only and should
 pass before enabling APIs or creating Cloud Run resources:
@@ -182,6 +186,12 @@ The API keeps demo state in memory unless Supabase persistence is configured.
 Set `SUPABASE_URL`, backend-only `SUPABASE_SECRET_KEY`, and
 `STACKCERT_PERSISTENCE_BACKEND=supabase` to persist custom behavior drafts and
 managed job records.
+
+For MCP-only machine callers, generate a token hash with
+`scripts/hash_mcp_machine_token.py`, then set
+`STACKCERT_MCP_MACHINE_TOKEN_HASHES` and
+`STACKCERT_MCP_MACHINE_TOKEN_SCOPES` on the API runtime. These tokens only work
+on `/api/mcp` and `/api/mcp/rpc`; app routes still require Supabase Auth.
 
 ## Quick Smoke Test
 

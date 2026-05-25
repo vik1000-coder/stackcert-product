@@ -10,6 +10,7 @@ from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
 from stackcert_service.schemas import GuardConnectorCreate
 from stackcert_service.services import demo_project
+from stackcert_service.services import pricing
 from stackcert_service.services.display import guard_label
 from stackcert_service.services import provider_secrets
 
@@ -46,6 +47,7 @@ def clear_connectors() -> None:
 
 
 def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> dict[str, Any]:
+    price_card = pricing.price_card_from_payload(payload)
     secret_config = provider_secrets.prepare_secret_config(
         project_id=project_id,
         guard_id=payload.guard_key,
@@ -59,6 +61,7 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "secret_ref": secret_config.secret_ref,
         "secret_env_var": secret_config.secret_env_var,
         "secret_status": secret_config.secret_status,
+        "price_card": price_card,
     }
     if payload.adapter_type == "model_judge" or payload.guard_type == "model_judge":
         config.update(
@@ -86,7 +89,8 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "threshold": payload.threshold,
         "status": "configured",
         "latency_ms": 100,
-        "unit_cost_usd": 0.0002,
+        "unit_cost_usd": price_card["request_price_usd"],
+        "price_card": price_card,
         "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "config": config,
         "redaction": {
@@ -116,6 +120,7 @@ def _demo_connectors(lambda_cost: float) -> list[dict[str, Any]]:
             "status": "available",
             "latency_ms": guard.latency_ms or 85,
             "unit_cost_usd": guard.unit_cost_usd or 0.0002,
+            "price_card": pricing.connector_price_card({"unit_cost_usd": guard.unit_cost_usd or 0.0002}),
             "config": {"source": "seeded_outputs", "has_secret": False},
             "redaction": {"auth_secret_stored": False, "auth_secret_visible": False},
         }

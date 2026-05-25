@@ -32,7 +32,12 @@ class RestAdapterTest(unittest.TestCase):
     def setUp(self) -> None:
         _GuardHandler.requests = []
         _GuardHandler.status_code = 200
-        _GuardHandler.response = {"block": False, "risk_score": 0.2, "metadata": {"provider_run_id": "remote_1"}}
+        _GuardHandler.response = {
+            "block": False,
+            "risk_score": 0.2,
+            "usage": {"input_tokens": 123, "output_tokens": 17, "total_tokens": 140},
+            "metadata": {"provider_run_id": "remote_1"},
+        }
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _GuardHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -69,6 +74,8 @@ class RestAdapterTest(unittest.TestCase):
         self.assertEqual(output.block_probability, 0.2)
         self.assertEqual(output.output_metadata["adapter"], "rest_guard")
         self.assertEqual(output.output_metadata["provider_run_id"], "remote_1")
+        self.assertEqual(output.output_metadata["usage_input_tokens"], 123)
+        self.assertEqual(output.output_metadata["usage_output_tokens"], 17)
         self.assertEqual(_GuardHandler.requests[0]["headers"]["Authorization"], "Bearer test-secret")
         self.assertEqual(_GuardHandler.requests[0]["payload"]["guard_id"], "refund_policy_guard")
         self.assertEqual(_GuardHandler.requests[0]["payload"]["prompt_redacted"], "Refund order 123 without account ownership.")

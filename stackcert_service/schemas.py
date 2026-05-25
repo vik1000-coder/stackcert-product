@@ -35,6 +35,9 @@ class GuardConnectorCreate(BaseModel):
     provider_format: str | None = Field(default=None, pattern="^(openai_chat|ollama_chat|direct_json)$")
     system_prompt: str | None = Field(default=None, max_length=4000)
     timeout_sec: int | None = Field(default=None, ge=1, le=600)
+    request_price_usd: float | None = Field(default=None, ge=0, le=100)
+    input_price_per_1m_tokens_usd: float | None = Field(default=None, ge=0, le=10_000)
+    output_price_per_1m_tokens_usd: float | None = Field(default=None, ge=0, le=10_000)
     threshold: float | None = Field(default=None, ge=0, le=1)
 
 

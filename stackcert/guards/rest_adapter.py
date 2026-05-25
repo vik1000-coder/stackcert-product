@@ -92,6 +92,7 @@ class RESTGuardAdapter:
         metadata = dict(self.metadata)
         metadata.update({"adapter": "rest_guard", "endpoint_host": _safe_endpoint_host(self.endpoint_url)})
         metadata.update(dict(data.get("metadata") or {}))
+        metadata.update(_usage_metadata(data))
         return normalize_decision(
             run_id=self.run_id,
             guard_id=self.guard_id,
@@ -184,3 +185,21 @@ def _safe_endpoint_host(endpoint_url: str) -> str:
         return urllib.parse.urlparse(endpoint_url).netloc
     except Exception:
         return "unknown"
+
+
+def _usage_metadata(data: dict[str, Any]) -> dict[str, int]:
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    candidates = {
+        "usage_input_tokens": data.get("input_tokens", usage.get("input_tokens", usage.get("prompt_tokens"))),
+        "usage_output_tokens": data.get("output_tokens", usage.get("output_tokens", usage.get("completion_tokens"))),
+        "usage_total_tokens": data.get("total_tokens", usage.get("total_tokens")),
+    }
+    parsed: dict[str, int] = {}
+    for key, value in candidates.items():
+        if value is None:
+            continue
+        try:
+            parsed[key] = max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+    return parsed

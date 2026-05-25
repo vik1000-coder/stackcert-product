@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import os
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -16,6 +19,8 @@ class Principal:
     email: str | None
     role: str = "owner"
     workspace_ids: tuple[str, ...] = (settings.demo_workspace_id,)
+    principal_type: str = "user"
+    scopes: tuple[str, ...] = ("app:read", "app:write", "mcp:read", "mcp:write")
 
 
 def _decode_supabase_jwt(token: str) -> Principal:
@@ -75,6 +80,48 @@ def _authenticate_bearer_token(token: str) -> Principal:
     return _fetch_supabase_user(token)
 
 
+def _authenticate_mcp_machine_token(token: str) -> Principal | None:
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    for token_id, expected_hash in _machine_token_hashes().items():
+        if hmac.compare_digest(token_hash, expected_hash):
+            scopes = _machine_token_scopes().get(token_id, ("mcp:read",))
+            return Principal(
+                user_id=f"machine:{token_id}",
+                email=None,
+                role="machine",
+                principal_type="machine",
+                scopes=scopes,
+            )
+    return None
+
+
+def _machine_token_hashes() -> dict[str, str]:
+    raw = os.getenv("STACKCERT_MCP_MACHINE_TOKEN_HASHES", "")
+    parsed: dict[str, str] = {}
+    for entry in raw.split(","):
+        if ":" not in entry:
+            continue
+        token_id, token_hash = entry.split(":", 1)
+        token_id = token_id.strip()
+        token_hash = token_hash.strip().removeprefix("sha256:")
+        if token_id and len(token_hash) == 64:
+            parsed[token_id] = token_hash.lower()
+    return parsed
+
+
+def _machine_token_scopes() -> dict[str, tuple[str, ...]]:
+    raw = os.getenv("STACKCERT_MCP_MACHINE_TOKEN_SCOPES", "")
+    parsed: dict[str, tuple[str, ...]] = {}
+    for entry in raw.split(","):
+        if "=" not in entry:
+            continue
+        token_id, scopes = entry.split("=", 1)
+        values = tuple(scope.strip() for scope in scopes.split("|") if scope.strip())
+        if token_id.strip() and values:
+            parsed[token_id.strip()] = values
+    return parsed
+
+
 def current_principal(authorization: Annotated[str | None, Header()] = None) -> Principal:
     """Return the authenticated user.
 
@@ -91,4 +138,14 @@ def current_principal(authorization: Annotated[str | None, Header()] = None) -> 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
 
 
+def current_mcp_principal(authorization: Annotated[str | None, Header()] = None) -> Principal:
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        machine = _authenticate_mcp_machine_token(token)
+        if machine:
+            return machine
+    return current_principal(authorization)
+
+
 PrincipalDep = Annotated[Principal, Depends(current_principal)]
+McpPrincipalDep = Annotated[Principal, Depends(current_mcp_principal)]

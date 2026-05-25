@@ -195,7 +195,9 @@ Current prompts:
 Safety defaults for agent access:
 
 - Read-only by default.
-- Separate scopes for writes.
+- Separate scopes for writes. The current FastAPI MCP surface supports
+  MCP-only machine bearer tokens scoped with `mcp:read` and `mcp:write`, while
+  human app access still uses Supabase Auth.
 - Human approval for expensive runs, exports, signoffs, or destructive actions.
 - Workspace budgets enforced server-side.
 - Full audit logs.

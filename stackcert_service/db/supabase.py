@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from stackcert_service.config import settings
+from stackcert_service.services import pricing
 
 
 class SupabasePersistenceError(RuntimeError):
@@ -421,6 +422,7 @@ class SupabaseStore:
         self._request(
             "POST",
             "jobs",
+            params={"on_conflict": "workspace_id,external_job_id"},
             json={
                 "workspace_id": workspace_db_id,
                 "project_id": project_db_id,
@@ -440,7 +442,7 @@ class SupabaseStore:
                 "started_at": job.get("started_at"),
                 "completed_at": job.get("completed_at") if str(job.get("status", "")).startswith("complete") or job.get("status") in {"failed", "canceled"} else None,
             },
-            prefer="return=minimal",
+            prefer="resolution=merge-duplicates,return=minimal",
         )
         return job
 
@@ -472,6 +474,7 @@ class SupabaseStore:
         self._request(
             "POST",
             "usage_events",
+            params={"on_conflict": "workspace_id,external_event_id"},
             json=[
                 {
                     "workspace_id": workspace_db_id,
@@ -488,11 +491,12 @@ class SupabaseStore:
                     "estimated_cost_usd": event.get("estimated_cost_usd") or 0,
                     "actual_cost_usd": event.get("actual_cost_usd"),
                     "currency": event.get("currency") or "USD",
+                    "external_event_id": event.get("id"),
                     "metadata": event.get("metadata") or {},
                 }
                 for event in events
             ],
-            prefer="return=minimal",
+            prefer="resolution=merge-duplicates,return=minimal",
         )
         return events
 
@@ -642,17 +646,30 @@ class SupabaseStore:
             )
             run_db_id = str(created[0]["id"])
 
-        self._replace_pilot_outputs(
-            workspace_db_id=workspace_db_id,
-            run_db_id=run_db_id,
-            suite_db_id=suite_db_id,
-            outputs=outputs,
-        )
-        self._replace_measurement_recommendations(
-            workspace_db_id=workspace_db_id,
-            run_db_id=run_db_id,
-            actions=measurement_actions,
-        )
+        if source == "worker_evaluation":
+            self._upsert_pilot_outputs(
+                workspace_db_id=workspace_db_id,
+                run_db_id=run_db_id,
+                suite_db_id=suite_db_id,
+                outputs=outputs,
+            )
+            self._upsert_measurement_recommendations(
+                workspace_db_id=workspace_db_id,
+                run_db_id=run_db_id,
+                actions=measurement_actions,
+            )
+        else:
+            self._replace_pilot_outputs(
+                workspace_db_id=workspace_db_id,
+                run_db_id=run_db_id,
+                suite_db_id=suite_db_id,
+                outputs=outputs,
+            )
+            self._replace_measurement_recommendations(
+                workspace_db_id=workspace_db_id,
+                run_db_id=run_db_id,
+                actions=measurement_actions,
+            )
         return run_summary
 
     def get_issued_certificate(self, certificate_id: str) -> dict[str, Any] | None:
@@ -727,11 +744,49 @@ class SupabaseStore:
         )
         if not outputs:
             return
+        self._write_pilot_outputs(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            suite_db_id=suite_db_id,
+            outputs=outputs,
+            prefer="return=minimal",
+        )
+
+    def _upsert_pilot_outputs(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        suite_db_id: str,
+        outputs: list[dict[str, Any]],
+    ) -> None:
+        self._write_pilot_outputs(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            suite_db_id=suite_db_id,
+            outputs=outputs,
+            prefer="resolution=merge-duplicates,return=minimal",
+            params={"on_conflict": "run_id,guard_key,external_example_id"},
+        )
+
+    def _write_pilot_outputs(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        suite_db_id: str,
+        outputs: list[dict[str, Any]],
+        prefer: str,
+        params: dict[str, str] | None = None,
+    ) -> None:
+        if not outputs:
+            return
         example_ids = self._example_db_ids_by_external(suite_db_id)
         guard_version_ids = self._guard_version_ids_by_key(workspace_db_id)
         self._request(
             "POST",
             "guard_outputs",
+            params=params,
             json=[
                 {
                     "workspace_id": workspace_db_id,
@@ -748,7 +803,7 @@ class SupabaseStore:
                 }
                 for output in outputs
             ],
-            prefer="return=minimal",
+            prefer=prefer,
         )
 
     def _replace_measurement_recommendations(
@@ -766,9 +821,43 @@ class SupabaseStore:
         )
         if not actions:
             return
+        self._write_measurement_recommendations(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            actions=actions,
+            prefer="return=minimal",
+        )
+
+    def _upsert_measurement_recommendations(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        actions: list[dict[str, Any]],
+    ) -> None:
+        self._write_measurement_recommendations(
+            workspace_db_id=workspace_db_id,
+            run_db_id=run_db_id,
+            actions=actions,
+            prefer="resolution=merge-duplicates,return=minimal",
+            params={"on_conflict": "run_id,action_key"},
+        )
+
+    def _write_measurement_recommendations(
+        self,
+        *,
+        workspace_db_id: str,
+        run_db_id: str,
+        actions: list[dict[str, Any]],
+        prefer: str,
+        params: dict[str, str] | None = None,
+    ) -> None:
+        if not actions:
+            return
         self._request(
             "POST",
             "measurement_recommendations",
+            params=params,
             json=[
                 {
                     "workspace_id": workspace_db_id,
@@ -783,7 +872,7 @@ class SupabaseStore:
                 }
                 for action in actions
             ],
-            prefer="return=minimal",
+            prefer=prefer,
         )
 
     def _example_db_ids_by_external(self, suite_db_id: str) -> dict[str, str]:
@@ -1149,6 +1238,7 @@ class SupabaseStore:
     @staticmethod
     def _guard_connector_from_rows(definition: dict[str, Any], version: dict[str, Any] | None, project_id: str) -> dict[str, Any]:
         config = version.get("config") if version else {}
+        price_card = pricing.connector_price_card({"config": config, "unit_cost_usd": config.get("unit_cost_usd")})
         return {
             "id": definition["id"],
             "project_id": project_id,
@@ -1164,9 +1254,10 @@ class SupabaseStore:
             "threshold": version.get("threshold") if version else None,
             "status": version.get("status") if version else "draft",
             "latency_ms": 100,
-            "unit_cost_usd": 0.0002,
+            "unit_cost_usd": price_card["request_price_usd"],
             "created_at": definition.get("created_at"),
             "config": config,
+            "price_card": price_card,
             "redaction": {
                 "auth_secret_stored": bool(config.get("has_secret")),
                 "auth_secret_visible": False,
@@ -1197,7 +1288,7 @@ class SupabaseStore:
     def _usage_event_from_row(row: dict[str, Any], project_id: str) -> dict[str, Any]:
         metadata = row.get("metadata") or {}
         return {
-            "id": str(row["id"]),
+            "id": str(row.get("external_event_id") or row["id"]),
             "workspace_id": settings.demo_workspace_id if str(row["workspace_id"]) == settings.demo_workspace_db_id else str(row["workspace_id"]),
             "project_id": metadata.get("api_project_id") or project_id,
             "run_id": metadata.get("api_run_id"),

@@ -22,6 +22,7 @@ from stackcert_service.services import benchmark_imports
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
 from stackcert_service.services import pilot_runs
+from stackcert_service.services import pricing
 from stackcert_service.services import provider_secrets
 from stackcert_service.services import projects
 from stackcert_service.services import usage
@@ -160,7 +161,7 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
         if payload.adapter_mode in {"rest_guard", "model_judge"}:
             _provider_adapters(project_id, "preflight", requested_guard_ids, payload.adapter_mode)
-        estimated_cost_usd = _estimate_project_evaluation_cost(project_id, requested_guard_ids, len(sampled_examples))
+        estimated_cost_usd = _estimate_project_evaluation_cost(project_id, requested_guard_ids, sampled_examples)
         if payload.max_cost_usd is not None and estimated_cost_usd > payload.max_cost_usd:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -315,11 +316,11 @@ def _connector_thresholds(project_id: str) -> dict[str, float]:
     return thresholds
 
 
-def _connector_unit_costs(project_id: str) -> dict[str, float]:
-    costs: dict[str, float] = {}
+def _connector_price_cards(project_id: str) -> dict[str, dict[str, Any]]:
+    cards: dict[str, dict[str, Any]] = {}
     for guard_id, connector in _project_connector_map(project_id).items():
-        costs[guard_id] = float(connector.get("unit_cost_usd") or 0.0002)
-    return costs
+        cards[guard_id] = pricing.connector_price_card(connector)
+    return cards
 
 
 def _provider_adapters(project_id: str, run_id: str, guard_ids: list[str], adapter_mode: str):
@@ -451,9 +452,29 @@ def _validate_rest_guard_endpoint(endpoint_url: str, guard_id: str) -> None:
         )
 
 
-def _estimate_project_evaluation_cost(project_id: str, guard_ids: list[str], example_count: int) -> float:
-    costs = _connector_unit_costs(project_id)
-    return round(sum(costs.get(guard_id, 0.0002) * example_count for guard_id in guard_ids), 4)
+def _estimate_project_evaluation_cost(
+    project_id: str,
+    guard_ids: list[str],
+    examples: list[BenchmarkExample] | int,
+) -> float:
+    cards = _connector_price_cards(project_id)
+    example_count = len(examples) if isinstance(examples, list) else int(examples)
+    total = 0.0
+    for guard_id in guard_ids:
+        card = cards.get(guard_id) or pricing.connector_price_card({})
+        input_tokens = (
+            sum(pricing.estimate_example_input_tokens(example) for example in examples)
+            if isinstance(examples, list)
+            else example_count * int(card["default_input_tokens"])
+        )
+        output_tokens = example_count * int(card["default_output_tokens"])
+        total += pricing.estimate_connector_cost_usd(
+            card,
+            request_count=example_count,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+    return round(total, 4)
 
 
 def _usage_events_from_evaluation(
@@ -463,20 +484,27 @@ def _usage_events_from_evaluation(
     guard_ids: list[str],
     adapter_mode: str,
 ) -> list[dict[str, Any]]:
-    unit_costs = _connector_unit_costs(str(job["project_id"]))
     connectors = _project_connector_map(str(job["project_id"]))
     examples_by_id = {example.example_id: example for example in examples}
     events = []
     for guard_id in guard_ids:
         guard_outputs = [output for output in outputs if output.guard_id == guard_id]
         connector = connectors.get(guard_id) or {}
+        price_card = pricing.connector_price_card(connector)
         request_count = len(guard_outputs)
         input_tokens = 0
+        output_tokens = 0
         for output in guard_outputs:
             example = examples_by_id.get(output.example_id)
-            input_tokens += max(1, len(str(example.prompt_redacted if example else "").split()))
-        output_tokens = request_count * 24
-        cost = round(request_count * unit_costs.get(guard_id, 0.0002), 4)
+            output_input_tokens, output_output_tokens = pricing.guard_output_usage_tokens(output, example, price_card)
+            input_tokens += output_input_tokens
+            output_tokens += output_output_tokens
+        cost = pricing.estimate_connector_cost_usd(
+            price_card,
+            request_count=request_count,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
         events.append(
             {
                 "id": f"use_{job['id']}_{guard_id}",
@@ -497,6 +525,7 @@ def _usage_events_from_evaluation(
                     "adapter_mode": adapter_mode,
                     "adapter_type": connector.get("adapter_type"),
                     "contract": "guard_adapter_v1",
+                    "price_card": price_card,
                 },
             }
         )
@@ -777,7 +806,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
     if len(requested_guard_ids) < 2:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
 
-    estimated_cost = _estimate_project_evaluation_cost(project_id, requested_guard_ids, len(examples))
+    estimated_cost = _estimate_project_evaluation_cost(project_id, requested_guard_ids, examples)
     budget_cap = payload.max_cost_usd if payload.max_cost_usd is not None else job_input.get("budget_cap_usd")
     if budget_cap is not None and estimated_cost > float(budget_cap):
         raise HTTPException(

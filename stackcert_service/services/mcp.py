@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 
 from stackcert_service.config import settings
+from stackcert_service.security.auth import Principal
 from stackcert_service.schemas import CostEstimateRequest, MeasurementPlanCreate
 from stackcert_service.services import custom_behaviors
 from stackcert_service.services import demo_project
@@ -61,6 +62,7 @@ def manifest() -> dict[str, Any]:
             "endpoint": "/api/mcp",
             "legacy_endpoint": "/api/mcp/rpc",
             "note": "POST JSON-RPC 2.0 messages to /api/mcp. /api/mcp/rpc remains for app and CI compatibility.",
+            "auth": "Supabase bearer token or MCP-only machine bearer token.",
         },
         "tools": list_tools(),
         "resources": list_resources(),
@@ -69,7 +71,7 @@ def manifest() -> dict[str, Any]:
     }
 
 
-def handle_http_message(payload: Any) -> tuple[int, dict[str, Any] | None]:
+def handle_http_message(payload: Any, *, principal: Principal | None = None) -> tuple[int, dict[str, Any] | None]:
     if not isinstance(payload, dict):
         return status.HTTP_400_BAD_REQUEST, _protocol_error(None, -32600, "Invalid JSON-RPC message")
     if payload.get("jsonrpc") != "2.0" or not isinstance(payload.get("method"), str):
@@ -82,13 +84,19 @@ def handle_http_message(payload: Any) -> tuple[int, dict[str, Any] | None]:
             return status.HTTP_202_ACCEPTED, None
         return status.HTTP_202_ACCEPTED, None
 
-    return status.HTTP_200_OK, handle_rpc(method, payload.get("params") or {}, request_id)
+    return status.HTTP_200_OK, handle_rpc(method, payload.get("params") or {}, request_id, principal=principal)
 
 
-def handle_rpc(method: str, params: dict[str, Any] | None, request_id: str | int | None) -> dict[str, Any]:
+def handle_rpc(
+    method: str,
+    params: dict[str, Any] | None,
+    request_id: str | int | None,
+    *,
+    principal: Principal | None = None,
+) -> dict[str, Any]:
     params = params or {}
     try:
-        result = _dispatch(method, params)
+        result = _dispatch(method, params, principal=principal)
         return {"jsonrpc": "2.0", "id": request_id, "result": result}
     except HTTPException as exc:
         return _protocol_error(
@@ -234,7 +242,7 @@ def list_tools() -> list[dict[str, Any]]:
     ]
 
 
-def call_tool(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+def call_tool(name: str, arguments: dict[str, Any] | None = None, *, principal: Principal | None = None) -> dict[str, Any]:
     arguments = arguments or {}
     if name == "list_projects":
         return _tool_result({"projects": projects.list_projects()})
@@ -265,6 +273,7 @@ def call_tool(name: str, arguments: dict[str, Any] | None = None) -> dict[str, A
         project_id = str(arguments.get("project_id") or _project_id_for_run(run_id) or settings.demo_project_id)
         return _tool_result(usage.cost_summary(project_id, run_id))
     if name == "create_measurement_plan":
+        _require_mcp_write(principal)
         run_id = str(arguments.get("run_id") or "")
         payload = MeasurementPlanCreate(
             action_ids=list(arguments.get("action_ids") or []),
@@ -624,7 +633,7 @@ def integration_guide(project_id: str) -> dict[str, Any]:
     }
 
 
-def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
+def _dispatch(method: str, params: dict[str, Any], *, principal: Principal | None = None) -> dict[str, Any]:
     if method == "initialize":
         return _initialize(params)
     if method == "ping":
@@ -634,7 +643,7 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "tools/list":
         return {"tools": list_tools()}
     if method == "tools/call":
-        return call_tool(str(params.get("name") or ""), params.get("arguments") or {})
+        return call_tool(str(params.get("name") or ""), params.get("arguments") or {}, principal=principal)
     if method == "resources/list":
         return {"resources": list_resources()}
     if method == "resources/templates/list":
@@ -665,6 +674,14 @@ def _capabilities() -> dict[str, Any]:
         "resources": {"subscribe": False, "listChanged": False},
         "prompts": {"listChanged": False},
     }
+
+
+def _require_mcp_write(principal: Principal | None) -> None:
+    if principal is None or principal.principal_type != "machine":
+        return
+    if "mcp:write" in principal.scopes:
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="MCP machine token requires mcp:write scope for this tool")
 
 
 def _tool_result(

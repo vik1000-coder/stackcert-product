@@ -61,7 +61,8 @@ class ModelJudgeAdapterTest(unittest.TestCase):
                         )
                     }
                 }
-            ]
+            ],
+            "usage": {"prompt_tokens": 321, "completion_tokens": 44, "total_tokens": 365},
         }
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _JudgeHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -100,6 +101,8 @@ class ModelJudgeAdapterTest(unittest.TestCase):
         self.assertEqual(output.block_probability, 0.18)
         self.assertEqual(output.output_metadata["adapter"], "model_judge")
         self.assertEqual(output.output_metadata["category"], "benign_support")
+        self.assertEqual(output.output_metadata["usage_input_tokens"], 321)
+        self.assertEqual(output.output_metadata["usage_output_tokens"], 44)
         self.assertNotIn("raw_output", output.output_metadata)
         self.assertEqual(_JudgeHandler.requests[0]["headers"]["Authorization"], "Bearer test-secret")
         self.assertEqual(_JudgeHandler.requests[0]["payload"]["model"], "json-judge-test")

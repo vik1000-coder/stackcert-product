@@ -24,7 +24,14 @@ def record_usage_events(project_id: str, job: dict[str, Any], events: list[dict[
             return store.record_usage_events(project_id, job, normalized)
         except SupabasePersistenceError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    _usage_events.extend(normalized)
+    existing_by_id = {event["id"]: index for index, event in enumerate(_usage_events)}
+    for event in normalized:
+        existing_index = existing_by_id.get(event["id"])
+        if existing_index is None:
+            existing_by_id[event["id"]] = len(_usage_events)
+            _usage_events.append(event)
+        else:
+            _usage_events[existing_index] = {**_usage_events[existing_index], **event}
     return normalized
 
 

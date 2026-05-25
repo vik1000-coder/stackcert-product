@@ -1414,3 +1414,53 @@ Started: 2026-05-23
 - Hosted verification:
   - `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
   - `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`.
+
+## Worker Idempotency, Price Cards, And MCP Machine Auth Slice
+
+- Added retry-safe persistence for worker-produced evidence:
+  - jobs upsert on `(workspace_id, external_job_id)`;
+  - worker guard outputs upsert on `(run_id, guard_key, external_example_id)`;
+  - worker measurement recommendations upsert on `(run_id, action_key)`;
+  - usage events carry an `external_event_id` and upsert on
+    `(workspace_id, external_event_id)`;
+  - uploaded-output runs still use their existing replace semantics.
+- Added Supabase migration
+  `20260525001842_worker_idempotency_and_usage_keys.sql` for the new usage
+  event id column and uniqueness keys. Applied it to the linked Supabase
+  project with `supabase db push --linked --yes`; `supabase migration list`
+  now shows the migration on both local and remote histories.
+- Added connector price-card support:
+  - setup API accepts per-request, input-token, and output-token pricing;
+  - connector configs persist price cards without exposing provider secrets;
+  - worker cost estimates and usage ledgers use price cards;
+  - REST and model-judge adapters preserve provider-reported token usage when
+    endpoints return OpenAI-style or direct usage fields.
+- Added MCP-only machine bearer tokens:
+  - `STACKCERT_MCP_MACHINE_TOKEN_HASHES` stores comma-separated token id/hash
+    entries;
+  - `STACKCERT_MCP_MACHINE_TOKEN_SCOPES` stores `mcp:read` /
+    `mcp:read|mcp:write` scopes;
+  - machine tokens authenticate only `/api/mcp` and `/api/mcp/rpc`; normal app
+    routes still require Supabase Auth;
+  - read-only machine tokens receive a JSON-RPC 403 for write tools such as
+    `create_measurement_plan`.
+- Added `scripts/hash_mcp_machine_token.py` for safe token-hash generation and
+  extended `scripts/mcp_client_smoke.py` with `--bearer-token`.
+- Updated setup UI/API types with connector price-card fields.
+- Applied Supabase advisor check on the linked project:
+  - no error-level advisor findings;
+  - existing warn-level finding remains: Supabase Auth leaked-password
+    protection is disabled and should be enabled before production.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py` -> OK;
+  - `uv run python -m unittest tests_service.test_auth tests_service.test_deployment_readiness tests_service.test_supabase_store` -> 19 tests passed;
+  - `uv run python -m unittest discover -s tests_service` -> 64 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - local official MCP SDK smoke against a production-mode FastAPI server with
+    an MCP-only machine bearer token -> `mcp client smoke OK`;
+  - `supabase db advisors --linked --type all --level warn --fail-on error`
+    -> OK exit with the leaked-password-protection warning above.

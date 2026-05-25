@@ -328,6 +328,13 @@ export type GuardCatalogItem = {
   adapter_type?: string;
   latency_ms: number;
   unit_cost_usd: number;
+  price_card?: {
+    request_price_usd: number;
+    input_price_per_1m_tokens_usd: number;
+    output_price_per_1m_tokens_usd: number;
+    currency: string;
+    billing_unit: string;
+  };
   status: string;
   redaction?: {
     auth_secret_stored: boolean;
@@ -350,6 +357,9 @@ export type GuardConnectorInput = {
   provider_format?: 'openai_chat' | 'ollama_chat' | 'direct_json';
   system_prompt?: string;
   timeout_sec?: number;
+  request_price_usd?: number;
+  input_price_per_1m_tokens_usd?: number;
+  output_price_per_1m_tokens_usd?: number;
   threshold?: number;
 };
 

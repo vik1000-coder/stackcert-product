@@ -144,6 +144,26 @@ curl -X POST http://127.0.0.1:8000/api/mcp/rpc \
   -d '{"jsonrpc":"2.0","id":"theory-1","method":"resources/read","params":{"uri":"stackcert://runs/real_main_2000/theory-card"}}'
 ```
 
+Production MCP access should use Supabase Auth for human users and MCP-only
+machine bearer tokens for CI/agent callers. Machine tokens are stored as
+SHA-256 hashes and only authenticate MCP routes; they do not grant access to
+general app APIs.
+
+```bash
+python scripts/hash_mcp_machine_token.py --token-id ci
+export STACKCERT_MCP_MACHINE_TOKEN_HASHES="ci:<sha256-token-hash>"
+export STACKCERT_MCP_MACHINE_TOKEN_SCOPES="ci=mcp:read"
+
+python scripts/mcp_client_smoke.py \
+  --api-url http://127.0.0.1:8000 \
+  --bearer-token "<raw-token>"
+```
+
+Use `mcp:read|mcp:write` only for trusted automation that is allowed to queue
+measurement-plan work. Read-only machine tokens can inspect release evidence,
+theory cards, measurements, and costs but receive a JSON-RPC 403 if they call a
+write tool.
+
 The managed-run foundation exposes local job endpoints:
 
 ```bash
@@ -157,6 +177,13 @@ These jobs stay in-memory when `STACKCERT_PERSISTENCE_BACKEND=memory` or when
 Supabase credentials are absent in `auto` mode. With `SUPABASE_URL`,
 `SUPABASE_SECRET_KEY`, and `STACKCERT_PERSISTENCE_BACKEND=supabase`, custom
 behavior drafts and job records persist through Supabase.
+
+Worker-generated runs use idempotent Supabase upserts for jobs, guard outputs,
+measurement recommendations, and usage events. The required migration is:
+
+```text
+20260525001842_worker_idempotency_and_usage_keys.sql
+```
 
 ## Container Builds
 
@@ -178,6 +205,11 @@ nginx.
 - Supabase migration resets locally with Docker.
 - `supabase db lint --local`, `supabase db advisors --local`, and
   `supabase/tests/rls_smoke.sql` pass.
+- Supabase remote migration history includes the latest local migration before
+  deploying API code that depends on it.
+- Supabase advisors have no unresolved errors. The current staging project has
+  one warning to address before production: leaked-password protection is
+  disabled in Supabase Auth.
 - Security workflow runs secret scanning, Python dependency audit, and npm audit.
 - Smoke script passes against the deployed API.
 - Deployment smoke passes against the hosted Supabase Auth/API/web target when

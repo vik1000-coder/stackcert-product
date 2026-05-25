@@ -13,24 +13,31 @@ dangerous; a correct engine with broken auth or exports is not sellable.
 
 ## Current Verification Baseline
 
-As of 2026-05-24, the current working tree has been verified with:
+As of 2026-05-25, the current working tree has been verified with:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
-.venv/bin/python -m unittest discover -s tests_service -p 'test_*.py' -v
-cd web && npm run lint
-cd web && npm test -- --run
-cd web && npm run build
-deno check supabase/functions/stackcert-api/index.ts
+uv run python -m unittest discover -s tests -p 'test_*.py'
+uv run python -m unittest discover -s tests_service
+uv run python scripts/mcp_client_smoke.py --api-url http://127.0.0.1:18082 --bearer-token <mcp-machine-token>
+npm --prefix web run typecheck
+npm --prefix web test -- --run
+npm --prefix web run build
+npm run build
+supabase migration list
+supabase db advisors --linked --type all --level warn --fail-on error
 ```
 
 Expected current results:
 
-- 11 Python core tests pass.
-- 54 service/API tests pass.
-- 4 frontend tests pass.
+- 17 Python core tests pass.
+- 64 service/API tests pass.
+- 6 frontend tests pass.
 - Frontend production build passes.
-- Supabase Edge Function type check passes.
+- Root Cloudflare Workers static-assets build passes.
+- Supabase local and remote migration history includes
+  `20260525001842_worker_idempotency_and_usage_keys.sql`.
+- Supabase advisors return no errors; staging still has a warn-level Auth
+  leaked-password-protection item to fix before production.
 
 The hosted staging path has also been verified:
 
@@ -289,6 +296,7 @@ staging deploy. It verifies:
 - authenticated `get_release_evidence_status` tool call with the
   `not_a_guarantee` limitations flag;
 - official MCP Python SDK smoke through `scripts/mcp_client_smoke.py`.
+- MCP-only machine bearer token smoke for read-only agent/CI callers.
 
 For the current Cloudflare + Cloud Run hosted target:
 

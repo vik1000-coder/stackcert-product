@@ -1,6 +1,6 @@
 # Production Hosting Setup
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 This is the recommended production hosting plan for StackCert after the
 temporary hosted demo. The goal is to keep costs controlled, deployment boring,
@@ -151,6 +151,18 @@ GCP_REGION
 GCP_WORKLOAD_IDENTITY_PROVIDER
 GCP_SERVICE_ACCOUNT
 ```
+
+Optional but recommended MCP machine-token environment:
+
+```text
+STACKCERT_MCP_MACHINE_TOKEN_HASHES
+STACKCERT_MCP_MACHINE_TOKEN_SCOPES
+```
+
+Generate token hashes with `scripts/hash_mcp_machine_token.py`. Store only the
+hash in Cloud Run environment variables; keep the raw token in the calling
+agent/CI secret store. These tokens authenticate only the MCP endpoints, not
+general app APIs.
 
 Use `us-central1` initially for cost/free-tier friendliness unless there is a
 strong reason to optimize for another region.
@@ -350,6 +362,18 @@ Deploy the API service:
   --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest"
 ```
 
+If the runtime should accept MCP-only machine callers, include the hashed token
+configuration in `--set-env-vars` or set it with a separate
+`gcloud run services update` call:
+
+```bash
+python scripts/hash_mcp_machine_token.py --token-id ci
+
+"${GCLOUD_BIN:-gcloud}" run services update stackcert-api \
+  --region="$GCP_REGION" \
+  --update-env-vars="STACKCERT_MCP_MACHINE_TOKEN_HASHES=ci:<sha256-token-hash>,STACKCERT_MCP_MACHINE_TOKEN_SCOPES=ci=mcp:read"
+```
+
 Verify the deployed API:
 
 ```bash
@@ -369,6 +393,17 @@ For a repeatable API smoke, use:
 ```bash
 python scripts/cloud_run_api_smoke.py --api-url "$API_URL"
 ```
+
+For a hosted MCP machine-token smoke, use:
+
+```bash
+python scripts/mcp_client_smoke.py \
+  --api-url "$API_URL" \
+  --bearer-token "<raw-mcp-machine-token>"
+```
+
+Use `mcp:read|mcp:write` only for automation that should be able to queue
+measurement-plan jobs. Keep deployment/release tools read-only by default.
 
 To also verify authenticated routes and MCP discovery, set
 `STACKCERT_SMOKE_SUPABASE_ANON_KEY` to the browser-safe publishable/anon key and
