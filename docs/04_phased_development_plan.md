@@ -44,8 +44,12 @@ Still not complete:
 Current next milestone:
 
 ```text
-Cloud Run worker deployment + managed secret storage + tenancy/RBAC hardening
+Pilot trust layer: tenancy/RBAC + audit + immutable evidence + private artifacts
 ```
+
+The detailed execution queue now lives in
+`18_pilot_ready_execution_plan.md`. Treat that document as the source of truth
+for the next implementation slices.
 
 ## Phase 0: Planning And Design Ingestion
 

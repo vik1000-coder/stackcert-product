@@ -6,6 +6,10 @@ This document is the short operational view of the product. The older planning
 docs still matter, but this page should be the first place to check when
 deciding what to build next.
 
+The detailed executable roadmap is now
+`18_pilot_ready_execution_plan.md`. This page summarizes the current baseline;
+the execution plan owns the ordered implementation queue.
+
 ## Current Working State
 
 StackCert is now a usable prototype with a real product shape:
@@ -236,82 +240,44 @@ Current worker status:
 
 ## What To Do Next
 
-### 1. Harden The Provider Worker Path
+The imported pilot-readiness plan and feasibility review have been condensed
+into a five-milestone executable roadmap:
 
-The worker path now has deterministic, REST, and model-judge adapter execution.
-The next gap is making that path comfortable for real design partners who
-already have provider endpoints and CI gates.
+1. Pilot trust layer: service-layer tenancy/RBAC, route access checks, and
+   audit events.
+2. Immutable evidence and private artifacts: readiness gates, immutable issued
+   packets, artifact hashes, and signed access.
+3. Managed secrets and independent worker: Secret Manager/Vault-backed provider
+   secrets, worker deployment, lease renewal, dead letters, and budget caps.
+4. Release gates and agent-friendly surfaces: conservative REST release-gate
+   API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
+5. Pilot UX and operational readiness: import/setup polish, evidence readiness
+   UI, dead-letter UI, production monitoring, backups, terms, and privacy.
 
-Needed work:
+The immediate execution queue is:
 
-- provider-specific retry/backoff/rate-limit policy by connector;
-- managed Secret Manager/Vault storage instead of the current
-  env-ref plus local-memory resolver;
-- lease renewal for long-running jobs;
-- per-workspace and per-run budget caps backed by database policy;
-- dead-letter review UI;
-- Cloud Run worker deployment or scheduled Cloud Run Job using
-  `scripts/worker_once.py`;
-- recompute evidence after targeted measurement outputs land, not only after
-  initial evaluation runs.
-
-Keep deterministic mode for CI/onboarding, but make REST and model-judge modes
-the primary design-partner integration paths.
-
-### 2. Harden Auth, Tenancy, And Evidence Storage
-
-Before real users:
-
-- replace demo workspace assumptions with real membership/role checks;
-- finish RLS tests for all exposed tables;
-- keep service-role keys backend-only;
-- store raw uploads/artifacts in private Storage or customer-hosted mode;
-- make issued release evidence immutable;
-- add audit events for evidence issue/signoff, connector changes, job runs, and
-  MCP tool calls.
-
-### 3. Validate MCP With Real Agent Clients
-
-The MCP surface now has client-level proof through
-`scripts/mcp_client_smoke.py`, which uses the official Python MCP SDK against
-`/api/mcp`.
-
-Next MCP tasks:
-
-- provision and rotate MCP-only machine tokens through Cloud Run/Secret Manager
-  or an admin UI instead of manual environment edits;
-- add MCP client compatibility checks for at least one desktop/agent runtime
-  beyond the Python SDK;
-- decide which tools are read-only by default and which require explicit human
-  approval;
-- add audit events for tool calls that queue work or affect release decisions.
-
-### 4. Production Readiness Pass
-
-After staging works end to end:
-
-- create production Supabase project;
-- configure production Auth URLs, email templates, and sender domain;
-- configure production Cloudflare frontend hosting and custom domains;
-- add Sentry or equivalent error reporting;
-- add uptime checks for frontend, `/api/health`, Auth, and release-evidence
-  status;
-- set GCP/Supabase/provider budget alerts;
-- run backup/restore rehearsal;
-- write legal/product terms for scoped evidence and no-guarantee positioning.
+1. Create a route-by-route access matrix for `stackcert_service/main.py`.
+2. Implement `stackcert_service/security/access.py`.
+3. Add persistence membership lookup for Supabase and local fallback.
+4. Apply access checks to project, run, connector, job, usage, evidence, and
+   MCP routes.
+5. Add an audit event service and wire sensitive mutations.
+6. Add evidence-readiness gates before issue.
+7. Add private artifact storage first for evidence JSON/Markdown exports.
 
 ## Current Priority
 
 The next engineering milestone should be:
 
 ```text
-Cloud Run worker deployment + managed secret storage + tenancy/RBAC hardening
+Pilot trust layer: tenancy/RBAC + audit + immutable evidence + private artifacts
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
 from uploaded outputs to deterministic, REST, or model-judge managed runs with
 retry-safe evidence writes and cost accounting. The next value milestone is
-turning the worker into an independently deployed service/job, adding managed
-secret storage and rotation, and replacing prototype workspace assumptions with
-real tenant membership/role enforcement.
+replacing prototype workspace assumptions with real tenant membership/role
+enforcement, recording audit events, and making evidence/artifact handling
+defensible for design-partner data. The worker/secret/release-gate integration
+layer follows immediately after that trust layer.

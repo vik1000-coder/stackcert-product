@@ -70,6 +70,8 @@ Latest primary files:
   implementation plan focused on release evidence and integrations.
 - `17_pilot_ready_plan_review.md`: feasibility review of that imported plan
   against the current codebase and hosted deployment state.
+- `18_pilot_ready_execution_plan.md`: the current executable roadmap distilled
+  from the imported plan, feasibility review, and implementation state.
 
 ## Current Hosted Demo
 
@@ -101,9 +103,11 @@ The implementation is past planning. The working app now includes:
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts, with Supabase user auth and MCP-only machine bearer tokens.
 
-The current priority is Cloud Run worker deployment, managed secret storage,
-tenancy/RBAC hardening, and production observability. See
-`15_current_state_and_next_steps.md`.
+The current priority is the pilot trust layer: service-layer tenancy/RBAC,
+audit events, immutable evidence semantics, and private artifact handling. The
+next integration layer is Cloud Run worker deployment, managed secret storage,
+and release-gate APIs. See `15_current_state_and_next_steps.md` and
+`18_pilot_ready_execution_plan.md`.
 
 ## Test Cadence
 

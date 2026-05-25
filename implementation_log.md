@@ -1506,3 +1506,26 @@ Started: 2026-05-23
   - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
   - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
   - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+
+## Pilot-Ready Execution Plan Reset
+
+- Added `docs/18_pilot_ready_execution_plan.md` as the executable roadmap
+  distilled from the imported `instructions.md` plan, the feasibility review,
+  and the current implementation baseline.
+- Updated the docs index, current-state doc, phased development plan, and
+  README so future work points at the new roadmap instead of the older broad
+  priority stack.
+- The next implementation queue is now explicit:
+  1. route access matrix;
+  2. access helper module;
+  3. Supabase/local membership lookup;
+  4. route authorization;
+  5. audit event service;
+  6. evidence-readiness gates;
+  7. private artifact service for evidence exports.
+- Strategic priority is now sequenced as:
+  - first, the pilot trust layer: tenancy/RBAC, audit, immutable evidence, and
+    private artifacts;
+  - second, the pilot integration layer: managed secrets, independent Cloud Run
+    worker, and release-gate APIs;
+  - third, pilot UX and production operations.

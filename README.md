@@ -40,7 +40,8 @@ The product direction is now a production-oriented full-stack app:
 - GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.
 
 For the current implementation state and next priorities, start with
-`docs/15_current_state_and_next_steps.md`.
+`docs/15_current_state_and_next_steps.md`; for the executable build queue, use
+`docs/18_pilot_ready_execution_plan.md`.
 
 ## Hosted Demo
 
@@ -114,6 +115,9 @@ Planning docs for turning this into a production-ready application live in:
 - `docs/13_production_hosting_setup.md`
 - `docs/14_product_language_guide.md`
 - `docs/15_current_state_and_next_steps.md`
+- `docs/16_pilot_ready_release_evidence_plan.md`
+- `docs/17_pilot_ready_plan_review.md`
+- `docs/18_pilot_ready_execution_plan.md`
 
 Initial GitHub Actions workflow drafts live in:
 
