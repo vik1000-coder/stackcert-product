@@ -865,15 +865,18 @@ class SupabaseStore:
         return self._certificate_signoff_from_row(signoff_rows[0], certificate_id)
 
     def record_audit_event(self, event: dict[str, Any]) -> dict[str, Any]:
-        workspace_db_id = _api_workspace_to_db_id(event.get("workspace_id"))
+        api_workspace_id = event.get("workspace_id")
+        api_project_id = event.get("project_id")
+        demo_event = _is_demo_audit_event(api_workspace_id, api_project_id)
+        workspace_db_id = None if demo_event else _api_workspace_to_db_id(api_workspace_id)
         project_db_id = None
-        if event.get("project_id"):
-            workspace_db_id, project_db_id = self._resolve_project(str(event["project_id"]))
+        if api_project_id and not demo_event:
+            workspace_db_id, project_db_id = self._resolve_project(str(api_project_id))
         target_id = str(event["target_id"]) if _is_uuid(event.get("target_id")) else None
         metadata = {
             **(event.get("metadata") or {}),
-            "api_workspace_id": event.get("workspace_id"),
-            "api_project_id": event.get("project_id"),
+            "api_workspace_id": api_workspace_id,
+            "api_project_id": api_project_id,
             "external_target_id": event.get("target_id"),
             "actor": event.get("actor"),
             "actor_type": event.get("actor_type"),
@@ -1707,6 +1710,13 @@ def _api_workspace_to_db_id(workspace_id: str | None) -> str | None:
     if workspace_id == settings.demo_workspace_id:
         return settings.demo_workspace_db_id
     return workspace_id if _is_uuid(workspace_id) else None
+
+
+def _is_demo_audit_event(workspace_id: str | None, project_id: str | None) -> bool:
+    return workspace_id in {settings.demo_workspace_id, settings.demo_workspace_db_id} or project_id in {
+        settings.demo_project_id,
+        settings.demo_project_db_id,
+    }
 
 
 def _job_status_from_db(status: str) -> str:

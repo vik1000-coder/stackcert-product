@@ -108,6 +108,39 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertIsNone(captured_audit["target_id"])
         self.assertEqual(captured_audit["metadata"]["external_target_id"], "guard_external_id")
 
+    def test_demo_audit_events_do_not_reference_unseeded_demo_rows(self) -> None:
+        captured_audit: dict[str, Any] | None = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_audit
+            url = str(request.url)
+            if request.method == "POST" and "/rest/v1/audit_events" in url:
+                captured_audit = json.loads(request.content.decode("utf-8"))
+                return httpx.Response(201, json=[{"id": "30000000-0000-4000-8000-000000000002", **captured_audit}])
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        event = store.record_audit_event(
+            {
+                "action": "mcp.tool_called",
+                "workspace_id": settings.demo_workspace_id,
+                "project_id": settings.demo_project_id,
+                "actor_user_id": "20000000-0000-4000-8000-000000000001",
+                "actor": "20000000-0000-4000-8000-000000000001",
+                "actor_type": "user",
+                "target_type": "mcp_tool",
+                "target_id": "get_release_evidence_status",
+                "metadata": {"tool_name": "get_release_evidence_status"},
+            }
+        )
+
+        self.assertEqual(event["db_id"], "30000000-0000-4000-8000-000000000002")
+        assert captured_audit is not None
+        self.assertIsNone(captured_audit["workspace_id"])
+        self.assertIsNone(captured_audit["project_id"])
+        self.assertEqual(captured_audit["metadata"]["api_workspace_id"], settings.demo_workspace_id)
+        self.assertEqual(captured_audit["metadata"]["api_project_id"], settings.demo_project_id)
+
     def test_create_custom_behavior_posts_redacted_contract(self) -> None:
         captured: list[httpx.Request] = []
 
