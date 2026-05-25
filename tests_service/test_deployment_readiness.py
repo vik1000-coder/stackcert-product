@@ -93,6 +93,9 @@ class DeploymentReadinessTests(unittest.TestCase):
 
         self.assertIn("/api/projects/{project_id}/benchmark-suites/schema", api)
         self.assertIn("/api/projects/{project_id}/trace-imports/preview", api)
+        self.assertIn("/api/projects/{project_id}/pilot-readiness", api)
+        self.assertIn("/api/onboarding/pilots", api)
+        self.assertIn("/api/projects/{project_id}/onboarding-profile", api)
         self.assertIn("/api/integrations/release-gates", api)
         self.assertIn("gitlab_ci", integrations)
         self.assertIn("circleci", integrations)

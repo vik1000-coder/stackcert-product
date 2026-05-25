@@ -523,14 +523,19 @@ from being mistaken for a user-imported pilot suite. Evidence now shows an
 immutable issued-packet badge, full packet hash, artifact export history, and
 retest-trigger explanations. The setup page also exposes queued, running,
 failed, and dead-letter job counts, lease/retry timing, redacted provider
-errors, and authorized retry controls. Production operations items remain
-external setup tasks rather than code-only work.
+errors, and authorized retry controls. The onboarding flow now captures a
+persistent project pilot profile, including owner role, evidence source, risk
+concerns, CASS objective, budget posture, and release-gate intent, then routes
+the first user directly to the matching setup task. Production operations items
+remain external setup tasks rather than code-only work.
 
 ### User Stories
 
 - As a non-specialist product owner, I understand what CASS is, what StackCert
   does, and what it does not guarantee.
 - As a platform engineer, I can complete setup without reading source code.
+- As a first-time evaluator, I can create a real pilot from the landing page
+  and land on the exact setup section needed for my chosen evidence source.
 - As a reviewer, I can inspect evidence, blockers, signoffs, and retest
   triggers in the UI.
 - As an operator, I can monitor errors, usage, cost, and uptime.
@@ -538,6 +543,7 @@ external setup tasks rather than code-only work.
 ### Scope
 
 1. Setup and import polish.
+   - Guided onboarding with persistent pilot profile.
    - Better templates for JSONL/CSV examples.
    - Output coverage diagnostics before run creation.
    - Clear errors for malformed outputs.

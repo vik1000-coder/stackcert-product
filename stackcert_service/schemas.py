@@ -20,6 +20,48 @@ class ProjectCreate(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
 
 
+class ProjectOnboardingProfileCreate(BaseModel):
+    role: str = Field(default="platform", pattern="^(platform|safety|risk|mixed)$")
+    evidence_mode: str = Field(
+        default="uploaded_outputs",
+        pattern="^(uploaded_outputs|connected_guards|model_judge|trace_import|demo_first)$",
+    )
+    app_category: str = Field(
+        default="customer_support",
+        pattern="^(customer_support|internal_agent|research_copilot|code_assistant|workflow_automation|other)$",
+    )
+    deployment_stage: str = Field(default="pre_production", pattern="^(exploration|pre_production|production_monitoring)$")
+    optimization_goal: str = Field(default="balanced", pattern="^(safety_risk|cost|latency|user_friction|balanced)$")
+    primary_risk_concerns: list[str] = Field(default_factory=list, max_length=8)
+    release_gate_target: str = Field(default="not_yet", pattern="^(github_actions|gitlab|circleci|webhook|mcp_agent|not_yet)$")
+    budget_range: str = Field(default="under_100", pattern="^(under_25|under_100|under_500|custom_later)$")
+    lambda_cost: float = Field(default=5.0, ge=1, le=10)
+
+
+class ProjectOnboardingProfileUpdate(BaseModel):
+    role: str | None = Field(default=None, pattern="^(platform|safety|risk|mixed)$")
+    evidence_mode: str | None = Field(
+        default=None,
+        pattern="^(uploaded_outputs|connected_guards|model_judge|trace_import|demo_first)$",
+    )
+    app_category: str | None = Field(
+        default=None,
+        pattern="^(customer_support|internal_agent|research_copilot|code_assistant|workflow_automation|other)$",
+    )
+    deployment_stage: str | None = Field(default=None, pattern="^(exploration|pre_production|production_monitoring)$")
+    optimization_goal: str | None = Field(default=None, pattern="^(safety_risk|cost|latency|user_friction|balanced)$")
+    primary_risk_concerns: list[str] | None = Field(default=None, max_length=8)
+    release_gate_target: str | None = Field(default=None, pattern="^(github_actions|gitlab|circleci|webhook|mcp_agent|not_yet)$")
+    budget_range: str | None = Field(default=None, pattern="^(under_25|under_100|under_500|custom_later)$")
+    lambda_cost: float | None = Field(default=None, ge=1, le=10)
+
+
+class OnboardingPilotCreate(BaseModel):
+    workspace: WorkspaceCreate
+    project: ProjectCreate
+    profile: ProjectOnboardingProfileCreate = Field(default_factory=ProjectOnboardingProfileCreate)
+
+
 class GuardConnectorCreate(BaseModel):
     guard_key: str = Field(min_length=2, max_length=80, pattern="^[a-z0-9][a-z0-9_-]*[a-z0-9]$")
     display_name: str = Field(min_length=2, max_length=120)

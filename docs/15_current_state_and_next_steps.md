@@ -17,6 +17,11 @@ StackCert is now a usable prototype with a real product shape:
 - React + Vite web app with public landing pages, auth routes, onboarding,
   project setup, overview, options compared, overlap analysis, test plan and
   cost, release evidence, and drift views.
+- Onboarding is now a guided first-evidence-packet builder. It saves a local
+  draft through sign-in, creates workspace/project/profile records atomically
+  through `/api/onboarding/pilots`, stores the project pilot profile in
+  Supabase, and routes the user to the setup section that matches their first
+  evidence source.
 - FastAPI service around the Python CASS engine.
 - Supabase schema, Auth integration, RLS smoke coverage, and remote free-tier
   migration history.
@@ -53,7 +58,7 @@ StackCert is now a usable prototype with a real product shape:
   estimates, provider token accounting, and usage ledgers.
 - Supabase-backed persistence for custom behaviors, benchmark suites, guard
   connectors, jobs, usage events, issued evidence, signoffs, and uploaded-output
-  pilot runs.
+  pilot runs, plus project onboarding profiles with workspace-member RLS.
 - Service-layer tenancy/RBAC now protects workspace, project, setup, run,
   evidence, job, usage, drift, and MCP surfaces in addition to Supabase RLS.
   Workspace/project lists are membership-filtered, cross-tenant object access is
@@ -106,14 +111,14 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/pilot_runs.py stackcert_service/main.py
+uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/onboarding.py stackcert_service/db/supabase.py stackcert_service/main.py
   -> OK
 
 uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 95 tests passed
+  -> 104 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -148,10 +153,17 @@ supabase migration list --linked
 supabase db advisors --linked --type all --level warn --fail-on error
   -> OK exit; existing warning that Supabase Auth leaked-password protection is disabled
 
-Playwright responsive smoke against local API/web
-  -> setup page rendered at desktop and 390px mobile widths; imported-suite
-     output preview returned 100% coverage and enabled uploaded-output run
-     creation
+Browser responsive smoke against local API/web
+  -> onboarding rendered at desktop and 390px mobile widths; wizard advanced to
+     review; creating a model-judge pilot landed on setup#safety-options with
+     the tailored onboarding handoff and no browser console errors.
+
+supabase db lint --local --schema public --level error --fail-on error
+  -> no schema errors found
+
+supabase db push --local --dry-run
+  -> would include 20260525142950_add_project_onboarding_profiles.sql along
+     with locally unapplied prior migrations
 
 supabase db push --linked --dry-run before applying the migration
   -> would apply 20260525001842_worker_idempotency_and_usage_keys.sql
@@ -359,6 +371,12 @@ Current trust-layer status:
   trace-import previews for LangSmith/Langfuse/OpenTelemetry-style JSONL traces.
 - release-gate integration examples now cover GitHub Actions, GitLab CI,
   CircleCI, and a generic webhook payload under `integrations/release-gates/`.
+- first-user pilot readiness now has a project-level API,
+  `GET /api/projects/{project_id}/pilot-readiness`, and a setup/overview UI
+  panel that turns the launch path into explicit steps: app record, example
+  suite, safety options, evidence run, evidence review, and release-gate wiring.
+  The same response includes the trust boundary: StackCert can reduce scoped
+  release risk, but it is not a broad safety guarantee.
 
 Current immutable-evidence status:
 
@@ -406,19 +424,22 @@ into a five-milestone executable roadmap:
    UI, dead-letter UI, production monitoring, backups, terms, and privacy.
    Status: uploaded-output preview diagnostics, JSONL/CSV templates, setup
    gating, worker queue/dead-letter UI, retry controls, redacted provider
-   errors, immutable packet badges, export history, and retest explanations are
-   implemented and locally verified. External operations setup still needs
-   production owners for monitoring, backups, sender domain, and budget alerts.
+   errors, immutable packet badges, export history, retest explanations, and
+   first-pilot readiness guidance are implemented and locally verified.
+   External operations setup still needs production owners for monitoring,
+   backups, sender domain, and budget alerts.
 
 The immediate execution queue is now:
 
 1. Replace environment-driven workspace budget caps with workspace/project
    settings UI and persisted policy records.
-2. Add real trace-ingestion commit flows after the current trace-import preview
+2. Deploy the Cloud Run API after backend changes that add new app-consumed
+   routes, then let Cloudflare redeploy the frontend against the updated API.
+3. Add real trace-ingestion commit flows after the current trace-import preview
    proves useful with design-partner exports.
-3. Add signed generic deployment webhooks and provider-specific adapters for the
+4. Add signed generic deployment webhooks and provider-specific adapters for the
    first customer platform that needs them.
-4. Finish the production operations checklist: Sentry or equivalent, uptime
+5. Finish the production operations checklist: Sentry or equivalent, uptime
    checks, backup/restore rehearsal, auth email templates/sender domain, and
    explicit budget alerts for GCP, Supabase, and provider spend.
 

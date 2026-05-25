@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type CustomBehaviorInput, type GuardConnectorInput, type UploadedOutputPreview } from '../lib/api';
+import { api, type CustomBehaviorInput, type GuardConnectorInput, type ProjectOnboardingProfile, type UploadedOutputPreview } from '../lib/api';
 import { useStackCertApp } from '../lib/appContext';
 import { fmtUsd } from '../lib/format';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
+import { PilotReadinessPanel } from '../components/PilotReadinessPanel';
 
 const initialBehavior: CustomBehaviorInput = {
   name: 'Unauthorized tool invocation',
@@ -95,6 +96,12 @@ export function SetupPage() {
   const stacks = useQuery({ queryKey: ['stacks', projectId], queryFn: () => api.stacks(projectId) });
   const jobs = useQuery({ queryKey: ['jobs', projectId], queryFn: () => api.jobs(projectId) });
   const behaviors = useQuery({ queryKey: ['custom-behaviors', projectId], queryFn: () => api.customBehaviors(projectId) });
+  const readiness = useQuery({ queryKey: ['pilot-readiness', projectId, 5], queryFn: () => api.pilotReadiness(projectId, 5) });
+  const onboardingProfile = useQuery({
+    queryKey: ['onboarding-profile', projectId],
+    queryFn: () => api.onboardingProfile(projectId),
+    retry: false
+  });
   const cost = useQuery({
     queryKey: ['cost-estimate', projectId],
     queryFn: () => api.estimateCost(projectId, { examples: 2000, guards: 8, candidate_stacks: 36 })
@@ -111,6 +118,7 @@ export function SetupPage() {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
       queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
       if (response.job.status.startsWith('complete') && response.job.summary.source === 'worker_evaluation' && response.job.run_id) navigate(`../overview?run=${response.job.run_id}`);
     }
   });
@@ -120,6 +128,7 @@ export function SetupPage() {
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
       queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
       queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
       if (response.job.status.startsWith('complete') && response.job.summary.source === 'worker_evaluation' && response.job.run_id) navigate(`../overview?run=${response.job.run_id}`);
     }
   });
@@ -144,12 +153,14 @@ export function SetupPage() {
     mutationFn: (payload: Parameters<typeof api.createBenchmarkSuite>[1]) => api.createBenchmarkSuite(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['benchmark-suites'] });
+      queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
     }
   });
   const createConnector = useMutation({
     mutationFn: (payload: GuardConnectorInput) => api.createGuardConnector(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guards'] });
+      queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
     }
   });
   const createUploadedRun = useMutation({
@@ -166,6 +177,7 @@ export function SetupPage() {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['project-runs', projectId] });
       queryClient.invalidateQueries({ queryKey: ['stacks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
       navigate(`../overview?run=${response.run.id}`);
     }
   });
@@ -216,6 +228,8 @@ export function SetupPage() {
           everything and running only the tests likely to change the answer.
         </p>
       </Explainer>
+      {onboardingProfile.data ? <OnboardingHandoff profile={onboardingProfile.data.profile} /> : null}
+      {readiness.data ? <PilotReadinessPanel readiness={readiness.data.readiness} /> : null}
       <div className="grid grid-3">
         <Stat label="Estimated full test" value={fmtUsd(cost.data!.estimate.estimated_full_eval_usd, 2)} description="Brute-force testing for the configured app and safety options." />
         <Stat label="Targeted testing" value={fmtUsd(cost.data!.estimate.estimated_cass_incremental_usd, 2)} tone="ok" description="Expected spend after using existing outputs and targeted overlap tests." />
@@ -267,7 +281,7 @@ export function SetupPage() {
           </div>
         </Card>
       </div>
-      <Card style={{ marginTop: 16 }}>
+      <Card id="safety-options" style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Safety option connector registry</h2>
         <div className="grid grid-2">
           <form
@@ -358,7 +372,7 @@ export function SetupPage() {
         </div>
       </Card>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
-        <Card>
+        <Card id="import-examples">
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Dry-run safety checks</h2>
           <p className="muted" style={{ lineHeight: 1.5 }}>
             Run a small deterministic adapter check before spending provider budget. This exercises the same job and
@@ -609,7 +623,7 @@ export function SetupPage() {
           ))}
         </div>
       </Card>
-      <Card style={{ marginTop: 16 }}>
+      <Card id="run-evidence" style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Upload safety-check outputs</h2>
         <p className="muted" style={{ lineHeight: 1.5 }}>
           For Pilot V1, StackCert can use outputs you already produced. Each row needs an example ID, safety-check ID,
@@ -765,6 +779,29 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function OnboardingHandoff({ profile }: { profile: ProjectOnboardingProfile }) {
+  return (
+    <div className="onboarding-handoff">
+      <div>
+        <div className="stat-label">Onboarding plan</div>
+        <h2>Start with {evidenceModeLabel(profile.evidence_mode).toLowerCase()}</h2>
+        <p>
+          Objective: <strong>{optimizationLabel(profile.optimization_goal)}</strong> at risk weight{' '}
+          <span className="mono">{profile.lambda_cost}</span>. First setup task: {setupFocusLabel(profile.first_setup_focus)}.
+        </p>
+      </div>
+      <div className="onboarding-handoff-actions">
+        {profile.primary_risk_concerns.slice(0, 3).map((item) => (
+          <span className="pill" key={item}>{item.replaceAll('_', ' ')}</span>
+        ))}
+        <a className="btn primary" href={setupFocusHref(profile.first_setup_focus)}>
+          Open first task
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function OutputCoveragePanel({ preview }: { preview: UploadedOutputPreview }) {
   return (
     <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
@@ -818,6 +855,41 @@ function OutputCoveragePanel({ preview }: { preview: UploadedOutputPreview }) {
       ) : null}
     </div>
   );
+}
+
+function evidenceModeLabel(value: string) {
+  const labels: Record<string, string> = {
+    uploaded_outputs: 'uploaded outputs',
+    connected_guards: 'REST or local safety checks',
+    model_judge: 'a model judge',
+    trace_import: 'trace-imported examples',
+    demo_first: 'the demo walkthrough'
+  };
+  return labels[value] ?? value.replaceAll('_', ' ');
+}
+
+function optimizationLabel(value: string) {
+  const labels: Record<string, string> = {
+    safety_risk: 'safety risk',
+    cost: 'cost control',
+    latency: 'latency',
+    user_friction: 'user friction',
+    balanced: 'balanced recommendation'
+  };
+  return labels[value] ?? value.replaceAll('_', ' ');
+}
+
+function setupFocusLabel(value: string) {
+  if (value.includes('safety-options')) return 'define safety options';
+  if (value.includes('run-evidence')) return 'run or upload evidence';
+  if (value === 'overview') return 'review the demo recommendation';
+  if (value === 'certificate') return 'review release evidence';
+  return 'import app examples';
+}
+
+function setupFocusHref(value: string) {
+  if (value.startsWith('setup#')) return `#${value.split('#')[1]}`;
+  return '#import-examples';
 }
 
 function formatPercent(value: number) {

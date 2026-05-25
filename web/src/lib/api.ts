@@ -291,6 +291,50 @@ export type RecertificationResponse = {
   message: string;
 };
 
+export type PilotReadinessStage = {
+  id: string;
+  label: string;
+  status: 'complete' | 'active' | 'blocked' | 'warning' | 'pending' | string;
+  description: string;
+  action_label: string;
+  action_href: string;
+  details: Record<string, unknown>;
+  blockers: string[];
+  counts_as_progress: boolean;
+};
+
+export type PilotReadinessPayload = {
+  project_id: string;
+  workspace_id: string;
+  status: string;
+  progress: {
+    completed: number;
+    total: number;
+    percent: number;
+  };
+  next_step: Pick<PilotReadinessStage, 'id' | 'label' | 'status' | 'description' | 'action_label' | 'action_href' | 'blockers'>;
+  stages: PilotReadinessStage[];
+  summary: {
+    project_name: string;
+    setup_status?: string;
+    suites: number;
+    examples: number;
+    suite_cells: number;
+    safety_options: number;
+    connector_records: number;
+    runs: number;
+    latest_run_id?: string | null;
+    latest_certificate_status?: string | null;
+  };
+  trust_boundary: {
+    not_a_guarantee: boolean;
+    plain_language: string;
+    can_claim: string[];
+    cannot_claim: string[];
+    recertification_required_on: string[];
+  };
+};
+
 export type CustomBehavior = {
   id: string;
   project_id: string;
@@ -608,6 +652,45 @@ export type ProjectInput = {
   description?: string;
 };
 
+export type OnboardingRole = 'platform' | 'safety' | 'risk' | 'mixed';
+export type OnboardingEvidenceMode = 'uploaded_outputs' | 'connected_guards' | 'model_judge' | 'trace_import' | 'demo_first';
+export type OnboardingAppCategory =
+  | 'customer_support'
+  | 'internal_agent'
+  | 'research_copilot'
+  | 'code_assistant'
+  | 'workflow_automation'
+  | 'other';
+export type OnboardingDeploymentStage = 'exploration' | 'pre_production' | 'production_monitoring';
+export type OnboardingOptimizationGoal = 'safety_risk' | 'cost' | 'latency' | 'user_friction' | 'balanced';
+export type OnboardingReleaseGateTarget = 'github_actions' | 'gitlab' | 'circleci' | 'webhook' | 'mcp_agent' | 'not_yet';
+export type OnboardingBudgetRange = 'under_25' | 'under_100' | 'under_500' | 'custom_later';
+
+export type ProjectOnboardingProfile = {
+  workspace_id: string;
+  project_id: string;
+  role: OnboardingRole;
+  evidence_mode: OnboardingEvidenceMode;
+  app_category: OnboardingAppCategory;
+  deployment_stage: OnboardingDeploymentStage;
+  optimization_goal: OnboardingOptimizationGoal;
+  primary_risk_concerns: string[];
+  release_gate_target: OnboardingReleaseGateTarget;
+  budget_range: OnboardingBudgetRange;
+  lambda_cost: number;
+  first_setup_focus: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ProjectOnboardingProfileInput = Omit<ProjectOnboardingProfile, 'workspace_id' | 'project_id' | 'first_setup_focus' | 'created_at' | 'updated_at'>;
+
+export type OnboardingPilotInput = {
+  workspace: WorkspaceInput;
+  project: Omit<ProjectInput, 'workspace_id'>;
+  profile: ProjectOnboardingProfileInput;
+};
+
 export type AuditEvent = {
   id: string;
   workspace_id: string | null;
@@ -747,6 +830,23 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function patch<T>(path: string, body: unknown): Promise<T> {
+  const token = await getAccessToken();
+  const response = await fetch(`${apiBase}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
 export const api = {
   workspaces: () => request<{ workspaces: Workspace[] }>('/api/workspaces'),
   createWorkspace: (payload: WorkspaceInput) => post<{ workspace: Workspace }>('/api/workspaces', payload),
@@ -754,6 +854,14 @@ export const api = {
   project: (projectId: string) => request<{ project: Project | null }>(`/api/projects/${projectId}`),
   createProject: ({ workspace_id, ...payload }: ProjectInput) =>
     post<{ project: Project }>(`/api/workspaces/${workspace_id}/projects`, payload),
+  createOnboardingPilot: (payload: OnboardingPilotInput) =>
+    post<{ workspace: Workspace; project: Project; profile: ProjectOnboardingProfile }>('/api/onboarding/pilots', payload),
+  onboardingProfile: (projectId: string) =>
+    request<{ profile: ProjectOnboardingProfile }>(`/api/projects/${projectId}/onboarding-profile`),
+  updateOnboardingProfile: (projectId: string, payload: Partial<ProjectOnboardingProfileInput>) =>
+    patch<{ profile: ProjectOnboardingProfile }>(`/api/projects/${projectId}/onboarding-profile`, payload),
+  pilotReadiness: (projectId: string, lambda: number) =>
+    request<{ readiness: PilotReadinessPayload }>(`/api/projects/${projectId}/pilot-readiness?lambda_cost=${lambda}`),
   projectRuns: (projectId: string, lambda: number) => request<{ runs: RunSummary[] }>(`/api/projects/${projectId}/runs?lambda_cost=${lambda}`),
   previewUploadedOutputRun: (projectId: string, payload: UploadedOutputPreviewInput) =>
     post<{ project_id: string; output_preview: UploadedOutputPreview }>(`/api/projects/${projectId}/runs/uploaded-outputs/preview`, payload),

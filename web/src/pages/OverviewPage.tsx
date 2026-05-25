@@ -2,15 +2,33 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtNumber, fmtPercent, fmtUsd } from '../lib/format';
 import { Badge, ButtonLink, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader, Stat } from '../components/Primitives';
+import { PilotReadinessPanel } from '../components/PilotReadinessPanel';
 import { BenchmarkMix, WelfareMovementChart } from '../components/Charts';
-import { NoRunState, useStackCertApp } from '../lib/appContext';
+import { useStackCertApp } from '../lib/appContext';
 
 export function OverviewPage({ lambda }: { lambda: number }) {
-  const { activeRunId } = useStackCertApp();
+  const { projectId, activeRunId } = useStackCertApp();
+  const readiness = useQuery({ queryKey: ['pilot-readiness', projectId, lambda], queryFn: () => api.pilotReadiness(projectId, lambda) });
   const overview = useQuery({ queryKey: ['overview', activeRunId, lambda], queryFn: () => api.overview(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const ranking = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
 
-  if (!activeRunId) return <NoRunState title="No recommendation yet" />;
+  if (!activeRunId) {
+    return (
+      <div className="page">
+        {readiness.data ? <PilotReadinessPanel readiness={readiness.data.readiness} /> : null}
+        <Card>
+          <h1 style={{ marginTop: 0, fontSize: 26 }}>No recommendation yet</h1>
+          <p className="muted" style={{ lineHeight: 1.55 }}>
+            Follow the pilot path in app setup. Once examples and safety-check outputs are in place, StackCert will
+            rank combinations, estimate remaining tests, and prepare release evidence for this app.
+          </p>
+          <ButtonLink to="../setup" variant="primary">
+            Go to app setup
+          </ButtonLink>
+        </Card>
+      </div>
+    );
+  }
   if (overview.isLoading || ranking.isLoading) return <LoadingState />;
   if (overview.error || ranking.error) return <ErrorState error={overview.error || ranking.error} />;
 
@@ -49,6 +67,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           avoided <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> of estimated testing spend.
         </p>
       </Explainer>
+      {readiness.data ? <PilotReadinessPanel readiness={readiness.data.readiness} compact /> : null}
       <div className="grid grid-4">
         <Stat label="Goal score" value={fmtNumber(data.stats.welfare)} tone="ok" description="Higher is better: more normal requests pass and fewer unsafe requests slip through." />
         <Stat label="Better than obvious pick" value={fmtNumber(data.stats.regret_avoided)} tone={data.stats.regret_avoided >= 0 ? 'ok' : 'bad'} description="Lift over the combination you would choose from one-at-a-time testing." />

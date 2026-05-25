@@ -51,7 +51,10 @@ lookup.
 | `POST` | `/api/workspaces` | new workspace | authenticated user; creator becomes `owner` | `workspace.created` |
 | `GET` | `/api/projects` | caller memberships | authenticated user; return only accessible projects | none |
 | `POST` | `/api/workspaces/{workspace_id}/projects` | workspace | `project_maintainer` on workspace | `project.created` |
+| `POST` | `/api/onboarding/pilots` | new workspace/project/profile | authenticated user; creator becomes workspace `owner` | `workspace.created`, `project.created`, `project.onboarding_profile.saved` |
 | `GET` | `/api/projects/{project_id}` | project | `viewer` on project workspace | none |
+| `GET` | `/api/projects/{project_id}/onboarding-profile` | project | `viewer` on project workspace | none |
+| `PATCH` | `/api/projects/{project_id}/onboarding-profile` | project | `project_maintainer` | `project.onboarding_profile.updated` |
 
 ## Project Setup And Connector Routes
 
@@ -112,6 +115,7 @@ lookup.
 | Method | Route | Scope | Requirement | Audit |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/projects/{project_id}/certificate-status` | project | `viewer` | none |
+| `GET` | `/api/projects/{project_id}/pilot-readiness` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/release-gates/evaluate` | project | `viewer` user or `release_gate:read` machine token scoped to project | `release_gate.checked` |
 | `GET` | `/api/projects/{project_id}/stacks` | project | `viewer` | none |
 | `GET` | `/api/projects/{project_id}/drift` | project | `viewer` | none |

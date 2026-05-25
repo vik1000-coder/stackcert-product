@@ -177,6 +177,39 @@ class SupabaseStore:
         )
         return self._project_from_row(rows[0])
 
+    def get_onboarding_profile(self, project_id: str) -> dict[str, Any] | None:
+        _, project_db_id = self._resolve_project(project_id)
+        rows = self._request(
+            "GET",
+            "project_onboarding_profiles",
+            params={"project_id": f"eq.{project_db_id}", "select": "*", "limit": "1"},
+        )
+        return self._onboarding_profile_from_row(rows[0]) if rows else None
+
+    def upsert_onboarding_profile(self, project_id: str, profile: dict[str, Any]) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        rows = self._request(
+            "POST",
+            "project_onboarding_profiles",
+            params={"on_conflict": "project_id"},
+            json={
+                "workspace_id": workspace_db_id,
+                "project_id": project_db_id,
+                "role": profile["role"],
+                "evidence_mode": profile["evidence_mode"],
+                "app_category": profile["app_category"],
+                "deployment_stage": profile["deployment_stage"],
+                "optimization_goal": profile["optimization_goal"],
+                "primary_risk_concerns": profile.get("primary_risk_concerns") or [],
+                "release_gate_target": profile["release_gate_target"],
+                "budget_range": profile["budget_range"],
+                "lambda_cost": profile["lambda_cost"],
+                "first_setup_focus": profile["first_setup_focus"],
+            },
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return self._onboarding_profile_from_row(rows[0])
+
     def update_project_setup_status(self, project_id: str, setup_status: str) -> None:
         workspace_db_id, project_db_id = self._resolve_project(project_id)
         self._request(
@@ -1630,6 +1663,27 @@ class SupabaseStore:
             "description": row.get("description") or "",
             "setup_status": row.get("setup_status") or ("ready_for_setup" if row_id != settings.demo_project_db_id else "demo_seeded"),
             "created_at": row.get("created_at"),
+        }
+
+    @staticmethod
+    def _onboarding_profile_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        workspace_id = str(row["workspace_id"])
+        project_id = str(row["project_id"])
+        return {
+            "workspace_id": settings.demo_workspace_id if workspace_id == settings.demo_workspace_db_id else workspace_id,
+            "project_id": settings.demo_project_id if project_id == settings.demo_project_db_id else project_id,
+            "role": row.get("role") or "platform",
+            "evidence_mode": row.get("evidence_mode") or "uploaded_outputs",
+            "app_category": row.get("app_category") or "customer_support",
+            "deployment_stage": row.get("deployment_stage") or "pre_production",
+            "optimization_goal": row.get("optimization_goal") or "balanced",
+            "primary_risk_concerns": row.get("primary_risk_concerns") or [],
+            "release_gate_target": row.get("release_gate_target") or "not_yet",
+            "budget_range": row.get("budget_range") or "under_100",
+            "lambda_cost": float(row.get("lambda_cost") or 5.0),
+            "first_setup_focus": row.get("first_setup_focus") or "setup#import-examples",
+            "created_at": row.get("created_at"),
+            "updated_at": row.get("updated_at"),
         }
 
     @staticmethod

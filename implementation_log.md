@@ -1628,6 +1628,29 @@ Started: 2026-05-23
     connector execution controls saved, console errors were empty, and desktop
     plus mobile viewports had no horizontal overflow.
 
+## First-User Pilot Readiness Path
+
+- Added `GET /api/projects/{project_id}/pilot-readiness` as the product-level
+  readiness contract for the first useful pilot journey.
+- The readiness payload now reports:
+  - progress through app record, example suite, safety options, evidence run,
+    and evidence review;
+  - the next action and route target for setup/evidence/release-gate wiring;
+  - current counts for suites, examples, safety options, runs, and certificate
+    status;
+  - a plain-language trust boundary that says StackCert reduces scoped release
+    risk but does not guarantee broad model safety.
+- Added setup and overview UI panels that show this path directly to users and
+  link to the relevant setup sections.
+- Kept the frontend backward-compatible with older deployed APIs by treating
+  pilot-readiness as an optional panel if the route is not yet deployed.
+- Added tests for a new project moving from no examples to suite, safety
+  options, evidence run, and release-gate readiness.
+- Rendered QA covered the setup and overview pages in the in-app browser:
+  desktop setup/overview showed the readiness path and trust boundary,
+  the release-gate action opened the docs route, console warnings/errors were
+  empty, and the mobile setup viewport had no horizontal overflow.
+
 ## Milestone 2 Immutable Evidence And Private Artifacts
 
 - Added Supabase migration
@@ -2025,3 +2048,45 @@ Started: 2026-05-23
   - `npm --prefix web run build` -> OK;
   - `npm run build` -> OK;
   - `git diff --check` -> OK.
+
+## Guided Onboarding Profile Workflow
+
+- Added a persistent project onboarding profile model:
+  - `POST /api/onboarding/pilots` creates workspace, project, and profile in
+    one first-run action;
+  - `GET/PATCH /api/projects/{project_id}/onboarding-profile` exposes
+    project-scoped profile reads and maintainer updates;
+  - Supabase migration `20260525142950_add_project_onboarding_profiles.sql`
+    creates `project_onboarding_profiles` with RLS policies and explicit
+    grants for authenticated/service-role access.
+- Rebuilt `/onboarding` as a five-step pilot builder:
+  - app/deployment scope;
+  - owner role and risk concerns;
+  - first evidence source;
+  - CASS objective, budget posture, and release-gate intent;
+  - scoped-evidence review before creation.
+- Added local draft preservation so unauthenticated hosted users can sign in
+  and resume their onboarding draft.
+- Setup now reads the onboarding profile and displays a tailored first task,
+  selected evidence source, initial CASS risk weight, and primary risk
+  concerns.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/onboarding.py stackcert_service/db/supabase.py stackcert_service/main.py` -> OK;
+  - focused onboarding API and deployment-route tests -> OK;
+  - `uv run python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 104 tests passed;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
+    tests passed;
+  - `npm --prefix web run lint` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `supabase db lint --local --schema public --level error --fail-on error`
+    -> no schema errors found;
+  - `supabase db push --local --dry-run` -> would include the new onboarding
+    migration along with locally unapplied prior migrations;
+  - Browser QA: desktop `/onboarding` rendered without console warnings,
+    wizard advanced through risk/evidence/objective/review, creating a
+    model-judge pilot landed on `/setup#safety-options`, setup showed the
+    tailored onboarding handoff and risk weight 8, and 390px mobile onboarding
+    had no horizontal overflow.

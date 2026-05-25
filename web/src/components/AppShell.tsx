@@ -35,6 +35,12 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
     queryFn: () => api.projectRuns(projectId, lambda),
     enabled: authReady && hasSession
   });
+  const onboardingProfile = useQuery({
+    queryKey: ['onboarding-profile', projectId],
+    queryFn: () => api.onboardingProfile(projectId),
+    enabled: authReady && hasSession && projectId !== 'proj_acme_copilot',
+    retry: false
+  });
   const projectName = project.data?.project?.name ?? 'Acme Copilot';
   const projectStatus = project.data?.project?.setup_status ?? 'demo_seeded';
   const runParam = searchParams.get('run') || undefined;
@@ -46,6 +52,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
     activeRunId,
     runs: runs.data?.runs ?? []
   };
+  const [profileLambdaApplied, setProfileLambdaApplied] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -92,6 +99,15 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
       subscription.unsubscribe();
     };
   }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (profileLambdaApplied || !onboardingProfile.data) return;
+    const nextLambda = Math.round(onboardingProfile.data.profile.lambda_cost);
+    if (nextLambda >= 1 && nextLambda <= 10) {
+      onLambdaChange(nextLambda);
+    }
+    setProfileLambdaApplied(true);
+  }, [onLambdaChange, onboardingProfile.data, profileLambdaApplied]);
 
   if (!authReady || !hasSession) return <LoadingState />;
 

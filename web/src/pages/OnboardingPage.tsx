@@ -1,75 +1,226 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  api,
+  type OnboardingAppCategory,
+  type OnboardingBudgetRange,
+  type OnboardingDeploymentStage,
+  type OnboardingEvidenceMode,
+  type OnboardingOptimizationGoal,
+  type OnboardingReleaseGateTarget,
+  type OnboardingRole,
+  type ProjectOnboardingProfileInput
+} from '../lib/api';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
-import { api } from '../lib/api';
 
 const demoOverviewPath = '/app/ws_demo/proj_acme_copilot/overview';
 const demoSetupPath = '/app/ws_demo/proj_acme_copilot/setup';
 const demoSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoOverviewPath)}`;
 const demoSetupSignInPath = `/auth/sign-in?next=${encodeURIComponent(demoSetupPath)}`;
+const draftKey = 'stackcert:onboarding-draft:v1';
 
-const roles = [
-  { id: 'platform', label: 'AI platform', detail: 'I own LLM app releases, routing, cost, latency, and deploy gates.' },
-  { id: 'safety', label: 'Safety', detail: 'I define risky and normal examples, review failures, and decide when to retest.' },
-  { id: 'risk', label: 'Risk or GRC', detail: 'I need app-specific evidence, limitations, and signoff records.' }
+type OnboardingDraft = {
+  companyName: string;
+  projectName: string;
+  riskTier: 'standard' | 'high' | 'critical';
+  dataMode: 'redacted_snippets' | 'hashes_only' | 'customer_hosted' | 'raw_allowed';
+  role: OnboardingRole;
+  evidenceMode: OnboardingEvidenceMode;
+  appCategory: OnboardingAppCategory;
+  deploymentStage: OnboardingDeploymentStage;
+  optimizationGoal: OnboardingOptimizationGoal;
+  primaryRiskConcerns: string[];
+  releaseGateTarget: OnboardingReleaseGateTarget;
+  budgetRange: OnboardingBudgetRange;
+};
+
+const initialDraft: OnboardingDraft = {
+  companyName: 'Design Partner Lab',
+  projectName: 'Customer Support Agent',
+  riskTier: 'high',
+  dataMode: 'redacted_snippets',
+  role: 'platform',
+  evidenceMode: 'uploaded_outputs',
+  appCategory: 'customer_support',
+  deploymentStage: 'pre_production',
+  optimizationGoal: 'balanced',
+  primaryRiskConcerns: ['tool_misuse', 'data_leakage'],
+  releaseGateTarget: 'not_yet',
+  budgetRange: 'under_100'
+};
+
+const steps = [
+  { id: 'scope', title: 'Scope', subtitle: 'Name the app and deployment surface.' },
+  { id: 'risks', title: 'Risks', subtitle: 'Capture who owns review and what failures matter.' },
+  { id: 'evidence', title: 'Evidence', subtitle: 'Choose the first artifact StackCert should use.' },
+  { id: 'objective', title: 'Objective', subtitle: 'Set the first CASS decision preference.' },
+  { id: 'review', title: 'Review', subtitle: 'Create the pilot and open the right setup task.' }
+] as const;
+
+const roles: Array<{ id: OnboardingRole; label: string; detail: string }> = [
+  { id: 'platform', label: 'AI platform', detail: 'Owns release gates, routing, cost, latency, and worker setup.' },
+  { id: 'safety', label: 'Safety', detail: 'Defines risky examples, reviews failures, and decides when to retest.' },
+  { id: 'risk', label: 'Risk or GRC', detail: 'Needs scoped evidence, limitations, signoffs, and audit history.' },
+  { id: 'mixed', label: 'Mixed team', detail: 'A shared pilot with platform, safety, and reviewer handoffs.' }
 ];
 
-const evidenceModes = [
-  { id: 'uploaded_outputs', label: 'Uploaded outputs', detail: 'Start with CSV or JSONL safety-check outputs from an existing test run.' },
-  { id: 'connected_guards', label: 'Connected safety options', detail: 'Register REST checks, local Python checks, model judges, or uploaded-output adapters.' },
-  { id: 'demo_first', label: 'Demo first', detail: 'Use the seeded Acme Copilot project to learn the workflow before connecting production data.' }
+const evidenceModes: Array<{ id: OnboardingEvidenceMode; label: string; detail: string; next: string }> = [
+  {
+    id: 'uploaded_outputs',
+    label: 'Uploaded outputs',
+    detail: 'Start from CSV or JSONL outputs your checks already produced.',
+    next: 'Import examples, then upload safety-check outputs.'
+  },
+  {
+    id: 'connected_guards',
+    label: 'REST or local checks',
+    detail: 'Register managed safety-check connectors before a worker run.',
+    next: 'Open the connector registry and save at least two options.'
+  },
+  {
+    id: 'model_judge',
+    label: 'Model judge',
+    detail: 'Use an OpenAI-compatible or local judge to review examples.',
+    next: 'Configure model, instructions, threshold, and secret reference.'
+  },
+  {
+    id: 'trace_import',
+    label: 'Trace import',
+    detail: 'Transform LangSmith, Langfuse, OpenTelemetry, or JSONL traces into reviewable examples.',
+    next: 'Create a reviewed example suite before running evidence.'
+  },
+  {
+    id: 'demo_first',
+    label: 'Demo first',
+    detail: 'Walk through the seeded support-copilot project before creating production evidence.',
+    next: 'Open the demo walkthrough, then return to your saved draft.'
+  }
 ];
 
-const riskTiers = ['standard', 'high', 'critical'] as const;
+const appCategories: Array<{ id: OnboardingAppCategory; label: string }> = [
+  { id: 'customer_support', label: 'Customer support' },
+  { id: 'internal_agent', label: 'Internal agent' },
+  { id: 'research_copilot', label: 'Research copilot' },
+  { id: 'code_assistant', label: 'Code assistant' },
+  { id: 'workflow_automation', label: 'Workflow automation' },
+  { id: 'other', label: 'Other' }
+];
+
+const deploymentStages: Array<{ id: OnboardingDeploymentStage; label: string; detail: string }> = [
+  { id: 'exploration', label: 'Exploration', detail: 'Learning which checks might fit.' },
+  { id: 'pre_production', label: 'Pre-production', detail: 'Preparing evidence before a launch or policy change.' },
+  { id: 'production_monitoring', label: 'Production monitoring', detail: 'Retesting a live app as behavior drifts.' }
+];
+
+const riskConcerns = [
+  { id: 'tool_misuse', label: 'Unauthorized tool use' },
+  { id: 'data_leakage', label: 'Sensitive data leakage' },
+  { id: 'prompt_injection', label: 'Prompt injection' },
+  { id: 'regulated_advice', label: 'Regulated advice' },
+  { id: 'policy_evasion', label: 'Policy evasion' },
+  { id: 'benign_friction', label: 'Blocking normal users' }
+];
+
+const optimizationGoals: Array<{ id: OnboardingOptimizationGoal; label: string; detail: string; lambda: number }> = [
+  { id: 'balanced', label: 'Balanced', detail: 'Treat safety, usefulness, latency, and cost as a first pilot mix.', lambda: 5 },
+  { id: 'safety_risk', label: 'Safety risk', detail: 'Prefer safer combinations even when they cost more.', lambda: 8 },
+  { id: 'cost', label: 'Cost', detail: 'Keep measurement and runtime spend low while still checking overlap.', lambda: 3 },
+  { id: 'latency', label: 'Latency', detail: 'Favor options that are realistic for interactive workflows.', lambda: 4 },
+  { id: 'user_friction', label: 'User friction', detail: 'Watch for normal users being blocked by too many checks.', lambda: 5 }
+];
+
+const releaseGateTargets: Array<{ id: OnboardingReleaseGateTarget; label: string }> = [
+  { id: 'github_actions', label: 'GitHub Actions' },
+  { id: 'gitlab', label: 'GitLab CI' },
+  { id: 'circleci', label: 'CircleCI' },
+  { id: 'webhook', label: 'Webhook' },
+  { id: 'mcp_agent', label: 'Agent or MCP workflow' },
+  { id: 'not_yet', label: 'Not yet' }
+];
+
+const budgetRanges: Array<{ id: OnboardingBudgetRange; label: string }> = [
+  { id: 'under_25', label: 'Under $25' },
+  { id: 'under_100', label: 'Under $100' },
+  { id: 'under_500', label: 'Under $500' },
+  { id: 'custom_later', label: 'Set later' }
+];
 
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const [role, setRole] = useState('platform');
-  const [evidenceMode, setEvidenceMode] = useState('uploaded_outputs');
-  const [companyName, setCompanyName] = useState('Design Partner Lab');
-  const [projectName, setProjectName] = useState('Customer Support Agent');
-  const [riskTier, setRiskTier] = useState<(typeof riskTiers)[number]>('high');
-  const [dataMode, setDataMode] = useState<'redacted_snippets' | 'hashes_only' | 'customer_hosted'>('redacted_snippets');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'created' | 'error'>('idle');
+  const location = useLocation();
+  const [stepIndex, setStepIndex] = useState(0);
+  const [draft, setDraft] = useState<OnboardingDraft>(() => loadDraft());
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
-  const [createdPath, setCreatedPath] = useState('');
 
-  const readiness = useMemo(() => {
-    const items = [
-      companyName.trim().length >= 2,
-      projectName.trim().length >= 2,
-      Boolean(role),
-      Boolean(evidenceMode)
-    ];
-    return Math.round((items.filter(Boolean).length / items.length) * 100);
-  }, [companyName, evidenceMode, projectName, role]);
+  useEffect(() => {
+    saveDraft(draft);
+  }, [draft]);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('resume')) {
+      setDraft(loadDraft());
+    }
+  }, [location.search]);
+
+  const activeStep = steps[stepIndex];
+  const profile = profileFromDraft(draft);
+  const selectedEvidence = evidenceModes.find((item) => item.id === draft.evidenceMode) ?? evidenceModes[0];
+  const selectedGoal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
+  const readiness = useMemo(() => setupReadiness(draft), [draft]);
+  const canContinue = canContinueStep(stepIndex, draft);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (stepIndex < steps.length - 1) {
+      if (canContinue) setStepIndex((current) => current + 1);
+      return;
+    }
     setStatus('saving');
     setError('');
     try {
-      const workspaceResponse = await api.createWorkspace({
-        name: companyName.trim(),
-        slug: slugify(companyName),
-        plan: riskTier === 'critical' ? 'enterprise' : 'team'
+      const response = await api.createOnboardingPilot({
+        workspace: {
+          name: draft.companyName.trim(),
+          slug: slugify(draft.companyName),
+          plan: draft.riskTier === 'critical' ? 'enterprise' : 'team'
+        },
+        project: {
+          name: draft.projectName.trim(),
+          slug: slugify(draft.projectName),
+          environment: draft.deploymentStage === 'exploration' ? 'staging' : 'production',
+          risk_tier: draft.riskTier,
+          data_mode: draft.dataMode,
+          description: pilotDescription(draft)
+        },
+        profile
       });
-      const projectResponse = await api.createProject({
-        workspace_id: workspaceResponse.workspace.id,
-        name: projectName.trim(),
-        slug: slugify(projectName),
-        environment: 'production',
-        risk_tier: riskTier,
-        data_mode: dataMode,
-        description: pilotDescription(projectName.trim(), role, evidenceMode, dataMode)
-      });
-      const path = `/app/${workspaceResponse.workspace.id}/${projectResponse.project.id}/setup`;
-      setCreatedPath(path);
-      setStatus('created');
+      clearDraft();
+      navigate(nextSetupPath(response.workspace.id, response.project.id, response.profile.first_setup_focus));
     } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not create the pilot workspace.';
+      if (isAuthError(message)) {
+        saveDraft(draft);
+        navigate(`/auth/sign-in?next=${encodeURIComponent('/onboarding?resume=1')}`);
+        return;
+      }
       setStatus('error');
-      setError(caught instanceof Error ? caught.message : 'Could not create the pilot workspace.');
+      setError(message);
     }
+  }
+
+  function update<K extends keyof OnboardingDraft>(key: K, value: OnboardingDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleRisk(riskId: string) {
+    setDraft((current) => {
+      const exists = current.primaryRiskConcerns.includes(riskId);
+      const next = exists
+        ? current.primaryRiskConcerns.filter((item) => item !== riskId)
+        : [...current.primaryRiskConcerns, riskId].slice(0, 8);
+      return { ...current, primaryRiskConcerns: next };
+    });
   }
 
   return (
@@ -87,111 +238,101 @@ export function OnboardingPage() {
 
       <main className="marketing-page">
         <div className="landing-container">
-          <div className="marketing-page-head">
-            <Badge tone="neutral">Pilot setup</Badge>
-            <h1 className="section-title" style={{ marginTop: 18, maxWidth: 760 }}>
-              Start a StackCert pilot around one LLM app.
-            </h1>
-            <p className="hero-copy" style={{ margin: '16px 0 0', maxWidth: 760 }}>
-              This creates the workspace for a real recommendation flow: app examples, safety options, targeted tests,
-              release evidence, and a deployment gate.
+          <div className="marketing-page-head onboarding-head">
+            <Badge tone="neutral">Pilot builder</Badge>
+            <h1 className="section-title">Create the first evidence packet for one LLM app.</h1>
+            <p className="hero-copy">
+              StackCert starts with a scoped pilot: the app, the examples that matter, the safety options you can ship,
+              and the CASS objective that explains the recommendation.
             </p>
           </div>
 
           <form className="onboarding-layout" onSubmit={handleSubmit}>
             <div className="onboarding-main">
               <Card>
-                <StepHeader number="01" title="Who is leading the rollout?" />
-                <div className="choice-grid">
-                  {roles.map((item) => (
-                    <button
-                      className={`choice-button ${role === item.id ? 'active' : ''}`}
-                      key={item.id}
-                      type="button"
-                      onClick={() => setRole(item.id)}
-                    >
-                      <strong>{item.label}</strong>
-                      <span>{item.detail}</span>
-                    </button>
-                  ))}
+                <div className="onboarding-step-kicker">
+                  <span className="mono">0{stepIndex + 1}</span>
+                  <span>{activeStep.title}</span>
                 </div>
+                <h2 className="onboarding-step-title">{activeStep.subtitle}</h2>
+                {activeStep.id === 'scope' ? (
+                  <ScopeStep draft={draft} update={update} />
+                ) : activeStep.id === 'risks' ? (
+                  <RiskStep draft={draft} update={update} toggleRisk={toggleRisk} />
+                ) : activeStep.id === 'evidence' ? (
+                  <EvidenceStep draft={draft} update={update} />
+                ) : activeStep.id === 'objective' ? (
+                  <ObjectiveStep draft={draft} update={update} />
+                ) : (
+                  <ReviewStep draft={draft} selectedEvidence={selectedEvidence} selectedGoal={selectedGoal} />
+                )}
               </Card>
 
-              <Card>
-                <StepHeader number="02" title="Which LLM app are we improving?" />
-                <div className="form-grid">
-                  <label>
-                    Company or workspace
-                    <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
-                  </label>
-                  <label>
-                    App or workflow
-                    <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
-                  </label>
-                  <label>
-                    Risk tier
-                    <select value={riskTier} onChange={(event) => setRiskTier(event.target.value as typeof riskTier)}>
-                      {riskTiers.map((tier) => (
-                        <option key={tier} value={tier}>
-                          {titleCase(tier)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Data handling
-                    <select value={dataMode} onChange={(event) => setDataMode(event.target.value as typeof dataMode)}>
-                      <option value="redacted_snippets">Redacted snippets</option>
-                      <option value="hashes_only">Hashes only</option>
-                      <option value="customer_hosted">Customer hosted</option>
-                    </select>
-                  </label>
-                </div>
-              </Card>
-
-              <Card>
-                <StepHeader number="03" title="How will evidence arrive first?" />
-                <div className="choice-grid">
-                  {evidenceModes.map((item) => (
-                    <button
-                      className={`choice-button ${evidenceMode === item.id ? 'active' : ''}`}
-                      key={item.id}
-                      type="button"
-                      onClick={() => setEvidenceMode(item.id)}
-                    >
-                      <strong>{item.label}</strong>
-                      <span>{item.detail}</span>
-                    </button>
-                  ))}
-                </div>
-              </Card>
+              <div className="onboarding-actions">
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={stepIndex === 0 || status === 'saving'}
+                  onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
+                >
+                  Back
+                </button>
+                <div style={{ flex: 1 }} />
+                {draft.evidenceMode === 'demo_first' && activeStep.id === 'review' ? (
+                  <ButtonLink to={demoSetupSignInPath} variant="primary">
+                    Open demo walkthrough
+                  </ButtonLink>
+                ) : null}
+                <button className="btn primary" type="submit" disabled={!canContinue || status === 'saving'}>
+                  {status === 'saving'
+                    ? 'Creating pilot...'
+                    : activeStep.id === 'review'
+                      ? draft.evidenceMode === 'demo_first'
+                        ? 'Create pilot anyway'
+                        : 'Create pilot workspace'
+                      : 'Continue'}
+                </button>
+              </div>
+              {status === 'error' ? <p className="form-error">{error}</p> : null}
             </div>
 
             <aside className="onboarding-side">
               <Card>
                 <div className="stat-label">Setup readiness</div>
-                <div className="mono" style={{ marginTop: 8, fontSize: 30, fontWeight: 650 }}>
-                  {readiness}%
-                </div>
+                <div className="mono onboarding-readiness">{readiness}%</div>
                 <div className="progress-track" style={{ marginTop: 12 }}>
                   <span style={{ width: `${readiness}%` }} />
                 </div>
-                <div className="setup-list">
-                  <span>Example suite</span>
-                  <span>Safety options</span>
-                  <span>Cost estimate</span>
-                  <span>Release evidence</span>
+                <div className="onboarding-progress-list">
+                  {steps.map((step, index) => (
+                    <button
+                      key={step.id}
+                      type="button"
+                      className={`onboarding-progress-item ${index === stepIndex ? 'active' : ''} ${index < stepIndex ? 'complete' : ''}`}
+                      onClick={() => {
+                        if (index <= stepIndex || canContinueStep(stepIndex, draft)) setStepIndex(index);
+                      }}
+                    >
+                      <span className="pilot-step-marker" aria-hidden="true" />
+                      <span>
+                        <strong>{step.title}</strong>
+                        <small>{step.subtitle}</small>
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <button className="btn primary full-width" type="submit" disabled={status === 'saving'}>
-                  {status === 'saving' ? 'Creating pilot...' : 'Create pilot workspace'}
-                </button>
-                <ButtonLink to={demoSetupSignInPath}>Use demo setup</ButtonLink>
-                {status === 'created' && createdPath ? (
-                  <button className="btn accent full-width" type="button" onClick={() => navigate(createdPath)}>
-                    Continue to setup
-                  </button>
-                ) : null}
-                {status === 'error' ? <p className="form-error">{error}</p> : null}
+                <div className="onboarding-plan-card">
+                  <Badge tone={draft.riskTier === 'critical' ? 'bad' : draft.riskTier === 'high' ? 'warn' : 'neutral'}>
+                    {titleCase(draft.riskTier)} risk
+                  </Badge>
+                  <p>
+                    Next setup task: <strong>{selectedEvidence.next}</strong>
+                  </p>
+                  <p className="muted">
+                    StackCert will produce scoped release evidence for this app and test mix; it cannot guarantee broad
+                    model safety.
+                  </p>
+                </div>
               </Card>
             </aside>
           </form>
@@ -201,15 +342,284 @@ export function OnboardingPage() {
   );
 }
 
-function StepHeader({ number, title }: { number: string; title: string }) {
+function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDraft }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-      <span className="mono" style={{ color: 'var(--sc-accent)', fontSize: 12 }}>
-        {number}
-      </span>
-      <h2 style={{ margin: 0, fontSize: 19 }}>{title}</h2>
+    <div className="onboarding-step-body">
+      <div className="form-grid">
+        <label>
+          Company or workspace
+          <input value={draft.companyName} onChange={(event) => update('companyName', event.currentTarget.value)} />
+        </label>
+        <label>
+          LLM app or workflow
+          <input value={draft.projectName} onChange={(event) => update('projectName', event.currentTarget.value)} />
+        </label>
+        <label>
+          App category
+          <select value={draft.appCategory} onChange={(event) => update('appCategory', event.currentTarget.value as OnboardingAppCategory)}>
+            {appCategories.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Data handling
+          <select value={draft.dataMode} onChange={(event) => update('dataMode', event.currentTarget.value as OnboardingDraft['dataMode'])}>
+            <option value="redacted_snippets">Redacted snippets</option>
+            <option value="hashes_only">Hashes only</option>
+            <option value="customer_hosted">Customer hosted</option>
+            <option value="raw_allowed">Raw allowed</option>
+          </select>
+        </label>
+      </div>
+      <div className="choice-grid onboarding-choice-grid">
+        {deploymentStages.map((item) => (
+          <button
+            className={`choice-button ${draft.deploymentStage === item.id ? 'active' : ''}`}
+            key={item.id}
+            type="button"
+            onClick={() => update('deploymentStage', item.id)}
+          >
+            <strong>{item.label}</strong>
+            <span>{item.detail}</span>
+          </button>
+        ))}
+      </div>
+      <div className="segmented-row" role="group" aria-label="Risk tier">
+        {(['standard', 'high', 'critical'] as const).map((tier) => (
+          <button className={`btn ${draft.riskTier === tier ? 'accent' : ''}`} key={tier} type="button" onClick={() => update('riskTier', tier)}>
+            {titleCase(tier)}
+          </button>
+        ))}
+      </div>
     </div>
   );
+}
+
+function RiskStep({ draft, update, toggleRisk }: { draft: OnboardingDraft; update: UpdateDraft; toggleRisk: (riskId: string) => void }) {
+  return (
+    <div className="onboarding-step-body">
+      <div className="choice-grid onboarding-choice-grid four">
+        {roles.map((item) => (
+          <button
+            className={`choice-button ${draft.role === item.id ? 'active' : ''}`}
+            key={item.id}
+            type="button"
+            onClick={() => update('role', item.id)}
+          >
+            <strong>{item.label}</strong>
+            <span>{item.detail}</span>
+          </button>
+        ))}
+      </div>
+      <div>
+        <div className="stat-label" style={{ marginBottom: 10 }}>Primary concerns</div>
+        <div className="onboarding-chip-grid">
+          {riskConcerns.map((item) => (
+            <button
+              className={`chip-button ${draft.primaryRiskConcerns.includes(item.id) ? 'active' : ''}`}
+              key={item.id}
+              type="button"
+              onClick={() => toggleRisk(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDraft }) {
+  return (
+    <div className="choice-grid onboarding-choice-grid evidence">
+      {evidenceModes.map((item) => (
+        <button
+          className={`choice-button ${draft.evidenceMode === item.id ? 'active' : ''}`}
+          key={item.id}
+          type="button"
+          onClick={() => update('evidenceMode', item.id)}
+        >
+          <strong>{item.label}</strong>
+          <span>{item.detail}</span>
+          <em>{item.next}</em>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDraft }) {
+  const selectedGoal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
+  return (
+    <div className="onboarding-step-body">
+      <div className="choice-grid onboarding-choice-grid">
+        {optimizationGoals.map((item) => (
+          <button
+            className={`choice-button ${draft.optimizationGoal === item.id ? 'active' : ''}`}
+            key={item.id}
+            type="button"
+            onClick={() => update('optimizationGoal', item.id)}
+          >
+            <strong>{item.label}</strong>
+            <span>{item.detail}</span>
+          </button>
+        ))}
+      </div>
+      <div className="onboarding-objective-grid">
+        <div className="onboarding-inline-panel">
+          <div className="stat-label">Initial CASS risk weight</div>
+          <div className="mono onboarding-readiness">{selectedGoal.lambda}</div>
+          <p className="muted">
+            This seeds the first recommendation. Users can still adjust the risk weight in the workbench.
+          </p>
+        </div>
+        <div className="onboarding-inline-panel">
+          <div className="stat-label">Provider budget posture</div>
+          <div className="segmented-row wrap">
+            {budgetRanges.map((item) => (
+              <button className={`btn ${draft.budgetRange === item.id ? 'accent' : ''}`} key={item.id} type="button" onClick={() => update('budgetRange', item.id)}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="stat-label" style={{ marginBottom: 10 }}>First release-gate target</div>
+        <div className="segmented-row wrap">
+          {releaseGateTargets.map((item) => (
+            <button className={`btn ${draft.releaseGateTarget === item.id ? 'accent' : ''}`} key={item.id} type="button" onClick={() => update('releaseGateTarget', item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewStep({
+  draft,
+  selectedEvidence,
+  selectedGoal
+}: {
+  draft: OnboardingDraft;
+  selectedEvidence: (typeof evidenceModes)[number];
+  selectedGoal: (typeof optimizationGoals)[number];
+}) {
+  const rows = [
+    ['Workspace', draft.companyName],
+    ['App', draft.projectName],
+    ['Evidence starts with', selectedEvidence.label],
+    ['CASS objective', `${selectedGoal.label} / lambda ${selectedGoal.lambda}`],
+    ['Release gate', releaseGateTargets.find((item) => item.id === draft.releaseGateTarget)?.label ?? 'Not yet'],
+    ['Data handling', titleCase(draft.dataMode.replaceAll('_', ' '))]
+  ];
+  return (
+    <div className="onboarding-review">
+      <div className="onboarding-review-grid">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <div className="stat-label">{label}</div>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="notice">
+        <strong>First useful packet path</strong>
+        <p style={{ margin: '6px 0 0' }}>
+          {selectedEvidence.next} Then StackCert can compare safety-check combinations, show cost/latency tradeoffs,
+          issue scoped evidence, and give your CI or agent workflow a release-gate response.
+        </p>
+      </div>
+      <div className="notice warn">
+        StackCert evidence reduces release risk for the committed app scope. It is not a guarantee that the model is safe
+        everywhere or that untested prompts, tools, policies, retrieval changes, or traffic shifts are covered.
+      </div>
+    </div>
+  );
+}
+
+type UpdateDraft = <K extends keyof OnboardingDraft>(key: K, value: OnboardingDraft[K]) => void;
+
+function profileFromDraft(draft: OnboardingDraft): ProjectOnboardingProfileInput {
+  const goal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
+  return {
+    role: draft.role,
+    evidence_mode: draft.evidenceMode,
+    app_category: draft.appCategory,
+    deployment_stage: draft.deploymentStage,
+    optimization_goal: draft.optimizationGoal,
+    primary_risk_concerns: draft.primaryRiskConcerns,
+    release_gate_target: draft.releaseGateTarget,
+    budget_range: draft.budgetRange,
+    lambda_cost: goal.lambda
+  };
+}
+
+function setupReadiness(draft: OnboardingDraft) {
+  const items = [
+    draft.companyName.trim().length >= 2,
+    draft.projectName.trim().length >= 2,
+    Boolean(draft.role),
+    Boolean(draft.evidenceMode),
+    draft.primaryRiskConcerns.length > 0,
+    Boolean(draft.optimizationGoal)
+  ];
+  return Math.round((items.filter(Boolean).length / items.length) * 100);
+}
+
+function canContinueStep(stepIndex: number, draft: OnboardingDraft) {
+  if (stepIndex === 0) return draft.companyName.trim().length >= 2 && draft.projectName.trim().length >= 2;
+  if (stepIndex === 1) return Boolean(draft.role) && draft.primaryRiskConcerns.length > 0;
+  if (stepIndex === 2) return Boolean(draft.evidenceMode);
+  if (stepIndex === 3) return Boolean(draft.optimizationGoal) && Boolean(draft.budgetRange);
+  return true;
+}
+
+function nextSetupPath(workspaceId: string, projectId: string, focus: string) {
+  if (focus === 'overview') return `/app/${workspaceId}/${projectId}/overview`;
+  if (focus === 'certificate') return `/app/${workspaceId}/${projectId}/certificate`;
+  if (focus.startsWith('setup#')) return `/app/${workspaceId}/${projectId}/${focus}`;
+  return `/app/${workspaceId}/${projectId}/setup`;
+}
+
+function pilotDescription(draft: OnboardingDraft) {
+  const evidenceMode = evidenceModes.find((item) => item.id === draft.evidenceMode);
+  const goal = optimizationGoals.find((item) => item.id === draft.optimizationGoal);
+  return `${draft.projectName.trim()} pilot for comparing safety-check combinations. Starting evidence: ${
+    evidenceMode?.label ?? 'Uploaded outputs'
+  }. Primary rollout owner: ${draft.role}. Objective: ${goal?.label ?? 'Balanced'}. Data handling: ${draft.dataMode.replaceAll('_', ' ')}.`;
+}
+
+function loadDraft(): OnboardingDraft {
+  try {
+    const raw = window.localStorage?.getItem(draftKey);
+    if (!raw) return initialDraft;
+    return { ...initialDraft, ...JSON.parse(raw) };
+  } catch {
+    return initialDraft;
+  }
+}
+
+function saveDraft(draft: OnboardingDraft) {
+  try {
+    window.localStorage?.setItem(draftKey, JSON.stringify(draft));
+  } catch {
+    return;
+  }
+}
+
+function clearDraft() {
+  try {
+    window.localStorage?.removeItem(draftKey);
+  } catch {
+    return;
+  }
 }
 
 function slugify(value: string) {
@@ -217,19 +627,13 @@ function slugify(value: string) {
 }
 
 function titleCase(value: string) {
-  return value.slice(0, 1).toUpperCase() + value.slice(1);
+  return value
+    .split(' ')
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
-function pilotDescription(
-  projectName: string,
-  roleId: string,
-  evidenceModeId: string,
-  dataMode: 'redacted_snippets' | 'hashes_only' | 'customer_hosted'
-) {
-  const role = roles.find((item) => item.id === roleId);
-  const evidenceMode = evidenceModes.find((item) => item.id === evidenceModeId);
-  const dataHandling = dataMode.replaceAll('_', ' ');
-  return `${projectName} pilot for comparing safety-check combinations. Starting evidence: ${
-    evidenceMode?.label ?? 'Uploaded outputs'
-  }. Primary rollout owner: ${role?.label ?? 'AI platform'}. Data handling: ${dataHandling}.`;
+function isAuthError(message: string) {
+  const normalized = message.toLowerCase();
+  return normalized.includes('authentication required') || normalized.includes('missing auth token') || normalized.includes('401');
 }

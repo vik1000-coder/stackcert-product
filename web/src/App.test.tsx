@@ -43,8 +43,9 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Start a StackCert pilot/i)).toBeInTheDocument();
-    expect(screen.getByText(/Who is leading the rollout/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create the first evidence packet/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
+    expect(screen.getByText(/Setup readiness/i)).toBeInTheDocument();
   });
 
   it('renders footer helper pages from marketing links', () => {

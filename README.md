@@ -17,7 +17,9 @@ evidence artifacts, idempotent worker evidence persistence, connector price
 cards/token accounting, managed connector-secret references, lease renewal,
 pilot setup coverage diagnostics, workspace admin operations, worker
 queue/dead-letter UI, MCP and release-gate machine-token auth, and a hosted
-Cloudflare/Supabase/Cloud Run staging demo.
+Cloudflare/Supabase/Cloud Run staging demo. The onboarding flow now captures a
+first-class pilot profile so setup can route new users to the right first
+evidence task instead of treating every app as the same generic setup.
 The core engine includes:
 
 - data schemas and JSONL/CSV import;
@@ -32,6 +34,9 @@ The core engine includes:
 The product direction is now a production-oriented full-stack app:
 
 - public landing page that explains safety options and why combinations matter;
+- guided onboarding that creates a workspace, project, and persistent pilot
+  profile with role, evidence source, risk concerns, CASS objective, budget
+  posture, and release-gate intent;
 - authenticated StackCert workbench for app-specific recommendations;
 - FastAPI service around the Python CASS core;
 - authenticated MCP endpoints for release-evidence status, theory cards, and
@@ -42,6 +47,8 @@ The product direction is now a production-oriented full-stack app:
   accounting, and persisted CASS evidence runs;
 - uploaded-output pilot setup with JSONL/CSV templates, pre-run coverage
   diagnostics, malformed-output errors, and UI gating before evidence creation;
+- first-user pilot readiness guidance that shows the path from project setup to
+  examples, safety options, evidence run, review, and release-gate wiring;
 - operator-facing job health and an admin dashboard with spend, throughput,
   connector-secret posture, worker health, dead-letter review, audit trail,
   retry/cancel controls, and manual worker passes;
@@ -242,6 +249,17 @@ Data loading now supports:
 Release gates now have examples for GitHub Actions, GitLab CI, CircleCI, and
 generic webhook callers. See `docs/20_release_gate_integrations.md` and
 `integrations/release-gates/`.
+
+First-pilot readiness is available at
+`/api/projects/{project_id}/pilot-readiness` and is shown in the setup and
+overview screens. It is deliberately scoped: the response explains what the
+evidence can claim, what it cannot claim, and when retesting is required.
+
+Onboarding state is available at `/api/onboarding/pilots` for atomic pilot
+creation and `/api/projects/{project_id}/onboarding-profile` for project-scoped
+profile reads/updates. The profile is stored in Supabase through
+`project_onboarding_profiles` with workspace-member RLS and explicit grants for
+new-project Data API exposure.
 
 For MCP-only machine callers, generate a token hash with
 `scripts/hash_mcp_machine_token.py`, then set

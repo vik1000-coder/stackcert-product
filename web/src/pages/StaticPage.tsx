@@ -48,8 +48,8 @@ const pages: Record<string, StaticContent> = {
     summary: 'Current development is focused on turning the research prototype into a production-ready StackCert application.',
     sections: [
       { heading: 'Current build', body: 'Supabase-backed apps, safety option connectors, example import, queued workers, usage ledger, release evidence, signoffs, and deployment gates.' },
-      { heading: 'Latest slice', body: 'Provider-grade worker hardening and MCP-style agent integration endpoints.' },
-      { heading: 'Next', body: 'Provider adapters, richer onboarding, hosted deployment, billing, and enterprise pipeline integrations.' }
+      { heading: 'Latest slice', body: 'First-pilot readiness guidance, provider-grade worker hardening, MCP resources, and release-gate integration endpoints.' },
+      { heading: 'Next', body: 'Provider adapters, persisted budget policies, trace commit flows, billing, and enterprise pipeline integrations.' }
     ]
   },
   status: {
@@ -69,7 +69,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Setup', body: 'Create a workspace, define an app, import examples, and register safety options.' },
       { heading: 'Run', body: 'Queue evaluation and targeted test jobs, inspect overlap, and compare candidate combinations.' },
-      { heading: 'Release', body: 'Issue release evidence, collect signoffs, and connect the result to CI/CD or LLM app-release tooling.' }
+      { heading: 'Release', body: 'Issue release evidence, collect signoffs, and connect the result to CI/CD or LLM app-release tooling with GitHub Actions, GitLab, CircleCI, or webhook templates.' }
     ]
   },
   'methodology-paper': {

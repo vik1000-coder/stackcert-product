@@ -21,7 +21,9 @@ from stackcert_service.schemas import (
     GuardConnectorSecretUpdate,
     MeasurementPlanCreate,
     McpRpcRequest,
+    OnboardingPilotCreate,
     ProjectCreate,
+    ProjectOnboardingProfileUpdate,
     ReleaseGateEvaluateRequest,
     TraceImportPreviewRequest,
     UploadedOutputRunCreate,
@@ -39,6 +41,8 @@ from stackcert_service.services import guard_connectors
 from stackcert_service.services import integrations
 from stackcert_service.services import jobs
 from stackcert_service.services import mcp
+from stackcert_service.services import onboarding
+from stackcert_service.services import pilot_readiness
 from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import release_gates
@@ -205,9 +209,66 @@ def create_project(workspace_id: str, payload: ProjectCreate, principal: Princip
     return {"project": project}
 
 
+@app.post("/api/onboarding/pilots")
+def create_onboarding_pilot(payload: OnboardingPilotCreate, principal: PrincipalDep) -> dict[str, object]:
+    access.require_app_principal(principal)
+    result = onboarding.create_pilot(payload, principal=principal)
+    workspace = result["workspace"]
+    project = result["project"]
+    audit.record_event(
+        "workspace.created",
+        principal,
+        workspace_id=str(workspace["id"]),
+        target_type="workspace",
+        target_id=str(workspace["id"]),
+        metadata={"source": "onboarding"},
+    )
+    audit.record_event(
+        "project.created",
+        principal,
+        workspace_id=str(workspace["id"]),
+        project_id=str(project["id"]),
+        target_type="project",
+        target_id=str(project["id"]),
+        metadata={"source": "onboarding"},
+    )
+    audit.record_event(
+        "project.onboarding_profile.saved",
+        principal,
+        workspace_id=str(workspace["id"]),
+        project_id=str(project["id"]),
+        target_type="project",
+        target_id=str(project["id"]),
+        metadata={"source": "onboarding", "evidence_mode": result["profile"]["evidence_mode"]},
+    )
+    return result
+
+
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: str, principal: PrincipalDep) -> dict[str, object]:
     return {"project": _require_project_access(project_id, principal)}
+
+
+@app.get("/api/projects/{project_id}/onboarding-profile")
+def get_onboarding_profile(project_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal)
+    return {"profile": onboarding.get_profile(project_id)}
+
+
+@app.patch("/api/projects/{project_id}/onboarding-profile")
+def update_onboarding_profile(project_id: str, payload: ProjectOnboardingProfileUpdate, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    profile = onboarding.update_profile(project_id, payload)
+    audit.record_event(
+        "project.onboarding_profile.updated",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={"evidence_mode": profile["evidence_mode"], "first_setup_focus": profile["first_setup_focus"]},
+    )
+    return {"profile": profile}
 
 
 @app.get("/api/projects/{project_id}/runs")
@@ -528,6 +589,12 @@ def get_certificate_status(project_id: str, principal: PrincipalDep, lambda_cost
             "new_attack_family",
         ],
     }
+
+
+@app.get("/api/projects/{project_id}/pilot-readiness")
+def get_project_pilot_readiness(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    _require_project_access(project_id, principal)
+    return {"readiness": pilot_readiness.project_pilot_readiness(project_id, lambda_cost)}
 
 
 @app.get("/api/integrations/agent-platforms")
