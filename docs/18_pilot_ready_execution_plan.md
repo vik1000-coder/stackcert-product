@@ -341,13 +341,14 @@ Goal: move provider-backed runs from API-triggered staging behavior to a
 separate worker runtime that can handle real connector secrets, retries,
 leases, budgets, and dead letters.
 
-Status as of 2026-05-25: partially implemented. Redacted connector-secret
-register/rotate/disable APIs, local/env/Google Secret Manager secret reference
-resolution, audit events, lease renewal, retry/dead-letter behavior, and
-multi-job worker CLI support are implemented and tested. The remaining
-Milestone 3 production work is deploying the independent Cloud Run worker/job,
-adding worker-only machine auth for execution routes, and exposing
-dead-letter/lease review in the UI.
+Status as of 2026-05-25: substantially implemented for staging. Redacted
+connector-secret register/rotate/disable APIs, local/env/Google Secret Manager
+secret reference resolution, audit events, lease renewal, retry/dead-letter
+behavior, multi-job worker CLI support, a separate Cloud Run worker job, hosted
+worker smoke coverage, job cancel, and a workspace admin dashboard are
+implemented and tested. Remaining production work is workspace-level budget
+caps, provider rate-limit/backoff controls, and worker-only machine auth for
+execution routes if we want non-operator automation to claim work.
 
 ### User Stories
 
@@ -385,7 +386,7 @@ dead-letter/lease review in the UI.
 
 3. Deploy independent worker.
    - Use `scripts/worker_once.py` as the seed.
-   - Add Cloud Run Job or worker service deployment path.
+   - Cloud Run Job path is deployed as `stackcert-worker` in staging.
    - Preserve cost controls:
      - max instances low for staging;
      - budget preflight before deploy;
@@ -408,6 +409,8 @@ dead-letter/lease review in the UI.
 
 - Real provider secrets are never returned to the browser.
 - Cloud Run worker/job can process at least one deterministic job in staging.
+  Status: passed via `scripts/cloud_run_worker_smoke.py` on execution
+  `stackcert-worker-vps7b`.
 - REST/model-judge jobs can run with managed secret refs.
 - Worker lease renewal prevents duplicate active execution.
 - Dead-lettered jobs are visible and retryable by authorized users.
@@ -739,8 +742,9 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 ## Current Next Move
 
-The next implementation move is Milestone 3: managed provider secrets and an
-independent Cloud Run worker/job deployment path. Start with the managed secret
-backend and rotation/write API, then deploy the worker with the existing GCP
-budget guardrails still set to max instances `1` and the `StackCert staging
-$10` budget.
+The next implementation move is the post-worker production hardening slice:
+GitLab/Circle release-gate examples, model/prompt/policy hashes in issued
+evidence packets, workspace-level budget caps, provider rate-limit/backoff
+controls, and the production operations checklist. Keep the existing GCP
+guardrails in place: Cloud Run API max instances `1`, worker job task count
+`1`, worker parallelism `1`, and the `StackCert staging $10` budget.

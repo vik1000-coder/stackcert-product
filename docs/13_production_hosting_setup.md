@@ -440,10 +440,78 @@ Once the raw `run.app` URL is healthy, map `api-staging.stackcert.com` or
 Cloudflare. Update `STACKCERT_CORS_ORIGINS` and frontend `VITE_API_BASE_URL`
 after the domain is active.
 
-For workers, start with Cloud Run Jobs only after the API deploy is green and
-we have a worker entrypoint command. Use the same image, a separate
-`stackcert-worker-runtime` service account, no public ingress, lower max
-parallelism, and the same Supabase secret bindings.
+For workers, use Cloud Run Jobs after the API deploy is green. The current
+entrypoint is `python -m stackcert_service.worker`; it can claim runnable jobs
+across all persisted projects and exits cleanly when the queue is empty. Use
+the same image, a separate `stackcert-worker-runtime` service account, no
+public ingress, one task, parallelism `1`, max retries `0`, and the same
+Supabase secret bindings.
+
+Current staging worker:
+
+```text
+job: stackcert-worker
+region: us-central1
+service account: stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com
+image: us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64
+command: python
+args: -m stackcert_service.worker
+tasks: 1
+parallelism: 1
+max retries: 0
+task timeout: 900s
+```
+
+Deploy or update the worker job:
+
+```bash
+export WORKER_RUNTIME_SA="stackcert-worker-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+
+"${GCLOUD_BIN:-gcloud}" iam service-accounts create stackcert-worker-runtime \
+  --project="$GCP_PROJECT_ID" \
+  --display-name="StackCert worker runtime" || true
+
+for secret in \
+  stackcert-supabase-url \
+  stackcert-supabase-secret-key
+do
+  "${GCLOUD_BIN:-gcloud}" secrets add-iam-policy-binding "$secret" \
+    --project="$GCP_PROJECT_ID" \
+    --member="serviceAccount:${WORKER_RUNTIME_SA}" \
+    --role="roles/secretmanager.secretAccessor"
+done
+
+"${GCLOUD_BIN:-gcloud}" run jobs deploy stackcert-worker \
+  --project="$GCP_PROJECT_ID" \
+  --region="$GCP_REGION" \
+  --image="$IMAGE_URI" \
+  --service-account="$WORKER_RUNTIME_SA" \
+  --tasks=1 \
+  --parallelism=1 \
+  --max-retries=0 \
+  --task-timeout=900s \
+  --cpu=1 \
+  --memory=512Mi \
+  --command=python \
+  --args=-m,stackcert_service.worker \
+  --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_ENABLE_DEMO_WORKSPACE=true,STACKCERT_WORKER_ALL_PROJECTS=true,STACKCERT_WORKER_MAX_JOBS=5,STACKCERT_WORKER_LEASE_SECONDS=900" \
+  --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest"
+```
+
+Verify the worker job:
+
+```bash
+python scripts/cloud_run_worker_smoke.py \
+  --api-url "$API_URL" \
+  --supabase-url "$SUPABASE_URL" \
+  --email "$STACKCERT_SMOKE_EMAIL" \
+  --password "$STACKCERT_SMOKE_PASSWORD" \
+  --project-id "$GCP_PROJECT_ID" \
+  --region "$GCP_REGION"
+```
+
+The current staging smoke queued `job_f25bbd5cb8ed`, executed
+`stackcert-worker-vps7b`, and verified final status `complete`.
 
 ## Cloud Run Services
 
@@ -480,6 +548,9 @@ Required worker environment:
 ```text
 STACKCERT_ENV=production
 STACKCERT_PERSISTENCE_BACKEND=supabase
+STACKCERT_WORKER_ALL_PROJECTS=true
+STACKCERT_WORKER_MAX_JOBS=5
+STACKCERT_WORKER_LEASE_SECONDS=900
 SUPABASE_URL
 SUPABASE_SECRET_KEY
 ```

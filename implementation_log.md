@@ -1856,3 +1856,103 @@ Started: 2026-05-23
   - `npm --prefix web run build` -> OK;
   - `npm run build` -> OK;
   - `git diff --check` -> OK.
+
+## Cloud Run Worker Job And Admin Operations
+
+- Added a package-level worker entrypoint:
+  - `stackcert_service/worker.py`;
+  - `python -m stackcert_service.worker`;
+  - supports `--all-projects`, `--max-jobs`, `--lease-seconds`, and matching
+    `STACKCERT_WORKER_*` environment variables.
+- Kept `scripts/worker_once.py` as a thin compatibility wrapper around the new
+  entrypoint.
+- Added workspace admin API:
+  - `GET /api/workspaces/{workspace_id}/admin/overview`;
+  - `POST /api/workspaces/{workspace_id}/admin/workers/run-next`;
+  - `POST /api/jobs/{job_id}/cancel`.
+- Added service-layer admin aggregation for:
+  - workspace metrics;
+  - project health;
+  - worker queue/running/stale/dead-letter state;
+  - provider usage/cost by provider;
+  - connector missing-secret posture;
+  - recent jobs/dead letters;
+  - recent audit events.
+- Added job cancellation for queued/stale work so operators can stop spend
+  before another worker pass claims a job.
+- Added Supabase audit-event listing for admin overview.
+- Added the React admin dashboard route at
+  `/app/:workspaceId/:projectId/admin` with:
+  - manual worker pass controls;
+  - spend/throughput metrics;
+  - worker health;
+  - project status;
+  - connector-secret posture;
+  - job retry/cancel controls;
+  - dead-letter review;
+  - audit trail;
+  - responsive mobile project summaries.
+- Added hosted worker smoke script:
+  - `scripts/cloud_run_worker_smoke.py`;
+  - creates an authenticated queued demo job;
+  - executes `gcloud run jobs execute stackcert-worker --wait`;
+  - polls the API until that job reaches a terminal status.
+- Local verification:
+  - `uv run python -m py_compile stackcert_service/services/jobs.py stackcert_service/worker.py scripts/worker_once.py stackcert_service/services/audit.py stackcert_service/db/supabase.py stackcert_service/services/admin.py stackcert_service/schemas.py stackcert_service/main.py` -> OK;
+  - focused admin/worker/Supabase store tests -> OK;
+  - `uv run python -m unittest discover -s tests_service` -> 95 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web run build` -> OK;
+  - local Playwright admin dashboard smoke at desktop and 390px mobile widths
+    -> OK, no current console warnings/errors.
+- Committed the implementation:
+  - `0b932c5` `Add Cloud Run worker job and admin operations`.
+- GCP cost preflight before deploy:
+  - billing enabled on `project-e7840c42-f298-4bd9-bff`;
+  - visible `StackCert staging $10` budget;
+  - existing `stackcert-api` retained staging-safe scale annotations.
+- Built and pushed the Cloud Run image:
+  - `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64`.
+- Deployed Cloud Run API service `stackcert-api` with staging caps preserved:
+  - revision: `stackcert-api-00013-x8r`;
+  - API URL: `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`;
+  - max instances `1`, min instances `0`, CPU `1`, memory `512Mi`,
+    concurrency `40`, timeout `60s`.
+- Created Cloud Run worker runtime service account:
+  - `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`;
+  - granted Secret Manager access to `stackcert-supabase-url` and
+    `stackcert-supabase-secret-key`.
+- Deployed Cloud Run job `stackcert-worker`:
+  - region: `us-central1`;
+  - image: same `0b932c5-staging-202605250439-amd64` image;
+  - command: `python`;
+  - args: `-m stackcert_service.worker`;
+  - env: `STACKCERT_ENV=production`,
+    `STACKCERT_PERSISTENCE_BACKEND=supabase`,
+    `STACKCERT_ENABLE_DEMO_WORKSPACE=true`,
+    `STACKCERT_WORKER_ALL_PROJECTS=true`,
+    `STACKCERT_WORKER_MAX_JOBS=5`,
+    `STACKCERT_WORKER_LEASE_SECONDS=900`;
+  - tasks `1`, parallelism `1`, max retries `0`, task timeout `900s`,
+    CPU `1`, memory `512Mi`.
+- During worker smoke, found the linked Supabase staging project was missing
+  the idempotent demo seed rows; applied `supabase/seed.sql` with
+  `supabase db query --linked --file supabase/seed.sql`.
+- Hosted verification:
+  - `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `cloud run api smoke OK`;
+  - `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
+  - `uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> `cloud run worker smoke OK`;
+  - worker execution `stackcert-worker-vps7b` completed successfully in
+    `1m37.1s`;
+  - worker-smoke job `job_f25bbd5cb8ed` reached final status `complete`;
+  - authenticated hosted admin overview for `ws_demo` returned role `owner`,
+    `projects=1`, and worker queue depth `0`;
+  - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+- Deployed Cloudflare Workers static app from the repo root:
+  - URL: `https://stackcert-staging.savikk129.workers.dev`;
+  - Cloudflare version id:
+    `98993f74-e817-49f5-a413-20e6e77f7023`;
+  - post-Cloudflare `scripts/deployment_smoke.py` against Cloudflare +
+    Cloud Run + Supabase Auth -> `deployment smoke OK`.

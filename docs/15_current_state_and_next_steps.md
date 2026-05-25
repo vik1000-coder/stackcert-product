@@ -177,6 +177,10 @@ gcloud run deploy stackcert-api ...
 uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
   -> OK
 
+gcloud run jobs deploy stackcert-worker ...
+uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --project-id project-e7840c42-f298-4bd9-bff
+  -> OK
+
 uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
   -> OK
 
@@ -206,7 +210,8 @@ Latest hosted verification:
   hosted MCP endpoint and calls `get_release_evidence_status` with an
   authenticated Supabase session.
 - Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
-  `deploy cloudflare` on commit `043e012`.
+  `deploy cloudflare` on commit `043e012`; the current local deployment
+  commit is `0b932c5` and should be pushed so CI/CD can redeploy from source.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
   browser-safe Supabase key, and the smoke-test user credentials.
@@ -223,10 +228,20 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00012-ncp`, deployed from commit
-  `043e012`.
+- Latest ready revision is `stackcert-api-00013-x8r`, deployed from commit
+  `0b932c5`.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:043e012-staging-202605250409-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64`.
+- Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
+  the same image with service account
+  `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`,
+  one task, parallelism `1`, max retries `0`, and task timeout `900s`.
+- The latest worker execution `stackcert-worker-vps7b` completed successfully
+  in `1m37.1s`; `scripts/cloud_run_worker_smoke.py` queued a demo
+  deterministic job and verified it completed through the API.
+- The linked Supabase staging project now has the idempotent demo seed rows
+  from `supabase/seed.sql`, which are required for demo jobs to satisfy FK
+  constraints in persisted `jobs` rows.
 - Cloud Run staging explicitly sets `STACKCERT_ENABLE_DEMO_WORKSPACE=true` so
   the public demo user can see the seeded walkthrough while real production
   deployments can leave that flag unset.
@@ -307,9 +322,12 @@ Current worker status:
   pages can read that worker-produced run;
 - usage events are recorded per evaluated safety check with stable external
   event ids for retry-safe persistence;
-- retry, lease, lease-renewal, dead-letter, manual retry, and run-next worker
-  APIs are in place; the remaining worker gap is deploying a separate Cloud Run
-  Job/service and adding operator UI for dead-letter review.
+- retry, lease, lease-renewal, dead-letter, manual retry, cancel, and run-next
+  worker APIs are in place;
+- the independent Cloud Run worker job is deployed and smoke-tested;
+- the app now includes a workspace admin dashboard with worker health, spend,
+  throughput, project status, connector-secret posture, job retry/cancel
+  controls, dead-letter review, and audit trail.
 
 Current trust-layer status:
 
@@ -359,7 +377,8 @@ into a five-milestone executable roadmap:
    secrets, worker deployment, lease renewal, dead letters, and budget caps.
    Status: secret metadata/rotation, Secret Manager refs, lease renewal, and
    retry/dead-letter logic are implemented; the separate Cloud Run worker/job
-   deployment remains.
+   is deployed and smoke-tested. Workspace-level budget caps and provider
+   rate-limit/backoff settings remain.
 4. Release gates and agent-friendly surfaces: conservative REST release-gate
    API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
    Status: REST API, scoped tokens, script support, reusable GitHub workflow,
@@ -375,15 +394,12 @@ into a five-milestone executable roadmap:
 
 The immediate execution queue is now:
 
-1. Deploy a separate Cloud Run worker/job using the existing API image and
-   `scripts/worker_once.py --all-projects`, preserving the $10 staging budget
-   preflight and max-instance caps.
-2. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
+1. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
    with release-gate machine tokens.
-3. Persist model/prompt/policy hashes into evidence packets so release gates can
+2. Persist model/prompt/policy hashes into evidence packets so release gates can
    compare those fields instead of returning them as assumptions.
-4. Add workspace-level budget caps and provider rate-limit/backoff settings.
-5. Finish the production operations checklist: Sentry or equivalent, uptime
+3. Add workspace-level budget caps and provider rate-limit/backoff settings.
+4. Finish the production operations checklist: Sentry or equivalent, uptime
    checks, backup/restore rehearsal, auth email templates/sender domain, and
    explicit budget alerts for GCP, Supabase, and provider spend.
 
@@ -392,15 +408,15 @@ The immediate execution queue is now:
 The next engineering milestone should be:
 
 ```text
-Independent worker deployment + release-gate integration examples + production operations checklist
+Release-gate integration examples + workspace budget/rate controls + production operations checklist
 ```
 
-The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
-GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
-from uploaded outputs to deterministic, REST, or model-judge managed runs with
-retry-safe evidence writes, managed secret refs, lease renewal, cost
-accounting, release-gate checks, and operator-facing queue/dead-letter health.
-The highest-value remaining production work is to run the worker independently
-from the interactive API, persist model/prompt/policy hashes in issued evidence,
-wire non-GitHub deploy systems, and complete operational monitoring/backup
+The staging hosting milestone is complete: Supabase, Cloud Run API, Cloud Run
+worker job, Cloudflare, and GitHub CI/CD are wired and smoke-tested. The worker
+can now move a pilot team from uploaded outputs to deterministic, REST, or
+model-judge managed runs with retry-safe evidence writes, managed secret refs,
+lease renewal, cost accounting, release-gate checks, and operator-facing
+queue/dead-letter health. The highest-value remaining production work is to
+persist model/prompt/policy hashes in issued evidence, wire non-GitHub deploy
+systems, and complete workspace budget/rate controls plus monitoring/backup
 setup.

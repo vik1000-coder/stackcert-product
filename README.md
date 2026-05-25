@@ -15,8 +15,9 @@ worker-backed deterministic, REST, and model-judge evaluation runs, service
 layer RBAC/audit controls, immutable evidence packet snapshots, private
 evidence artifacts, idempotent worker evidence persistence, connector price
 cards/token accounting, managed connector-secret references, lease renewal,
-pilot setup coverage diagnostics, worker queue/dead-letter UI, MCP and
-release-gate machine-token auth, and a hosted Supabase free-tier demo.
+pilot setup coverage diagnostics, workspace admin operations, worker
+queue/dead-letter UI, MCP and release-gate machine-token auth, and a hosted
+Cloudflare/Supabase/Cloud Run staging demo.
 The core engine includes:
 
 - data schemas and JSONL/CSV import;
@@ -41,8 +42,9 @@ The product direction is now a production-oriented full-stack app:
   accounting, and persisted CASS evidence runs;
 - uploaded-output pilot setup with JSONL/CSV templates, pre-run coverage
   diagnostics, malformed-output errors, and UI gating before evidence creation;
-- operator-facing job health with queued/running/failed/dead-letter counts,
-  worker lease/retry timing, redacted provider errors, and retry controls;
+- operator-facing job health and an admin dashboard with spend, throughput,
+  connector-secret posture, worker health, dead-letter review, audit trail,
+  retry/cancel controls, and manual worker passes;
 - release-gate REST API for CI/deploy systems, returning `pass`, `warn`, or
   `block` with evidence packet ids, retest triggers, and scoped assumptions;
 - service-layer workspace/project/run/evidence authorization, audit events, and
@@ -84,8 +86,21 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-Current Cloud Run API revision: `stackcert-api-00012-ncp`, deployed from
-`043e012` with the staging caps preserved.
+Current Cloud Run API revision: `stackcert-api-00013-x8r`, deployed from
+`0b932c5` with the staging caps preserved.
+
+Current Cloud Run worker job:
+
+```text
+job: stackcert-worker
+region: us-central1
+image: us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:0b932c5-staging-202605250439-amd64
+service account: stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com
+tasks: 1
+parallelism: 1
+max retries: 0
+timeout: 900s
+```
 
 The Supabase Edge Function remains a lightweight demo/API-preview layer for
 comparison, but the Cloudflare-hosted app is now pointed at Cloud Run.
@@ -153,6 +168,7 @@ Cloud Run staging helpers live in:
 - `scripts/gcloud_cost_preflight.py`
 - `scripts/cloud_run_secrets.py`
 - `scripts/cloud_run_api_smoke.py`
+- `scripts/cloud_run_worker_smoke.py`
 - `scripts/mcp_client_smoke.py`
 - `scripts/hash_mcp_machine_token.py`
 
