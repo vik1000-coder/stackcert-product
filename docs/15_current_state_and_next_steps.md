@@ -245,11 +245,11 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready Cloud Run API revision is `stackcert-api-00016-j9x`, serving
-  the image deployed from commit `6087da9` with the staging cap raised to max
+- Latest ready Cloud Run API revision is `stackcert-api-00017-vmj`, serving
+  the image deployed from commit `932ac14` with the staging cap raised to max
   instances `3` and min instances kept at `0`.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:6087da9-staging-202605251603-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
   the same image with service account
   `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`,
@@ -263,8 +263,8 @@ Latest hosted verification:
 - Cloud Run staging explicitly sets `STACKCERT_ENABLE_DEMO_WORKSPACE=true` so
   the public demo user can see the seeded walkthrough while real production
   deployments can leave that flag unset.
-- Staging caps are active: max scale `1`, min scale default `0`, CPU `1`,
-  memory `1Gi`, timeout `60s`, concurrency `40`.
+- Staging caps are active: max scale `3`, min scale default `0`, CPU `1`,
+  memory `512Mi`, timeout `60s`, concurrency `40`.
 - The linked Supabase staging project includes
   `20260525142950_add_project_onboarding_profiles.sql`, so hosted onboarding
   can create workspace/project/profile records end to end.
@@ -279,8 +279,8 @@ Latest hosted verification:
   `/api/projects/proj_acme_copilot/release-gates/evaluate` and assert the
   response carries scoped non-guarantee assumptions.
 - Hosted browser QA passes sign-in, same-origin API usage, full 2,000-example
-  demo overview, onboarding pilot creation, setup handoff, and mobile
-  onboarding layout without console/server errors.
+  demo overview, admin budget controls, onboarding pilot creation, setup
+  handoff, and mobile layouts without console/server errors.
 - The hosted Milestone 5 uploaded-output preview endpoint was smoke-tested with
   a temporary authenticated Supabase project and committed custom suite; the
   preview returned `coverage=1.0` before run creation.
@@ -447,14 +447,11 @@ into a five-milestone executable roadmap:
 
 The immediate execution queue is now:
 
-1. Deploy the Cloud Run API after backend changes that add the new
-   budget-policy routes, then let Cloudflare redeploy the frontend against the
-   updated API.
-2. Add real trace-ingestion commit flows after the current trace-import preview
+1. Add real trace-ingestion commit flows after the current trace-import preview
    proves useful with design-partner exports.
-3. Add signed generic deployment webhooks and provider-specific adapters for the
+2. Add signed generic deployment webhooks and provider-specific adapters for the
    first customer platform that needs them.
-4. Finish the production operations checklist: Sentry or equivalent, uptime
+3. Finish the production operations checklist: Sentry or equivalent, uptime
    checks, backup/restore rehearsal, auth email templates/sender domain, and
    explicit budget alerts for GCP, Supabase, and provider spend.
 

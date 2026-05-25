@@ -96,8 +96,8 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-Current Cloud Run API revision: `stackcert-api-00016-j9x`, serving the image
-deployed from commit `6087da9` with the packaged 2,000-example CASS demo
+Current Cloud Run API revision: `stackcert-api-00017-vmj`, serving the image
+deployed from commit `932ac14` with the packaged 2,000-example CASS demo
 artifacts available inside the API image. Staging is capped at min instances
 `0`, max instances `3`, and concurrency `40`.
 
@@ -131,7 +131,8 @@ Current CI/CD:
 Recent hosted verification: Cloudflare `/api/health` returns Cloud Run JSON
 instead of the SPA shell; authenticated deployment and MCP smoke tests pass
 through the Cloudflare URL; browser QA passes sign-in, full demo overview,
-onboarding pilot creation, setup handoff, and 390px mobile onboarding layout.
+admin budget controls, onboarding pilot creation, setup handoff, and 390px
+mobile layouts.
 
 ## Product App Planning
 

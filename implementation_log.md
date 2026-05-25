@@ -2223,16 +2223,37 @@ Timestamp: 2026-05-25 16:59 UTC
   budget status/meter display, and project-table budget posture.
 - Fixed a React event-handler crash found during browser QA by capturing
   checkbox/textarea values before deferred state updates.
+- Deployed:
+  - Cloud Run API revision `stackcert-api-00017-vmj`;
+  - Cloud Run API image
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`;
+  - Cloudflare Worker version `71c6b278-2d5b-4d7a-be90-bf73a12e0130`;
+  - hosted app/API URL:
+    `https://stackcert-staging.savikk129.workers.dev/`.
 - Verification:
   - `supabase db lint` -> OK;
   - `supabase db push --linked --dry-run` -> exactly one pending migration;
-  - focused budget API/store tests -> OK;
+  - `supabase migration list --linked` -> local and remote match through
+    `20260525164132`;
+  - focused budget API/store tests after final backend polish -> OK;
   - `uv run python -m unittest discover tests_service -v` -> 110 tests
-    passed before the final frontend handler fix;
+    passed;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
+    tests passed;
   - `npm --prefix web run typecheck` -> OK;
   - `npm --prefix web test -- --run` -> 6 tests passed;
   - `npm --prefix web run build` -> OK;
-  - `npm run build` -> OK before the final handler fix;
+  - `npm run build` -> OK;
+  - `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --service stackcert-api` -> OK;
+  - authenticated `scripts/cloud_run_api_smoke.py` against Cloud Run -> OK;
+  - authenticated `scripts/deployment_smoke.py` against Cloudflare same-origin
+    API + Supabase Auth -> OK;
+  - authenticated `scripts/mcp_client_smoke.py` against Cloudflare `/api/mcp`
+    with the official Python MCP SDK -> OK;
+  - authenticated hosted `GET /api/workspaces/ws_demo/budget-policy` returns
+    the new budget-policy response shape;
   - Playwright local browser QA passed admin budget policy save, project
     override save, desktop layout, and 390px mobile layout with page width
     stable and no form/server errors.
+  - Playwright hosted browser QA passed sign-in, live admin budget controls,
+    and 390px mobile admin layout with no form/API errors.
