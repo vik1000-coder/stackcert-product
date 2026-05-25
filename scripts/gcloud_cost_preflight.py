@@ -160,7 +160,7 @@ def main() -> int:
     parser.add_argument("--region", default="us-central1")
     parser.add_argument("--service", default="stackcert-api")
     parser.add_argument("--gcloud", default="gcloud")
-    parser.add_argument("--max-instances", type=int, default=1)
+    parser.add_argument("--max-instances", type=int, default=3)
     parser.add_argument(
         "--allow-unverified-budget",
         action="store_true",

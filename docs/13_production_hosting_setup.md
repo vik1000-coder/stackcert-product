@@ -191,7 +191,7 @@ Staging defaults:
 ```text
 region: us-central1
 min instances: 0
-max instances: 1
+max instances: 3
 memory: 512Mi
 cpu: 1
 timeout: 60s
@@ -209,7 +209,8 @@ python scripts/gcloud_cost_preflight.py \
 ```
 
 If the script cannot verify a billing budget, create one in Google Cloud
-Billing first. Use a small monthly project budget, for example `$10` or `$25`,
+Billing first. Use a small monthly project budget, currently `$50` for
+StackCert staging,
 with alert thresholds at 50%, 90%, and 100%. Budget alerts are notification
 guardrails, not a hard spending cap, so keep Cloud Run max instances low too.
 
@@ -218,21 +219,21 @@ Use this helper to create the initial StackCert staging budget through `gcloud`:
 ```bash
 python scripts/gcloud_budget_setup.py \
   --project-id "$GCP_PROJECT_ID" \
-  --amount-usd 10 \
+  --amount-usd 50 \
   --gcloud "${GCLOUD_BIN:-gcloud}"
 ```
 
 This creates a monthly budget using `exclude-all-credits`, so alerts track gross
 usage before the free-trial credit is subtracted. That is the right behavior for
-staging because we want to notice when the project has consumed roughly `$10` of
+staging because we want to notice when the project has consumed roughly `$50` of
 Google Cloud resources, even when the trial credit is covering it.
 
-For the current account check on 2026-05-24:
+For the current account check on 2026-05-25:
 
 ```text
 creatorconsulting: billing disabled
 friendlychat-8ed89: billing disabled
-project-e7840c42-f298-4bd9-bff: billing enabled, StackCert staging $10 budget visible
+project-e7840c42-f298-4bd9-bff: billing enabled, StackCert staging $50 budget visible
 stackcert-api Cloud Run staging URL: https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
@@ -371,7 +372,7 @@ Deploy the API service:
   --timeout=60 \
   --cpu-throttling \
   --min-instances=0 \
-  --max-instances=1 \
+  --max-instances=3 \
   --set-env-vars="STACKCERT_ENV=production,STACKCERT_PERSISTENCE_BACKEND=supabase,STACKCERT_ENABLE_DEMO_WORKSPACE=true,STACKCERT_CORS_ORIGINS=https://staging.stackcert.com" \
   --set-secrets="SUPABASE_URL=stackcert-supabase-url:latest,SUPABASE_SECRET_KEY=stackcert-supabase-secret-key:latest"
 ```
@@ -742,9 +743,9 @@ python scripts/certificate_gate.py \
 
 Set these before launch:
 
-- GCP billing budget alerts at 50%, 80%, and 100%.
+- GCP billing budget alerts at 50%, 90%, and 100%.
 - Cloud Run API max instances, initially around `5`.
-- Cloud Run staging API max instances, initially `1`; raise only after the
+- Cloud Run staging API max instances, currently `3`; raise only after the
   budget and traffic profile are clear.
 - Cloud Run worker max instances, initially around `2`.
 - Worker concurrency caps.

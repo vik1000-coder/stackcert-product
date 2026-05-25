@@ -238,15 +238,16 @@ Latest hosted verification:
 - GCP billing check on 2026-05-24 found billing disabled for `creatorconsulting`
   and `friendlychat-8ed89`, and billing enabled for
   `project-e7840c42-f298-4bd9-bff`.
-- A `StackCert staging $10` monthly budget now exists for
+- A `StackCert staging $50` monthly budget now exists for
   `project-e7840c42-f298-4bd9-bff`, scoped to gross usage before free-trial
   credits. Alerts are configured at 50%, 90%, 100%, and forecasted 100%.
 - The Cloud Run cost preflight now passes for
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready Cloud Run API revision is `stackcert-api-00015-pw7`, deployed
-  from commit `6087da9` with the staging cost caps preserved.
+- Latest ready Cloud Run API revision is `stackcert-api-00016-j9x`, serving
+  the image deployed from commit `6087da9` with the staging cap raised to max
+  instances `3` and min instances kept at `0`.
 - Latest image:
   `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:6087da9-staging-202605251603-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from

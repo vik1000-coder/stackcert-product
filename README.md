@@ -95,10 +95,10 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
-Current Cloud Run API revision: `stackcert-api-00015-pw7`, deployed from
-commit `6087da9` with
-staging caps preserved and the packaged 2,000-example CASS demo artifacts
-available inside the API image.
+Current Cloud Run API revision: `stackcert-api-00016-j9x`, serving the image
+deployed from commit `6087da9` with the packaged 2,000-example CASS demo
+artifacts available inside the API image. Staging is capped at min instances
+`0`, max instances `3`, and concurrency `40`.
 
 Current Cloud Run worker job:
 
@@ -198,7 +198,7 @@ python scripts/gcloud_cost_preflight.py \
   --gcloud "${GCLOUD_BIN:-gcloud}"
 ```
 
-The current staging budget is `StackCert staging $10` on
+The current staging budget is `StackCert staging $50` on
 `project-e7840c42-f298-4bd9-bff`, scoped to gross Google Cloud usage before
 free-trial credits are applied.
 

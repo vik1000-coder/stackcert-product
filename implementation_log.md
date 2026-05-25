@@ -2151,3 +2151,41 @@ Started: 2026-05-23
   - hosted Playwright QA passes sign-in, same-origin API usage, full
     2,000-example demo overview, onboarding pilot creation, setup handoff, and
     390px mobile onboarding without console or server errors.
+
+## Cloud Run Staging Capacity And Budget Increase
+
+- Updated the existing Google Cloud Billing budget:
+  - budget:
+    `billingAccounts/0131D0-CA89B4-158E59/budgets/f863e81b-cd71-4e24-8968-77b2e4dc150d`;
+  - display name: `StackCert staging $50`;
+  - amount: `$50.00/month`;
+  - scope: `projects/301810500938`;
+  - alerts continue to use the existing budget threshold rules.
+- Raised Cloud Run staging API capacity while keeping scale bounded:
+  - service: `stackcert-api`;
+  - region: `us-central1`;
+  - latest ready revision: `stackcert-api-00016-j9x`;
+  - min instances: `0`;
+  - max instances: `3`;
+  - concurrency: `40`.
+- Updated repo guardrails:
+  - `scripts/gcloud_budget_setup.py` now defaults to `StackCert staging $50`
+    and updates an existing StackCert staging budget instead of creating a
+    duplicate;
+  - budget matching now handles both project id and project number scopes;
+  - `scripts/gcloud_cost_preflight.py` now defaults to a staging max-instance
+    cap of `3`.
+- Verification:
+  - focused budget/preflight unit tests -> OK;
+  - `uv run python -m py_compile scripts/gcloud_budget_setup.py scripts/gcloud_cost_preflight.py` -> OK;
+  - `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --service stackcert-api` -> OK;
+  - `curl https://stackcert-staging.savikk129.workers.dev/api/health` -> Cloud
+    Run JSON response OK;
+  - authenticated `scripts/deployment_smoke.py` against Cloudflare same-origin
+    API + Supabase Auth -> OK;
+  - authenticated `scripts/mcp_client_smoke.py` against Cloudflare `/api/mcp`
+    with the official Python MCP SDK -> OK;
+  - `uv run python -m unittest discover -s tests_service -p 'test_*.py' -v`
+    -> 108 tests passed;
+  - `uv run python -m unittest discover -s tests -p 'test_*.py' -v` -> 17
+    tests passed.

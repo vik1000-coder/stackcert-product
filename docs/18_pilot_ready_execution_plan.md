@@ -740,12 +740,12 @@ uv run python scripts/gcloud_cost_preflight.py --project-id "$GCP_PROJECT_ID" --
 For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 - min instances: `0`
-- max instances: `1`
+- max instances: `3`
 - CPU: `1`
 - memory: `512Mi`
 - timeout: `60s`
 - concurrency: `40`
-- budget: `StackCert staging $10`
+- budget: `StackCert staging $50`
 
 ## Current Next Move
 
@@ -753,5 +753,5 @@ The next implementation move is the production-operations and persisted-policy
 slice: workspace/project budget settings UI and storage, trace-import commit
 flows after preview review, signed generic deployment webhooks, monitoring,
 backup/restore rehearsal, and auth sender-domain setup. Keep the existing GCP
-guardrails in place: Cloud Run API max instances `1`, worker job task count
-`1`, worker parallelism `1`, and the `StackCert staging $10` budget.
+guardrails in place: Cloud Run API max instances `3`, worker job task count
+`1`, worker parallelism `1`, and the `StackCert staging $50` budget.
