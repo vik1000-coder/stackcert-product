@@ -106,14 +106,14 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/services/provider_secrets.py stackcert_service/services/release_gates.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py scripts/hash_release_gate_token.py scripts/certificate_gate.py scripts/worker_once.py
+uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/pilot_runs.py stackcert_service/main.py
   -> OK
 
 uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 89 tests passed
+  -> 90 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -149,10 +149,9 @@ supabase db advisors --linked --type all --level warn --fail-on error
   -> OK exit; existing warning that Supabase Auth leaked-password protection is disabled
 
 Playwright responsive smoke against local API/web
-  -> release evidence page rendered at 1238px and 390px widths after issuing a packet
-
-supabase status / local db reset
-  -> blocked in this resumed session because Docker daemon was not reachable at /Users/vik/.docker/run/docker.sock
+  -> setup page rendered at desktop and 390px mobile widths; imported-suite
+     output preview returned 100% coverage and enabled uploaded-output run
+     creation
 
 supabase db push --linked --dry-run before applying the migration
   -> would apply 20260525001842_worker_idempotency_and_usage_keys.sql
@@ -170,6 +169,9 @@ supabase db advisors --linked --type all --level warn --fail-on error
 Recent deployment verification from the hosted staging stack:
 
 ```text
+uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1
+  -> OK
+
 docker buildx build --platform linux/amd64 -f Dockerfile.api ...
 gcloud run deploy stackcert-api ...
 uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
@@ -184,8 +186,8 @@ uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bw
 uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
   -> OK
 
-uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1
-  -> OK
+Hosted authenticated uploaded-output preview smoke
+  -> created a temporary Supabase project/suite and returned coverage=1.0
 ```
 
 Latest hosted verification:
@@ -204,7 +206,7 @@ Latest hosted verification:
   hosted MCP endpoint and calls `get_release_evidence_status` with an
   authenticated Supabase session.
 - Latest GitHub Actions runs are green for `ci`, fallback `deploy pages`, and
-  `deploy cloudflare` on commit `b022c1c`.
+  `deploy cloudflare` on commit `043e012`.
 - GitHub repository secrets/variables now include `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, Cloud Run `VITE_API_BASE_URL`, Supabase URL, the
   browser-safe Supabase key, and the smoke-test user credentials.
@@ -221,10 +223,10 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00011-pt2`, deployed from commit
-  `f80909d`.
+- Latest ready revision is `stackcert-api-00012-ncp`, deployed from commit
+  `043e012`.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:f80909d-staging-202605250340-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:043e012-staging-202605250409-amd64`.
 - Cloud Run staging explicitly sets `STACKCERT_ENABLE_DEMO_WORKSPACE=true` so
   the public demo user can see the seeded walkthrough while real production
   deployments can leave that flag unset.
@@ -237,10 +239,17 @@ Latest hosted verification:
   Supabase Auth. The smoke scripts now also call
   `/api/projects/proj_acme_copilot/release-gates/evaluate` and assert the
   response carries scoped non-guarantee assumptions.
+- The hosted Milestone 5 uploaded-output preview endpoint was smoke-tested with
+  a temporary authenticated Supabase project and committed custom suite; the
+  preview returned `coverage=1.0` before run creation.
 - Milestone 3/4 push verification for commit `e2ff7a2` is green:
   - `ci` run `26382004865` -> success;
   - fallback `deploy pages` run `26382004853` -> success;
   - `deploy cloudflare` run `26382070724` -> success.
+- Milestone 5 push verification for commit `043e012` is green:
+  - `ci` run `26382569136` -> success;
+  - fallback `deploy pages` run `26382569147` -> success;
+  - `deploy cloudflare` run `26382632288` -> success.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
   GitHub Actions `deploy-cloudflare.yml` is now the preferred auditable
   Cloudflare CD path. Cloudflare Workers Builds is still configured externally,

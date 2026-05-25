@@ -84,6 +84,9 @@ Current hosted API base:
 https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```
 
+Current Cloud Run API revision: `stackcert-api-00012-ncp`, deployed from
+`043e012` with the staging caps preserved.
+
 The Supabase Edge Function remains a lightweight demo/API-preview layer for
 comparison, but the Cloudflare-hosted app is now pointed at Cloud Run.
 

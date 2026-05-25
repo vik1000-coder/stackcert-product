@@ -1796,3 +1796,63 @@ Started: 2026-05-23
   - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
   - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
   - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+
+## Milestone 5 Hosted Rollout And Final Verification
+
+- Confirmed Milestone 3/4 remained complete and pushed:
+  - `e2ff7a2` implemented managed secrets, worker lease renewal, release-gate
+    machine-token auth, and project-scoped MCP tokens;
+  - `68b754f` documented Milestone 3/4 verification.
+- Committed and pushed the Milestone 5 pilot UX/ops slice:
+  - `043e012` `Implement pilot UX readiness`.
+- Local verification before commit:
+  - `uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/pilot_runs.py stackcert_service/main.py` -> OK;
+  - focused uploaded-output preview and pilot-flow API tests -> OK;
+  - `uv run python -m unittest discover -s tests_service` -> 90 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `git diff --check` -> OK.
+- Browser QA:
+  - local setup page rendered without console errors at desktop width and 390px
+    mobile width;
+  - uploaded-output preview stays disabled for the seeded research suite;
+  - after creating a versioned custom suite, preview returned 100% coverage and
+    enabled uploaded-output run creation;
+  - worker queue health UI rendered with retry/dead-letter context.
+- GitHub Actions after the Milestone 5 push:
+  - `ci` run `26382569136` -> success;
+  - fallback `deploy pages` run `26382569147` -> success;
+  - `deploy cloudflare` run `26382632288` -> success.
+- Cloud Run cost preflight before API rollout:
+  - billing enabled on `project-e7840c42-f298-4bd9-bff`;
+  - visible `StackCert staging $10` budget;
+  - existing `stackcert-api` service retained staging-safe scale annotations.
+- Built and pushed the Cloud Run API image:
+  - `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:043e012-staging-202605250409-amd64`.
+- Deployed Cloud Run service `stackcert-api` with staging caps preserved:
+  - revision: `stackcert-api-00012-ncp`;
+  - API URL: `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`;
+  - alternate service URL from deploy output:
+    `https://stackcert-api-301810500938.us-central1.run.app`;
+  - max instances `1`, min instances `0`, CPU `1`, memory `512Mi`,
+    concurrency `40`, timeout `60s`.
+- Hosted verification after the API rollout:
+  - `curl -fsS https://stackcert-api-301810500938.us-central1.run.app/api/health` -> `{"status":"ok","environment":"production"}`;
+  - unauthenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
+  - hosted uploaded-output preview smoke created a temporary authenticated
+    Supabase project and custom suite, then called
+    `/api/projects/{project_id}/runs/uploaded-outputs/preview` on Cloud Run and
+    received `coverage=1.0`.
+- Final verification after docs/log updates:
+  - `uv run python -m unittest discover -s tests_service` -> 90 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - `git diff --check` -> OK.

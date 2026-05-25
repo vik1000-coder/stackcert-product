@@ -511,15 +511,16 @@ gh run list --limit 10
 Goal: make the product understandable and reliable enough for first design
 partners.
 
-Status: the first Milestone 5 product slice is implemented and locally
-verified. Setup now has JSONL/CSV uploaded-output templates, a coverage preview
-API before run creation, malformed-output errors, and gating that prevents the
-seeded research suite from being mistaken for a user-imported pilot suite.
-Evidence now shows an immutable issued-packet badge, full packet hash, artifact
-export history, and retest-trigger explanations. The setup page also exposes
-queued/running/failed/dead-letter job counts, lease/retry timing, redacted
-provider error details, and authorized retry controls. Production operations
-items remain external setup tasks rather than code-only work.
+Status: the first Milestone 5 product slice is implemented, locally verified,
+pushed, and deployed to the Cloud Run staging API. Setup now has JSONL/CSV
+uploaded-output templates, a coverage preview API before run creation,
+malformed-output errors, and gating that prevents the seeded research suite
+from being mistaken for a user-imported pilot suite. Evidence now shows an
+immutable issued-packet badge, full packet hash, artifact export history, and
+retest-trigger explanations. The setup page also exposes queued, running,
+failed, and dead-letter job counts, lease/retry timing, redacted provider
+errors, and authorized retry controls. Production operations items remain
+external setup tasks rather than code-only work.
 
 ### User Stories
 
@@ -585,6 +586,8 @@ npm --prefix web test -- --run
 npm --prefix web run build
 uv run python -m unittest discover -s tests_service
 uv run python scripts/deployment_smoke.py --web-url "$STACKCERT_WEB_URL" --api-url "$STACKCERT_API_URL" --supabase-url "$SUPABASE_URL" --email "$SMOKE_EMAIL" --password "$SMOKE_PASSWORD"
+# Hosted uploaded-output preview smoke: create a temporary custom suite, then
+# POST /api/projects/{project_id}/runs/uploaded-outputs/preview and expect coverage=1.0.
 ```
 
 ## Immediate Execution Queue
