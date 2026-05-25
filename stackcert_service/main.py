@@ -23,6 +23,7 @@ from stackcert_service.schemas import (
     ProjectCreate,
     ReleaseGateEvaluateRequest,
     UploadedOutputRunCreate,
+    UploadedOutputPreviewRequest,
     WorkspaceCreate,
 )
 from stackcert_service.services import benchmark_imports
@@ -227,6 +228,12 @@ def create_uploaded_output_run(project_id: str, payload: UploadedOutputRunCreate
         metadata={"source": "uploaded_outputs"},
     )
     return {"run": run}
+
+
+@app.post("/api/projects/{project_id}/runs/uploaded-outputs/preview")
+def preview_uploaded_output_run(project_id: str, payload: UploadedOutputPreviewRequest, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal, required="project_maintainer")
+    return {"project_id": project_id, "output_preview": pilot_runs.preview_uploaded_output_run(project_id, payload)}
 
 
 @app.get("/api/runs/{run_id}")

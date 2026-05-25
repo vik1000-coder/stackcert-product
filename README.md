@@ -15,7 +15,8 @@ worker-backed deterministic, REST, and model-judge evaluation runs, service
 layer RBAC/audit controls, immutable evidence packet snapshots, private
 evidence artifacts, idempotent worker evidence persistence, connector price
 cards/token accounting, managed connector-secret references, lease renewal,
-MCP and release-gate machine-token auth, and a hosted Supabase free-tier demo.
+pilot setup coverage diagnostics, worker queue/dead-letter UI, MCP and
+release-gate machine-token auth, and a hosted Supabase free-tier demo.
 The core engine includes:
 
 - data schemas and JSONL/CSV import;
@@ -38,12 +39,17 @@ The product direction is now a production-oriented full-stack app:
   project benchmark suites, with budget checks, usage events, backend-only
   connector secrets, idempotent writes, connector price cards, provider token
   accounting, and persisted CASS evidence runs;
+- uploaded-output pilot setup with JSONL/CSV templates, pre-run coverage
+  diagnostics, malformed-output errors, and UI gating before evidence creation;
+- operator-facing job health with queued/running/failed/dead-letter counts,
+  worker lease/retry timing, redacted provider errors, and retry controls;
 - release-gate REST API for CI/deploy systems, returning `pass`, `warn`, or
   `block` with evidence packet ids, retest triggers, and scoped assumptions;
 - service-layer workspace/project/run/evidence authorization, audit events, and
   membership-filtered project data;
 - private issued-evidence JSON/Markdown artifacts with SHA-256 verification and
-  short-lived signed URL generation;
+  short-lived signed URL generation, export history, immutable packet badges,
+  and retest-trigger explanations;
 - Supabase Postgres/Auth/Storage;
 - Cloud Run API and worker services;
 - GitHub Actions CI/CD plus Cloudflare Workers static-assets hosting.

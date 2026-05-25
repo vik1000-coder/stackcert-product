@@ -358,32 +358,40 @@ into a five-milestone executable roadmap:
    examples remain.
 5. Pilot UX and operational readiness: import/setup polish, evidence readiness
    UI, dead-letter UI, production monitoring, backups, terms, and privacy.
+   Status: uploaded-output preview diagnostics, JSONL/CSV templates, setup
+   gating, worker queue/dead-letter UI, retry controls, redacted provider
+   errors, immutable packet badges, export history, and retest explanations are
+   implemented and locally verified. External operations setup still needs
+   production owners for monitoring, backups, sender domain, and budget alerts.
 
 The immediate execution queue is now:
 
 1. Deploy a separate Cloud Run worker/job using the existing API image and
    `scripts/worker_once.py --all-projects`, preserving the $10 staging budget
    preflight and max-instance caps.
-2. Add dead-letter and lease status UI in the setup/test-plan area.
-3. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
+2. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
    with release-gate machine tokens.
-4. Persist model/prompt/policy hashes into evidence packets so release gates can
+3. Persist model/prompt/policy hashes into evidence packets so release gates can
    compare those fields instead of returning them as assumptions.
-5. Add workspace-level budget caps and provider rate-limit/backoff settings.
+4. Add workspace-level budget caps and provider rate-limit/backoff settings.
+5. Finish the production operations checklist: Sentry or equivalent, uptime
+   checks, backup/restore rehearsal, auth email templates/sender domain, and
+   explicit budget alerts for GCP, Supabase, and provider spend.
 
 ## Current Priority
 
 The next engineering milestone should be:
 
 ```text
-Independent worker deployment + release-gate integration examples + operator UI
+Independent worker deployment + release-gate integration examples + production operations checklist
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
 from uploaded outputs to deterministic, REST, or model-judge managed runs with
 retry-safe evidence writes, managed secret refs, lease renewal, cost
-accounting, and release-gate checks. The highest-value remaining production
-work is to run the worker independently from the interactive API, expose
-operator-facing dead-letter/lease health, and wire release gates into deploy
-pipelines with clear examples.
+accounting, release-gate checks, and operator-facing queue/dead-letter health.
+The highest-value remaining production work is to run the worker independently
+from the interactive API, persist model/prompt/policy hashes in issued evidence,
+wire non-GitHub deploy systems, and complete operational monitoring/backup
+setup.

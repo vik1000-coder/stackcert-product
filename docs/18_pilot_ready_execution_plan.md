@@ -511,6 +511,16 @@ gh run list --limit 10
 Goal: make the product understandable and reliable enough for first design
 partners.
 
+Status: the first Milestone 5 product slice is implemented and locally
+verified. Setup now has JSONL/CSV uploaded-output templates, a coverage preview
+API before run creation, malformed-output errors, and gating that prevents the
+seeded research suite from being mistaken for a user-imported pilot suite.
+Evidence now shows an immutable issued-packet badge, full packet hash, artifact
+export history, and retest-trigger explanations. The setup page also exposes
+queued/running/failed/dead-letter job counts, lease/retry timing, redacted
+provider error details, and authorized retry controls. Production operations
+items remain external setup tasks rather than code-only work.
+
 ### User Stories
 
 - As a non-specialist product owner, I understand what CASS is, what StackCert
@@ -561,7 +571,8 @@ partners.
 ### Acceptance Criteria
 
 - A design partner can complete the uploaded-output pilot flow without command
-  line help.
+  line help after creating a versioned example suite from the setup import
+  panel.
 - Evidence readiness and blockers are visible before issue.
 - Production checklist has owners and evidence of completion.
 - Hosted staging remains green after the UX and ops additions.

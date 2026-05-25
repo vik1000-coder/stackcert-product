@@ -410,12 +410,23 @@ export type StackCertJob = {
   id: string;
   type: 'evaluation_run' | 'measurement_plan' | string;
   project_id: string;
-  run_id: string;
+  run_id: string | null;
   status: string;
   created_at: string;
   updated_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  attempts?: number;
+  max_attempts?: number;
+  lease_expires_at?: string | null;
+  locked_by?: string | null;
+  retry_after?: string | null;
+  error?: string | null;
+  error_class?: string | null;
+  dead_letter_reason?: string | null;
   progress: number;
   summary: Record<string, unknown>;
+  events?: Array<{ at: string; type: string; message: string; metadata?: Record<string, unknown> }>;
   artifact_preview?: Array<{
     example_id: string;
     guard_id: string;
@@ -449,6 +460,55 @@ export type UploadedOutputRunInput = {
   rho_prior?: number;
   max_k?: number;
   name?: string;
+};
+
+export type UploadedOutputPreviewInput = {
+  benchmark_suite_id?: string;
+  format: 'auto' | 'jsonl' | 'csv';
+  content: string;
+};
+
+export type UploadedOutputPreview = {
+  format: 'jsonl' | 'csv';
+  status: 'valid' | 'warning' | 'invalid';
+  rows_seen: number;
+  valid_outputs: number;
+  known_outputs: number;
+  summary: {
+    guards: number;
+    suite_examples: number;
+    covered_examples: number;
+    missing_examples: number;
+    unknown_examples: number;
+    expected_outputs: number;
+    coverage: number;
+    warnings: number;
+    errors: number;
+  };
+  guards: Array<{
+    guard_id: string;
+    guard_label: string;
+    outputs: number;
+    covered_examples: number;
+    missing_examples: number;
+    coverage: number;
+  }>;
+  cells: Array<{
+    cell_id: string;
+    side: string;
+    policy_category: string | null;
+    examples: number;
+    covered_examples: number;
+    coverage: number;
+  }>;
+  issues: Array<{ severity: 'error' | 'warning'; code: string; message: string; details?: Record<string, unknown> }>;
+  preview: Array<{
+    example_id: string;
+    guard_id: string;
+    binary_pass: boolean;
+    block_probability: number;
+    known_example: boolean;
+  }>;
 };
 
 export type BenchmarkImportPreview = {
@@ -534,6 +594,8 @@ export const api = {
   createProject: ({ workspace_id, ...payload }: ProjectInput) =>
     post<{ project: Project }>(`/api/workspaces/${workspace_id}/projects`, payload),
   projectRuns: (projectId: string, lambda: number) => request<{ runs: RunSummary[] }>(`/api/projects/${projectId}/runs?lambda_cost=${lambda}`),
+  previewUploadedOutputRun: (projectId: string, payload: UploadedOutputPreviewInput) =>
+    post<{ project_id: string; output_preview: UploadedOutputPreview }>(`/api/projects/${projectId}/runs/uploaded-outputs/preview`, payload),
   createUploadedOutputRun: (projectId: string, payload: UploadedOutputRunInput) =>
     post<{ run: RunSummary }>(`/api/projects/${projectId}/runs/uploaded-outputs`, payload),
   overview: (runId: string, lambda: number) => request<OverviewPayload>(`/api/runs/${runId}/overview?lambda_cost=${lambda}`),
@@ -577,6 +639,7 @@ export const api = {
     post<{ connector: GuardCatalogItem }>(`/api/projects/${projectId}/guard-connectors`, payload),
   stacks: (projectId: string) => request<{ run: RunSummary | null; stacks: CandidateStack[] }>(`/api/projects/${projectId}/stacks?lambda_cost=5`),
   jobs: (projectId: string) => request<{ jobs: StackCertJob[] }>(`/api/projects/${projectId}/jobs`),
+  retryJob: (jobId: string) => post<{ job: StackCertJob }>(`/api/jobs/${jobId}/retry`, {}),
   createEvaluationJob: (projectId: string, payload: EvaluationJobInput) =>
     post<{ job: StackCertJob }>(`/api/projects/${projectId}/evaluation-jobs`, payload),
   runNextWorkerJob: (projectId: string) => post<{ job: StackCertJob }>(`/api/projects/${projectId}/workers/run-next`, {}),

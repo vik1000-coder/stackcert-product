@@ -1506,6 +1506,60 @@ Started: 2026-05-23
   - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
   - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
   - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.
+
+## Milestone 5 Pilot UX And Operational Readiness
+
+- Added uploaded-output preview diagnostics before run creation:
+  - new route `POST /api/projects/{project_id}/runs/uploaded-outputs/preview`;
+  - validates JSONL/CSV output rows without creating a run;
+  - reports detected format, row count, safety-check count, suite-example
+    coverage, missing/unknown example ids, per-check coverage, and per-cell
+    coverage;
+  - malformed output files now return UI-friendly preview errors instead of
+    forcing users into a failed run attempt.
+- Polished setup/import UX:
+  - JSONL and CSV output templates;
+  - output coverage preview panel;
+  - uploaded-output run creation is gated until a user-imported versioned suite
+    exists and the latest preview is not invalid;
+  - the seeded demo/research suite is no longer treated as an uploaded-output
+    target, which avoids misleading `Benchmark suite not found` errors.
+- Added operator-facing worker health on the setup page:
+  - queued/running/failed/dead-letter counts;
+  - latest job output/error/progress stats;
+  - worker lease and retry timing;
+  - redacted provider error display;
+  - retry button for failed jobs.
+- Polished release-evidence review UI:
+  - immutable packet badge after issue;
+  - full packet hash display;
+  - private artifact export history;
+  - retest-trigger explanations for model, prompt/policy, example mix, safety
+    option, and generic scope changes.
+- Updated docs:
+  - `README.md`;
+  - `docs/15_current_state_and_next_steps.md`;
+  - `docs/18_pilot_ready_execution_plan.md`.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/schemas.py stackcert_service/services/pilot_runs.py stackcert_service/main.py` -> OK;
+  - focused uploaded-output preview/API tests -> passed;
+  - `uv run python -m unittest discover -s tests_service` -> 90 tests passed;
+  - `uv run python -m unittest discover -s tests` -> 17 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run` -> 6 tests passed;
+  - `npm --prefix web run build` -> OK;
+  - `npm run build` -> OK;
+  - Browser QA against `http://127.0.0.1:5174/app/ws_demo/proj_acme_copilot/setup`
+    with API on `127.0.0.1:8000`:
+    - desktop setup page rendered without API errors;
+    - seeded demo suite correctly disabled uploaded-output preview until a
+      versioned custom suite was created;
+    - creating the sample versioned suite enabled coverage preview;
+    - preview returned 100% coverage for the sample output template and enabled
+      uploaded-output run creation;
+    - worker queue UI rendered;
+    - 390px mobile viewport rendered without framework overlays or console
+      errors.
 - GitHub Actions after push:
   - `ci` run `26382004865` -> success;
   - fallback `deploy pages` run `26382004853` -> success;

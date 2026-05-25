@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type CustomBehaviorInput, type GuardConnectorInput } from '../lib/api';
+import { api, type CustomBehaviorInput, type GuardConnectorInput, type UploadedOutputPreview } from '../lib/api';
 import { useStackCertApp } from '../lib/appContext';
 import { fmtUsd } from '../lib/format';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
@@ -66,6 +66,14 @@ const sampleOutputContent = [
   { example_id: 'benign_support_0001', guard_id: 'pii_check', binary_pass: true, block_probability: 0.05 }
 ].map((row) => JSON.stringify(row)).join('\n');
 
+const sampleOutputCsv = [
+  'example_id,guard_id,binary_pass,block_probability',
+  'adversarial_tool_misuse_0001,refund_policy_guard,false,0.94',
+  'adversarial_tool_misuse_0001,pii_check,true,0.22',
+  'benign_support_0001,refund_policy_guard,true,0.08',
+  'benign_support_0001,pii_check,true,0.05'
+].join('\n');
+
 export function SetupPage() {
   const { projectId, activeRunId } = useStackCertApp();
   const navigate = useNavigate();
@@ -73,6 +81,7 @@ export function SetupPage() {
   const [behavior, setBehavior] = useState<CustomBehaviorInput>(initialBehavior);
   const [importContent, setImportContent] = useState(sampleImport);
   const [outputContent, setOutputContent] = useState(sampleOutputContent);
+  const [outputFormat, setOutputFormat] = useState<'auto' | 'jsonl' | 'csv'>('jsonl');
   const [suiteName, setSuiteName] = useState('Pilot app example suite');
   const [suiteVersion, setSuiteVersion] = useState('v1');
   const [connector, setConnector] = useState<GuardConnectorInput>(initialConnector);
@@ -109,8 +118,22 @@ export function SetupPage() {
       if (response.job.status.startsWith('complete') && response.job.summary.source === 'worker_evaluation' && response.job.run_id) navigate(`../overview?run=${response.job.run_id}`);
     }
   });
+  const retryJob = useMutation({
+    mutationFn: (jobId: string) => api.retryJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    }
+  });
   const previewImport = useMutation({
     mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) => api.previewProjectBenchmarkImport(projectId, payload)
+  });
+  const previewOutputs = useMutation({
+    mutationFn: (payload: { format: 'auto' | 'jsonl' | 'csv'; content: string }) =>
+      api.previewUploadedOutputRun(projectId, {
+        benchmark_suite_id: uploadedOutputSuite?.id,
+        format: payload.format,
+        content: payload.content
+      })
   });
   const createSuite = useMutation({
     mutationFn: (payload: Parameters<typeof api.createBenchmarkSuite>[1]) => api.createBenchmarkSuite(projectId, payload),
@@ -127,8 +150,8 @@ export function SetupPage() {
   const createUploadedRun = useMutation({
     mutationFn: () =>
       api.createUploadedOutputRun(projectId, {
-        benchmark_suite_id: savedSuites[0]?.id,
-        format: 'jsonl',
+        benchmark_suite_id: uploadedOutputSuite?.id,
+        format: outputFormat,
         content: outputContent,
         lambda_cost: 5,
         rho_prior: 0.6,
@@ -160,10 +183,20 @@ export function SetupPage() {
   const suite = savedSuites[0];
   const examples = suite?.cells.reduce((sum, cell) => sum + cell.examples, 0) ?? 0;
   const stackPreview = stacks.data!.stacks.slice(0, 5);
-  const latestJob = jobs.data!.jobs[0];
+  const allJobs = jobs.data!.jobs;
+  const latestJob = allJobs[0];
+  const jobStats = {
+    queued: allJobs.filter((job) => job.status === 'queued').length,
+    running: allJobs.filter((job) => job.status === 'running').length,
+    failed: allJobs.filter((job) => job.status === 'failed').length,
+    deadLetters: allJobs.filter((job) => Boolean(job.dead_letter_reason)).length
+  };
+  const uploadedOutputSuite = savedSuites.find((item) => item.source === 'custom_import');
   const executableGuards = guards.data!.guards.filter((guard) => guard.status !== 'draft');
   const dryRunGuardIds = executableGuards.slice(0, 4).map((guard) => guard.guard_key ?? guard.id);
   const canRunWorkerEvaluation = dryRunGuardIds.length >= 2 && Boolean(suite);
+  const outputPreview = previewOutputs.data?.output_preview;
+  const canCreateUploadedRun = Boolean(uploadedOutputSuite) && outputContent.trim().length >= 20 && Boolean(outputPreview && outputPreview.status !== 'invalid');
 
   return (
     <div className="page">
@@ -381,7 +414,13 @@ export function SetupPage() {
           ) : null}
         </Card>
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Latest job</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Worker queue</h2>
+          <div className="grid grid-4" style={{ gap: 8, marginBottom: 12 }}>
+            <MiniStat label="Queued" value={String(jobStats.queued)} />
+            <MiniStat label="Running" value={String(jobStats.running)} />
+            <MiniStat label="Failed" value={String(jobStats.failed)} />
+            <MiniStat label="Dead letters" value={String(jobStats.deadLetters)} />
+          </div>
           {latestJob ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
@@ -394,10 +433,49 @@ export function SetupPage() {
                 <MiniStat label="Errors" value={String(latestJob.summary.errors ?? '0')} />
                 <MiniStat label="Progress" value={`${Math.round(latestJob.progress * 100)}%`} />
               </div>
+              {latestJob.locked_by || latestJob.lease_expires_at || latestJob.retry_after ? (
+                <div className="notice">
+                  {latestJob.locked_by ? <div>Worker lease: <span className="mono">{latestJob.locked_by}</span></div> : null}
+                  {latestJob.lease_expires_at ? <div>Lease expires: <span className="mono">{formatTime(latestJob.lease_expires_at)}</span></div> : null}
+                  {latestJob.retry_after ? <div>Retry after: <span className="mono">{formatTime(latestJob.retry_after)}</span></div> : null}
+                </div>
+              ) : null}
+              {latestJob.error_class ? (
+                <div className="notice bad">
+                  <strong>{latestJob.error_class.replaceAll('_', ' ')}</strong>
+                  <div style={{ marginTop: 5 }}>{redactProviderError(latestJob.error)}</div>
+                </div>
+              ) : null}
+              <div style={{ display: 'grid', gap: 8 }}>
+                {allJobs.slice(0, 5).map((job) => (
+                  <div key={job.id} className="job-row">
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Badge tone={job.status}>{job.status}</Badge>
+                        <span className="mono" style={{ overflowWrap: 'anywhere' }}>{job.id}</span>
+                      </div>
+                      <div className="muted" style={{ marginTop: 5, fontSize: 12 }}>
+                        {job.dead_letter_reason ? `Dead-letter reason: ${job.dead_letter_reason}` : job.retry_after ? `Retry after ${formatTime(job.retry_after)}` : `${Math.round(job.progress * 100)}% complete`}
+                      </div>
+                    </div>
+                    {job.status === 'failed' ? (
+                      <button className="btn" disabled={retryJob.isPending} onClick={() => retryJob.mutate(job.id)}>
+                        Retry
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <p className="muted" style={{ margin: 0 }}>No jobs yet. Run a dry-run or queue tests to populate this ledger.</p>
           )}
+          {retryJob.isSuccess ? <div className="notice" style={{ marginTop: 12 }}>Job requeued for the worker.</div> : null}
+          {retryJob.isError ? (
+            <div className="notice bad" style={{ marginTop: 12 }}>
+              {retryJob.error instanceof Error ? retryJob.error.message : 'Could not retry the job.'}
+            </div>
+          ) : null}
         </Card>
       </div>
       <div className="grid grid-2" style={{ marginTop: 16 }}>
@@ -515,16 +593,60 @@ export function SetupPage() {
           and pass/block decision. Once uploaded, the recommendation, overlap analysis, cost plan, and release evidence
           pages use that run instead of the seeded demo.
         </p>
+        <div className="setup-button-row" style={{ marginBottom: 12 }}>
+          <button
+            className={`btn ${outputFormat === 'jsonl' ? 'primary' : ''}`}
+            type="button"
+            onClick={() => {
+              setOutputFormat('jsonl');
+              setOutputContent(sampleOutputContent);
+              previewOutputs.reset();
+            }}
+          >
+            JSONL template
+          </button>
+          <button
+            className={`btn ${outputFormat === 'csv' ? 'primary' : ''}`}
+            type="button"
+            onClick={() => {
+              setOutputFormat('csv');
+              setOutputContent(sampleOutputCsv);
+              previewOutputs.reset();
+            }}
+          >
+            CSV template
+          </button>
+          <button
+            className={`btn ${outputFormat === 'auto' ? 'primary' : ''}`}
+            type="button"
+            onClick={() => {
+              setOutputFormat('auto');
+              previewOutputs.reset();
+            }}
+          >
+            Auto-detect
+          </button>
+        </div>
         <textarea
           className="btn mono setup-input"
           style={{ minHeight: 168, alignItems: 'flex-start', justifyContent: 'flex-start', resize: 'vertical', fontSize: 12, lineHeight: 1.45 }}
           value={outputContent}
-          onChange={(event) => setOutputContent(event.currentTarget.value)}
+          onChange={(event) => {
+            setOutputContent(event.currentTarget.value);
+            previewOutputs.reset();
+          }}
         />
         <div className="setup-button-row" style={{ marginTop: 12 }}>
           <button
+            className="btn"
+            disabled={!uploadedOutputSuite || outputContent.trim().length < 10 || previewOutputs.isPending}
+            onClick={() => previewOutputs.mutate({ format: outputFormat, content: outputContent })}
+          >
+            {previewOutputs.isPending ? 'Checking coverage...' : 'Preview output coverage'}
+          </button>
+          <button
             className="btn primary"
-            disabled={!savedSuites.length || outputContent.trim().length < 20 || createUploadedRun.isPending}
+            disabled={!canCreateUploadedRun || createUploadedRun.isPending}
             onClick={() => createUploadedRun.mutate()}
           >
             {createUploadedRun.isPending ? 'Creating evidence run...' : 'Create uploaded-output run'}
@@ -535,7 +657,16 @@ export function SetupPage() {
             </button>
           ) : null}
         </div>
-        {!savedSuites.length ? <p className="form-error">Create an example suite before uploading outputs.</p> : null}
+        {!uploadedOutputSuite ? <p className="form-error">Create a versioned example suite from the import panel before uploading outputs.</p> : null}
+        {uploadedOutputSuite && !outputPreview ? <p className="muted" style={{ fontSize: 12 }}>Preview coverage before creating the run.</p> : null}
+        {previewOutputs.isError ? (
+          <div className="notice bad" style={{ marginTop: 12 }}>
+            {previewOutputs.error instanceof Error ? previewOutputs.error.message : 'Could not preview output coverage.'}
+          </div>
+        ) : null}
+        {outputPreview ? (
+          <OutputCoveragePanel preview={outputPreview} />
+        ) : null}
         {createUploadedRun.isError ? (
           <div className="notice bad" style={{ marginTop: 12 }}>
             {createUploadedRun.error instanceof Error ? createUploadedRun.error.message : 'Could not create uploaded-output run.'}
@@ -609,6 +740,79 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <div className="mono" style={{ marginTop: 4, fontSize: 15 }}>{value}</div>
     </div>
   );
+}
+
+function OutputCoveragePanel({ preview }: { preview: UploadedOutputPreview }) {
+  return (
+    <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+      <div className="notice">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <strong>Coverage diagnostics</strong>
+          <Badge tone={preview.status}>{preview.status}</Badge>
+        </div>
+        <div className="grid grid-4" style={{ gap: 8, marginTop: 12 }}>
+          <MiniStat label="Rows" value={String(preview.rows_seen)} />
+          <MiniStat label="Checks" value={String(preview.summary.guards)} />
+          <MiniStat label="Examples covered" value={`${preview.summary.covered_examples}/${preview.summary.suite_examples}`} />
+          <MiniStat label="Coverage" value={formatPercent(preview.summary.coverage)} />
+        </div>
+      </div>
+      {preview.issues.length ? (
+        <div className={`notice ${preview.status === 'invalid' ? 'bad' : ''}`}>
+          <strong>{preview.status === 'invalid' ? 'Fix before upload' : 'Review before release evidence'}</strong>
+          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+            {preview.issues.slice(0, 5).map((issue) => (
+              <li key={`${issue.code}-${issue.message}`}>{issue.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {preview.guards.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Safety check</th>
+                <th className="right">Outputs</th>
+                <th className="right">Covered</th>
+                <th className="right">Missing</th>
+                <th className="right">Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.guards.map((guard) => (
+                <tr key={guard.guard_id}>
+                  <td>{guard.guard_label}</td>
+                  <td className="right mono">{guard.outputs}</td>
+                  <td className="right mono">{guard.covered_examples}</td>
+                  <td className="right mono">{guard.missing_examples}</td>
+                  <td className="right mono">{formatPercent(guard.coverage)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatTime(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return value;
+  return parsed.toLocaleString();
+}
+
+function redactProviderError(value?: string | null) {
+  if (!value) return 'No provider error details were returned.';
+  return value
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/sk-[A-Za-z0-9_-]+/gi, 'sk-[redacted]')
+    .slice(0, 420);
 }
 
 function Field({

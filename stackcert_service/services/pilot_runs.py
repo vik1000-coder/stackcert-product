@@ -20,7 +20,7 @@ from stackcert.data.schemas import Architecture, BenchmarkCell, BenchmarkExample
 from stackcert.reporting.json_export import certificate_to_dict
 from stackcert.reporting.markdown import render_certificate_markdown
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
-from stackcert_service.schemas import MeasurementPlanCreate, UploadedOutputRunCreate
+from stackcert_service.schemas import MeasurementPlanCreate, UploadedOutputPreviewRequest, UploadedOutputRunCreate
 from stackcert_service.services import benchmark_imports
 from stackcert_service.services import guard_connectors
 from stackcert_service.services import projects
@@ -30,6 +30,133 @@ from stackcert_service.services.display import compact_status, guard_label, stac
 
 USD_PER_AGENT_CELL = 18.0
 _runs: dict[str, dict[str, Any]] = {}
+
+
+def preview_uploaded_output_run(project_id: str, payload: UploadedOutputPreviewRequest) -> dict[str, Any]:
+    project = projects.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    suite_bundle = benchmark_imports.get_committed_suite_bundle(project_id, payload.benchmark_suite_id)
+    examples = _examples_from_suite(suite_bundle)
+    example_ids = {example.example_id for example in examples}
+    detected_format = _detect_output_format(payload.content, payload.format)
+    issues: list[dict[str, Any]] = []
+    try:
+        outputs = _parse_outputs(payload.content, payload.format, run_id="preview")
+    except HTTPException as exc:
+        return _invalid_output_preview(detected_format, exc.detail, suite_examples=len(example_ids))
+
+    output_example_ids = {output.example_id for output in outputs}
+    guard_ids = sorted({output.guard_id for output in outputs})
+    known_output_count = sum(1 for output in outputs if output.example_id in example_ids)
+    covered_example_ids = example_ids.intersection(output_example_ids)
+    unknown_examples = sorted(output_example_ids.difference(example_ids))
+    missing_examples = sorted(example_ids.difference(output_example_ids))
+
+    if len(guard_ids) < 2:
+        issues.append(
+            {
+                "severity": "error",
+                "code": "too_few_safety_checks",
+                "message": "Upload outputs for at least two safety checks before StackCert can compare combinations.",
+            }
+        )
+    if unknown_examples:
+        issues.append(
+            {
+                "severity": "warning",
+                "code": "unknown_examples",
+                "message": f"{len(unknown_examples)} output example ID(s) are not in the selected suite.",
+                "details": {"example_ids": unknown_examples[:10]},
+            }
+        )
+    if missing_examples:
+        issues.append(
+            {
+                "severity": "warning",
+                "code": "missing_examples",
+                "message": f"{len(missing_examples)} suite example(s) have no safety-check output yet.",
+                "details": {"example_ids": missing_examples[:10]},
+            }
+        )
+
+    by_guard = []
+    for guard_id in guard_ids:
+        covered_by_guard = {output.example_id for output in outputs if output.guard_id == guard_id and output.example_id in example_ids}
+        missing_for_guard = sorted(example_ids.difference(covered_by_guard))
+        if missing_for_guard:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": "guard_missing_examples",
+                    "message": f"{guard_label(guard_id)} is missing outputs for {len(missing_for_guard)} suite example(s).",
+                    "details": {"guard_id": guard_id, "example_ids": missing_for_guard[:10]},
+                }
+            )
+        by_guard.append(
+            {
+                "guard_id": guard_id,
+                "guard_label": guard_label(guard_id),
+                "outputs": sum(1 for output in outputs if output.guard_id == guard_id),
+                "covered_examples": len(covered_by_guard),
+                "missing_examples": len(missing_for_guard),
+                "coverage": _ratio(len(covered_by_guard), len(example_ids)),
+            }
+        )
+
+    examples_by_cell: dict[str, set[str]] = {}
+    for example in examples:
+        examples_by_cell.setdefault(example.cell_id, set()).add(example.example_id)
+    by_cell = []
+    for cell in _cells_from_suite(suite_bundle):
+        cell_examples = examples_by_cell.get(cell.cell_id, set())
+        covered_in_cell = cell_examples.intersection(covered_example_ids)
+        by_cell.append(
+            {
+                "cell_id": cell.cell_id,
+                "side": cell.side,
+                "policy_category": cell.policy_category,
+                "examples": len(cell_examples),
+                "covered_examples": len(covered_in_cell),
+                "coverage": _ratio(len(covered_in_cell), len(cell_examples)),
+            }
+        )
+
+    errors = [issue for issue in issues if issue["severity"] == "error"]
+    warnings = [issue for issue in issues if issue["severity"] == "warning"]
+    status_value = "invalid" if errors else "warning" if warnings else "valid"
+    return {
+        "format": detected_format,
+        "status": status_value,
+        "rows_seen": len(outputs),
+        "valid_outputs": len(outputs),
+        "known_outputs": known_output_count,
+        "summary": {
+            "guards": len(guard_ids),
+            "suite_examples": len(example_ids),
+            "covered_examples": len(covered_example_ids),
+            "missing_examples": len(missing_examples),
+            "unknown_examples": len(unknown_examples),
+            "expected_outputs": len(example_ids) * len(guard_ids),
+            "coverage": _ratio(len(covered_example_ids), len(example_ids)),
+            "warnings": len(warnings),
+            "errors": len(errors),
+        },
+        "guards": by_guard,
+        "cells": by_cell,
+        "issues": issues,
+        "preview": [
+            {
+                "example_id": output.example_id,
+                "guard_id": output.guard_id,
+                "binary_pass": output.binary_pass,
+                "block_probability": output.block_probability,
+                "known_example": output.example_id in example_ids,
+            }
+            for output in outputs[:12]
+        ],
+    }
 
 
 def create_uploaded_output_run(project_id: str, payload: UploadedOutputRunCreate) -> dict[str, Any]:
@@ -817,11 +944,41 @@ def _parse_outputs(content: str, requested_format: str, *, run_id: str) -> list[
     return outputs
 
 
+def _detect_output_format(content: str, requested_format: str) -> str:
+    if requested_format != "auto":
+        return requested_format
+    return "jsonl" if content.strip().startswith("{") else "csv"
+
+
+def _invalid_output_preview(detected_format: str, detail: Any, *, suite_examples: int = 0) -> dict[str, Any]:
+    message = detail.get("message") if isinstance(detail, dict) else str(detail)
+    return {
+        "format": detected_format,
+        "status": "invalid",
+        "rows_seen": 0,
+        "valid_outputs": 0,
+        "known_outputs": 0,
+        "summary": {
+            "guards": 0,
+            "suite_examples": suite_examples,
+            "covered_examples": 0,
+            "missing_examples": 0,
+            "unknown_examples": 0,
+            "expected_outputs": 0,
+            "coverage": 0.0,
+            "warnings": 0,
+            "errors": 1,
+        },
+        "guards": [],
+        "cells": [],
+        "issues": [{"severity": "error", "code": "parse_error", "message": message}],
+        "preview": [],
+    }
+
+
 def _parse_rows(content: str, requested_format: str) -> list[dict[str, Any]]:
-    resolved = requested_format
+    resolved = _detect_output_format(content, requested_format)
     stripped = content.strip()
-    if requested_format == "auto":
-        resolved = "jsonl" if stripped.startswith("{") else "csv"
     if resolved == "jsonl":
         rows: list[dict[str, Any]] = []
         for line_number, line in enumerate(stripped.splitlines(), start=1):
@@ -895,6 +1052,12 @@ def _probability(value: Any, *, index: int, field: str) -> float:
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Output row {index} has invalid {field}") from exc
     return max(0.0, min(1.0, parsed))
+
+
+def _ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(numerator / denominator, 4)
 
 
 def _first_order_welfare(engine: CassEngine, architecture: Architecture) -> dict[str, float]:

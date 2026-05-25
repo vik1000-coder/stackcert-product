@@ -1263,6 +1263,15 @@ tr:last-child td {
   padding-top: 10px;
 }
 
+.job-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--sc-line);
+  padding-top: 10px;
+}
+
 .project-row {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) 120px 130px minmax(0, 1fr);
@@ -1351,6 +1360,7 @@ tr:last-child td {
   .setup-grid-three,
   .setup-grid-secret,
   .setup-suite-row,
+  .job-row,
   .project-row {
     grid-template-columns: 1fr;
   }

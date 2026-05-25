@@ -164,7 +164,15 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </div>
       </Card>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Lock evidence for review</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Lock evidence for review</h2>
+            <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+              Issuing creates an immutable packet snapshot and private artifacts for reviewers.
+            </p>
+          </div>
+          {issued ? <Badge tone="ok" dot>immutable packet issued</Badge> : <Badge tone="neutral">not issued</Badge>}
+        </div>
         <div className="grid grid-2">
           <div style={{ display: 'grid', gap: 12 }}>
             <label style={{ display: 'flex', gap: 10, alignItems: 'start', color: 'var(--sc-ink-3)', lineHeight: 1.45 }}>
@@ -195,7 +203,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
               <>
                 <Fact label="Issued" value={issued.issued_at} />
                 <Fact label="Expires" value={issued.expires_at} />
-                <Fact label="Artifact hash" value={issued.artifact_hash.slice(0, 24)} />
+                <Fact label="Packet hash" value={issued.artifact_hash} />
                 <Fact label="Artifacts" value={String(artifacts.length)} />
                 <Fact label="Signoffs" value={String(issued.signoffs.length)} />
               </>
@@ -250,6 +258,19 @@ export function CertificatePage({ lambda }: { lambda: number }) {
               </div>
             ))}
             {!artifacts.length ? <p className="muted" style={{ margin: 0 }}>No private artifacts are attached yet.</p> : null}
+            {artifacts.length ? (
+              <div className="notice">
+                <strong>Export history</strong>
+                <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                  {artifacts.map((artifact) => (
+                    <div key={`history-${artifact.artifact_type}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                      <span>{displayArtifactType(artifact.artifact_type)}</span>
+                      <span className="mono">{artifact.sha256.slice(0, 16)}...</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {artifactVerification ? (
               <div className="notice">
                 {artifactVerification.verified ? 'Hash verified' : 'Hash mismatch'} for {displayArtifactType(artifactVerification.artifact_type)}.
@@ -312,11 +333,16 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </Card>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Retest triggers</h2>
-          <ul style={{ marginBottom: 0, paddingLeft: 18, color: 'var(--sc-ink-3)', lineHeight: 1.55 }}>
+          <ul style={{ marginBottom: 14, paddingLeft: 18, color: 'var(--sc-ink-3)', lineHeight: 1.55 }}>
             {cert.recertification_triggers.map((item) => (
               <li key={item}>{displayScopeText(item)}</li>
             ))}
           </ul>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {cert.recertification_triggers.slice(0, 4).map((item) => (
+              <RetestTrigger key={`trigger-${item}`} trigger={item} />
+            ))}
+          </div>
         </Card>
       </div>
       <Card>
@@ -372,6 +398,56 @@ function ReadinessList({
       </ul>
     </div>
   );
+}
+
+function RetestTrigger({ trigger }: { trigger: string }) {
+  const explanation = explainRetestTrigger(trigger);
+  return (
+    <div style={{ borderTop: '1px solid var(--sc-line)', paddingTop: 8 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Badge tone={explanation.tone}>{explanation.label}</Badge>
+        <span className="mono muted" style={{ fontSize: 11 }}>{trigger}</span>
+      </div>
+      <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>{explanation.copy}</p>
+    </div>
+  );
+}
+
+function explainRetestTrigger(trigger: string) {
+  const normalized = trigger.toLowerCase();
+  if (normalized.includes('model')) {
+    return {
+      label: 'Model change',
+      tone: 'warn',
+      copy: 'A different model can shift refusal, helpfulness, and tool-use behavior even when prompts and safety checks stay fixed.'
+    };
+  }
+  if (normalized.includes('prompt') || normalized.includes('policy')) {
+    return {
+      label: 'Prompt or policy change',
+      tone: 'warn',
+      copy: 'The evidence applies to the tested instructions and policy expectations; changed instructions need fresh output coverage.'
+    };
+  }
+  if (normalized.includes('traffic') || normalized.includes('benchmark') || normalized.includes('example')) {
+    return {
+      label: 'Example mix change',
+      tone: 'warn',
+      copy: 'StackCert ranks combinations for the weighted example mix. New user behavior or risk categories can change the winner.'
+    };
+  }
+  if (normalized.includes('guard') || normalized.includes('safety')) {
+    return {
+      label: 'Safety option change',
+      tone: 'warn',
+      copy: 'A new endpoint, threshold, classifier, or judge prompt changes both cost and joint behavior with the other checks.'
+    };
+  }
+  return {
+    label: 'Scope change',
+    tone: 'neutral',
+    copy: 'Treat this as a boundary change and retest before using the packet as release evidence.'
+  };
 }
 
 function displayReadinessStatus(status?: string) {
