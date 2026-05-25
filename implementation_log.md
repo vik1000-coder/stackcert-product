@@ -1668,3 +1668,73 @@ Started: 2026-05-23
   - `uv run python -m unittest discover -s tests_service` -> 82 tests passed;
   - `npm --prefix web run typecheck` -> OK;
   - `git diff --check` -> OK.
+
+## Milestone 3/4 Managed Secrets, Worker Lease Renewal, And Release Gate
+
+- Added redacted provider-secret management on guard connectors:
+  - `GET /api/projects/{project_id}/guard-connectors/{guard_id}/secret`;
+  - `POST /api/projects/{project_id}/guard-connectors/{guard_id}/secret`;
+  - `POST /api/projects/{project_id}/guard-connectors/{guard_id}/secret/rotate`;
+  - `POST /api/projects/{project_id}/guard-connectors/{guard_id}/secret/disable`.
+- Secret handling now stores only refs and metadata in connector config:
+  - local memory refs for test/dev providers;
+  - `env://...` runtime refs;
+  - `gcp-secret://projects/{project}/secrets/{secret}/versions/{version}`
+    Secret Manager refs for Cloud Run workers.
+- Added audit events for secret register/rotate/disable/use and tests proving
+  raw provider secrets do not appear in API/store responses.
+- Added worker lease renewal:
+  - service method `jobs.renew_job_lease`;
+  - route `POST /api/jobs/{job_id}/lease/renew`;
+  - worker event `lease_renewed`.
+- Updated `scripts/worker_once.py`:
+  - can run multiple jobs;
+  - can claim across all persisted projects with `--all-projects`;
+  - exits cleanly when no runnable jobs are available.
+- Added release-gate API:
+  - `POST /api/projects/{project_id}/release-gates/evaluate`;
+  - returns `pass`, `warn`, or `block`, evidence packet ids, blockers,
+    warnings, retest triggers, and machine-readable assumptions;
+  - checks explicit run ids, environment, changed-since-evidence triggers,
+    guard connector versions, benchmark suite ids, and scoped evidence status.
+- Added release-gate-only machine token auth:
+  - `STACKCERT_RELEASE_GATE_TOKEN_HASHES`;
+  - `STACKCERT_RELEASE_GATE_TOKEN_SCOPES`;
+  - `STACKCERT_RELEASE_GATE_TOKEN_PROJECTS`;
+  - helper `scripts/hash_release_gate_token.py`.
+- Project scoping now applies to MCP machine tokens through
+  `STACKCERT_MCP_MACHINE_TOKEN_PROJECTS`.
+- Updated `scripts/certificate_gate.py` with `--release-gate` mode and
+  release-context inputs for CI/deploy systems.
+- Updated `.github/workflows/certificate-gate.yml` so reusable workflow callers
+  can opt into the release-gate API and pass deployment context.
+- Updated hosted smoke scripts so authenticated smoke coverage calls the new
+  release-gate route in addition to Auth, readiness, and MCP.
+- Updated docs:
+  - `README.md`;
+  - `docs/11_local_dev_and_release_runbook.md`;
+  - `docs/13_production_hosting_setup.md`;
+  - `docs/15_current_state_and_next_steps.md`;
+  - `docs/18_pilot_ready_execution_plan.md`;
+  - `docs/19_route_access_matrix.md`.
+- Verification:
+  - `uv run python -m py_compile stackcert_service/services/provider_secrets.py stackcert_service/services/guard_connectors.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/security/access.py stackcert_service/services/mcp.py stackcert_service/services/jobs.py stackcert_service/services/release_gates.py stackcert_service/main.py scripts/certificate_gate.py scripts/hash_release_gate_token.py scripts/worker_once.py` -> OK;
+  - focused Milestone 3/4 tests -> 14 tests passed;
+  - release-gate threshold regression tests -> passed;
+  - `uv run python -m unittest discover -s tests_service` -> 89 tests passed.
+- Deployed the corrected API revision to Cloud Run with staging cost caps
+  preserved:
+  - service: `stackcert-api`;
+  - region: `us-central1`;
+  - project: `project-e7840c42-f298-4bd9-bff`;
+  - revision: `stackcert-api-00011-pt2`;
+  - image:
+    `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:f80909d-staging-202605250340-amd64`;
+  - max instances `1`, min instances `0`, CPU `1`, memory `512Mi`,
+    concurrency `40`, timeout `60s`.
+- Hosted verification:
+  - unauthenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `cloud run api smoke OK`;
+  - authenticated `uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `mcp client smoke OK`;
+  - authenticated `uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo` -> `deployment smoke OK`;
+  - post-deploy `uv run python scripts/gcloud_cost_preflight.py --project-id project-e7840c42-f298-4bd9-bff --region us-central1 --gcloud /Users/vik/Developer/google-cloud-sdk/bin/gcloud` -> OK.

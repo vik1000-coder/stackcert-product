@@ -157,12 +157,26 @@ Optional but recommended MCP machine-token environment:
 ```text
 STACKCERT_MCP_MACHINE_TOKEN_HASHES
 STACKCERT_MCP_MACHINE_TOKEN_SCOPES
+STACKCERT_MCP_MACHINE_TOKEN_PROJECTS
 ```
 
 Generate token hashes with `scripts/hash_mcp_machine_token.py`. Store only the
 hash in Cloud Run environment variables; keep the raw token in the calling
 agent/CI secret store. These tokens authenticate only the MCP endpoints, not
 general app APIs.
+
+Optional but recommended release-gate machine-token environment:
+
+```text
+STACKCERT_RELEASE_GATE_TOKEN_HASHES
+STACKCERT_RELEASE_GATE_TOKEN_SCOPES
+STACKCERT_RELEASE_GATE_TOKEN_PROJECTS
+```
+
+Generate release-gate token hashes with
+`scripts/hash_release_gate_token.py`. These tokens authenticate only
+`POST /api/projects/{project_id}/release-gates/evaluate`; keep them read-only
+and project-scoped for deployment systems.
 
 Use `us-central1` initially for cost/free-tier friendliness unless there is a
 strong reason to optimize for another region.

@@ -399,6 +399,75 @@ class DemoApiTest(unittest.TestCase):
         connectors = list_response.json()["connectors"]
         self.assertTrue(any(item["guard_key"] == "refund_policy_guard" for item in connectors))
 
+    def test_guard_connector_secret_register_rotate_and_disable_are_redacted(self) -> None:
+        create_response = self.client.post(
+            "/api/projects/proj_acme_copilot/guard-connectors",
+            json={
+                "guard_key": "rotation_policy_guard",
+                "display_name": "Rotation Policy Guard",
+                "guard_type": "rest_guard",
+                "vendor": "internal",
+                "version": "v1",
+                "adapter_type": "rest_guard",
+                "endpoint_url": "https://guards.example.test/rotation",
+                "threshold": 0.8,
+            },
+        )
+        self.assertEqual(create_response.status_code, 200)
+
+        register_response = self.client.post(
+            "/api/projects/proj_acme_copilot/guard-connectors/rotation_policy_guard/secret",
+            json={"auth_secret": "first-secret-token", "backend": "local_memory"},
+        )
+        self.assertEqual(register_response.status_code, 200)
+        registered = register_response.json()
+        self.assertTrue(registered["secret"]["has_secret"])
+        self.assertEqual(registered["secret"]["secret_status"], "available_local_memory")
+        self.assertFalse(registered["secret"]["auth_secret_visible"])
+        self.assertNotIn("first-secret-token", json.dumps(registered))
+
+        rotate_response = self.client.post(
+            "/api/projects/proj_acme_copilot/guard-connectors/rotation_policy_guard/secret/rotate",
+            json={"auth_secret": "second-secret-token", "backend": "local_memory"},
+        )
+        self.assertEqual(rotate_response.status_code, 200)
+        rotated = rotate_response.json()
+        self.assertEqual(rotated["secret"]["rotation_count"], 1)
+        self.assertNotIn("second-secret-token", json.dumps(rotated))
+
+        get_response = self.client.get("/api/projects/proj_acme_copilot/guard-connectors/rotation_policy_guard/secret")
+        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(get_response.json()["secret"]["rotation_count"], 1)
+
+        disable_response = self.client.post("/api/projects/proj_acme_copilot/guard-connectors/rotation_policy_guard/secret/disable")
+        self.assertEqual(disable_response.status_code, 200)
+        self.assertFalse(disable_response.json()["secret"]["has_secret"])
+        self.assertEqual(disable_response.json()["secret"]["secret_status"], "disabled")
+
+    def test_release_gate_api_passes_scoped_demo_evidence_and_blocks_changes(self) -> None:
+        response = self.client.post(
+            "/api/projects/proj_acme_copilot/release-gates/evaluate",
+            json={"environment": "production", "required_status": "needs_measurement", "mode": "fail"},
+        )
+        self.assertEqual(response.status_code, 200)
+        gate = response.json()["release_gate"]
+        self.assertEqual(gate["decision"], "pass")
+        self.assertTrue(gate["assumptions"]["not_a_guarantee"])
+        self.assertIn("run_id", gate)
+
+        changed = self.client.post(
+            "/api/projects/proj_acme_copilot/release-gates/evaluate",
+            json={
+                "environment": "production",
+                "required_status": "needs_measurement",
+                "changed_since_evidence": ["model_change"],
+            },
+        )
+        self.assertEqual(changed.status_code, 200)
+        changed_gate = changed.json()["release_gate"]
+        self.assertEqual(changed_gate["decision"], "block")
+        self.assertIn("retest_required:model_change", changed_gate["blocking_reasons"])
+
     def test_agent_friendly_certificate_and_integration_endpoints(self) -> None:
         status_response = self.client.get("/api/projects/proj_acme_copilot/certificate-status?lambda_cost=5")
         integrations_response = self.client.get("/api/integrations/agent-platforms")
@@ -1172,6 +1241,10 @@ class DemoApiTest(unittest.TestCase):
 
         blocked = self.client.post(f"/api/jobs/{job_id}/run?worker_id=provider-worker-b")
         self.assertEqual(blocked.status_code, 409)
+
+        renewed = self.client.post(f"/api/jobs/{job_id}/lease/renew?worker_id=provider-worker-a&lease_seconds=120")
+        self.assertEqual(renewed.status_code, 200)
+        self.assertTrue(any(event["type"] == "lease_renewed" for event in renewed.json()["job"]["events"]))
 
         leased_job["lease_expires_at"] = "2000-01-01T00:00:00+00:00"
         reclaimed = self.client.post("/api/projects/proj_acme_copilot/workers/run-next?worker_id=provider-worker-b")

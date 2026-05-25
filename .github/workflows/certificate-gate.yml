@@ -27,6 +27,33 @@ on:
         options:
           - fail
           - warn
+      use_release_gate:
+        description: Use the scoped release-gate API instead of legacy certificate status
+        required: true
+        default: true
+        type: boolean
+      environment:
+        description: Deployment environment to compare against the evidence project
+        required: false
+        default: production
+      model_id:
+        description: Optional model id for release-gate assumptions
+        required: false
+      model_version:
+        description: Optional model version for release-gate assumptions
+        required: false
+      benchmark_suite_id:
+        description: Optional benchmark suite id expected by this deployment
+        required: false
+      run_id:
+        description: Optional explicit evidence run id
+        required: false
+      deployment_ref:
+        description: Optional deployment ref, image tag, or release id
+        required: false
+      commit_sha:
+        description: Optional commit SHA
+        required: false
   workflow_call:
     inputs:
       base_url:
@@ -43,6 +70,38 @@ on:
         required: false
         type: string
         default: fail
+      use_release_gate:
+        required: false
+        type: boolean
+        default: true
+      environment:
+        required: false
+        type: string
+        default: production
+      model_id:
+        required: false
+        type: string
+        default: ""
+      model_version:
+        required: false
+        type: string
+        default: ""
+      benchmark_suite_id:
+        required: false
+        type: string
+        default: ""
+      run_id:
+        required: false
+        type: string
+        default: ""
+      deployment_ref:
+        required: false
+        type: string
+        default: ""
+      commit_sha:
+        required: false
+        type: string
+        default: ""
     secrets:
       stackcert_api_token:
         required: false
@@ -52,17 +111,28 @@ jobs:
     name: StackCert certificate gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Check certificate status
+      - name: Check StackCert release gate
         env:
           STACKCERT_API_TOKEN: ${{ secrets.stackcert_api_token }}
         run: |
-          python scripts/certificate_gate.py \
-            --base-url "${{ inputs.base_url }}" \
-            --project-id "${{ inputs.project_id }}" \
-            --require "${{ inputs.required_status }}" \
-            --mode "${{ inputs.mode }}" \
+          args=(
+            --base-url "${{ inputs.base_url }}"
+            --project-id "${{ inputs.project_id }}"
+            --require "${{ inputs.required_status }}"
+            --mode "${{ inputs.mode }}"
             --token "$STACKCERT_API_TOKEN"
+          )
+          if [[ "${{ inputs.use_release_gate }}" == "true" ]]; then
+            args+=(--release-gate --environment "${{ inputs.environment }}")
+          fi
+          if [[ -n "${{ inputs.model_id }}" ]]; then args+=(--model-id "${{ inputs.model_id }}"); fi
+          if [[ -n "${{ inputs.model_version }}" ]]; then args+=(--model-version "${{ inputs.model_version }}"); fi
+          if [[ -n "${{ inputs.benchmark_suite_id }}" ]]; then args+=(--benchmark-suite-id "${{ inputs.benchmark_suite_id }}"); fi
+          if [[ -n "${{ inputs.run_id }}" ]]; then args+=(--run-id "${{ inputs.run_id }}"); fi
+          if [[ -n "${{ inputs.deployment_ref }}" ]]; then args+=(--deployment-ref "${{ inputs.deployment_ref }}"); fi
+          if [[ -n "${{ inputs.commit_sha }}" ]]; then args+=(--commit-sha "${{ inputs.commit_sha }}"); fi
+          python scripts/certificate_gate.py "${args[@]}"

@@ -732,7 +732,7 @@ def _require_mcp_project_access(
     if principal is None:
         return
     if principal.principal_type == "machine":
-        if project_id == settings.demo_project_id:
+        if access.machine_project_allowed(principal, project_id):
             return
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -761,7 +761,14 @@ def _visible_projects(principal: Principal | None) -> list[dict[str, Any]]:
         return projects.list_projects()
     if principal.principal_type == "machine":
         _require_mcp_read(principal)
-        return [demo_project.project()] if settings.environment != "production" or settings.enable_demo_workspace else []
+        if "*" in set(principal.allowed_project_ids or ()):
+            return projects.list_projects()
+        visible = []
+        for project_id in principal.allowed_project_ids or (settings.demo_project_id,):
+            project = projects.get_project(project_id)
+            if project:
+                visible.append(project)
+        return visible
     return projects.list_projects(principal)
 
 

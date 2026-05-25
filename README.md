@@ -14,8 +14,9 @@ LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
 worker-backed deterministic, REST, and model-judge evaluation runs, service
 layer RBAC/audit controls, immutable evidence packet snapshots, private
 evidence artifacts, idempotent worker evidence persistence, connector price
-cards/token accounting, MCP machine-token auth, and a hosted Supabase free-tier
-demo. The core engine includes:
+cards/token accounting, managed connector-secret references, lease renewal,
+MCP and release-gate machine-token auth, and a hosted Supabase free-tier demo.
+The core engine includes:
 
 - data schemas and JSONL/CSV import;
 - safety-check adapters and offline evaluation runner;
@@ -37,6 +38,8 @@ The product direction is now a production-oriented full-stack app:
   project benchmark suites, with budget checks, usage events, backend-only
   connector secrets, idempotent writes, connector price cards, provider token
   accounting, and persisted CASS evidence runs;
+- release-gate REST API for CI/deploy systems, returning `pass`, `warn`, or
+  `block` with evidence packet ids, retest triggers, and scoped assumptions;
 - service-layer workspace/project/run/evidence authorization, audit events, and
   membership-filtered project data;
 - private issued-evidence JSON/Markdown artifacts with SHA-256 verification and
@@ -86,8 +89,8 @@ Current CI/CD:
   tests.
 - `deploy cloudflare` runs after `ci` succeeds on `main`, deploys the
   Cloudflare Workers static app, and smokes Cloudflare + Cloud Run + Supabase
-  Auth plus authenticated hosted MCP release-evidence status through the
-  official MCP Python client.
+  Auth plus authenticated hosted MCP release-evidence status and REST
+  release-gate checks.
 
 ## Product App Planning
 

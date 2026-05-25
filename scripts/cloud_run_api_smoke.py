@@ -149,6 +149,22 @@ def main() -> int:
         require(isinstance(deploy_gate, dict), f"MCP release evidence lacked deploy_gate: {tool_payload}")
         require(deploy_gate.get("decision") in {"pass", "review"}, f"MCP deploy gate decision was unexpected: {deploy_gate}")
 
+        gate_status, gate_payload = post_json(
+            f"{api_base}/api/projects/proj_acme_copilot/release-gates/evaluate",
+            {
+                "environment": "production",
+                "required_status": "needs_measurement",
+                "mode": "fail",
+                "lambda_cost": 5,
+            },
+            auth_headers,
+        )
+        require(gate_status == 200, f"release gate returned {gate_status}: {gate_payload}")
+        release_gate = gate_payload.get("release_gate") if isinstance(gate_payload, dict) else None
+        require(isinstance(release_gate, dict), f"release gate payload was unexpected: {gate_payload}")
+        require(release_gate.get("decision") in {"pass", "warn"}, f"release gate decision was unexpected: {release_gate}")
+        require((release_gate.get("assumptions") or {}).get("not_a_guarantee") is True, "release gate did not include limitations flag")
+
     print("cloud run api smoke OK")
     return 0
 

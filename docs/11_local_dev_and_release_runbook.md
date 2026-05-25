@@ -164,6 +164,29 @@ measurement-plan work. Read-only machine tokens can inspect release evidence,
 theory cards, measurements, and costs but receive a JSON-RPC 403 if they call a
 write tool.
 
+Release-gate automation uses a separate token namespace from MCP. This lets CI
+check deploy readiness without inheriting MCP write privileges.
+
+```bash
+python scripts/hash_release_gate_token.py --token-id deploy --project-id proj_acme_copilot
+export STACKCERT_RELEASE_GATE_TOKEN_HASHES="deploy:<sha256-token-hash>"
+export STACKCERT_RELEASE_GATE_TOKEN_SCOPES="deploy=release_gate:read"
+export STACKCERT_RELEASE_GATE_TOKEN_PROJECTS="deploy=proj_acme_copilot"
+
+python scripts/certificate_gate.py \
+  --base-url http://127.0.0.1:8000 \
+  --project-id proj_acme_copilot \
+  --release-gate \
+  --environment production \
+  --require valid \
+  --mode fail \
+  --token "<raw-release-gate-token>"
+```
+
+The release gate returns `pass`, `warn`, or `block`. It always includes
+blocking reasons, retest triggers, and `not_a_guarantee` assumptions because
+StackCert reduces scoped deployment risk rather than guaranteeing safety.
+
 The managed-run foundation exposes local job endpoints:
 
 ```bash

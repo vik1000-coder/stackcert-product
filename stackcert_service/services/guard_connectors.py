@@ -41,6 +41,43 @@ def create_connector(project_id: str, payload: GuardConnectorCreate) -> dict[str
     return connector
 
 
+def upsert_connector_secret(
+    project_id: str,
+    guard_id: str,
+    *,
+    raw_secret: str | None = None,
+    secret_env_var: str | None = None,
+    secret_ref: str | None = None,
+    backend: str = "auto",
+    actor_id: str | None = None,
+    action: str = "upsert",
+) -> dict[str, Any]:
+    connector = _find_connector(project_id, guard_id)
+    update = provider_secrets.prepare_secret_update(
+        project_id=project_id,
+        guard_id=str(connector.get("guard_key") or guard_id),
+        current_config=connector.get("config") or {},
+        raw_secret=raw_secret,
+        secret_env_var=secret_env_var,
+        secret_ref=secret_ref,
+        backend=backend,
+        actor_id=actor_id,
+        action=action,
+    )
+    return _apply_connector_config_patch(project_id, connector, update.config_patch)
+
+
+def disable_connector_secret(project_id: str, guard_id: str, *, actor_id: str | None = None) -> dict[str, Any]:
+    connector = _find_connector(project_id, guard_id)
+    update = provider_secrets.prepare_secret_disable(connector.get("config") or {}, actor_id=actor_id)
+    return _apply_connector_config_patch(project_id, connector, update.config_patch)
+
+
+def connector_secret_state(project_id: str, guard_id: str) -> dict[str, Any]:
+    connector = _find_connector(project_id, guard_id)
+    return provider_secrets.redacted_secret_response(connector.get("config") or {})
+
+
 def clear_connectors() -> None:
     _connectors.clear()
     provider_secrets.clear_memory_secrets()
@@ -63,6 +100,15 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "secret_status": secret_config.secret_status,
         "price_card": price_card,
     }
+    if secret_config.has_secret:
+        config["secret_metadata"] = {
+            "provider": "local_memory" if str(secret_config.secret_ref or "").startswith("memory-vault://") else "env",
+            "secret_ref": secret_config.secret_ref,
+            "secret_env_var": secret_config.secret_env_var,
+            "status": secret_config.secret_status,
+            "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+            "rotation_count": 0,
+        }
     if payload.adapter_type == "model_judge" or payload.guard_type == "model_judge":
         config.update(
             {
@@ -126,6 +172,48 @@ def _demo_connectors(lambda_cost: float) -> list[dict[str, Any]]:
         }
         for guard in engine.guards
     ]
+
+
+def _find_connector(project_id: str, guard_id: str) -> dict[str, Any]:
+    for connector in list_connectors(project_id):
+        if guard_id in {str(connector.get("id")), str(connector.get("guard_key"))}:
+            return connector
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guard connector not found")
+
+
+def _apply_connector_config_patch(project_id: str, connector: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    config = {**(connector.get("config") or {}), **patch}
+    config.pop("auth_secret", None)
+    connector = {
+        **connector,
+        "config": config,
+        "redaction": {
+            **(connector.get("redaction") or {}),
+            "auth_secret_stored": bool(config.get("has_secret")),
+            "auth_secret_visible": False,
+            "secret_status": config.get("secret_status"),
+            "secret": provider_secrets.redacted_secret_response(config),
+        },
+    }
+    store = _persistent_store()
+    if store:
+        try:
+            return store.update_guard_connector_config(
+                project_id,
+                str(connector.get("guard_key") or connector.get("id")),
+                config,
+            )
+        except SupabasePersistenceError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    connectors = _connectors.setdefault(project_id, [])
+    for index, existing in enumerate(connectors):
+        if str(existing.get("id")) == str(connector.get("id")) or str(existing.get("guard_key")) == str(connector.get("guard_key")):
+            connectors[index] = connector
+            break
+    else:
+        connectors.insert(0, connector)
+    return connector
 
 
 def _persistent_store():

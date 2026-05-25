@@ -21,6 +21,7 @@ class Principal:
     workspace_ids: tuple[str, ...] = (settings.demo_workspace_id,)
     principal_type: str = "user"
     scopes: tuple[str, ...] = ("app:read", "app:write", "mcp:read", "mcp:write")
+    allowed_project_ids: tuple[str, ...] = ()
 
 
 def _decode_supabase_jwt(token: str) -> Principal:
@@ -81,22 +82,49 @@ def _authenticate_bearer_token(token: str) -> Principal:
 
 
 def _authenticate_mcp_machine_token(token: str) -> Principal | None:
+    return _authenticate_machine_token(
+        token,
+        hashes_env="STACKCERT_MCP_MACHINE_TOKEN_HASHES",
+        scopes_env="STACKCERT_MCP_MACHINE_TOKEN_SCOPES",
+        projects_env="STACKCERT_MCP_MACHINE_TOKEN_PROJECTS",
+        default_scopes=("mcp:read",),
+    )
+
+
+def _authenticate_release_gate_machine_token(token: str) -> Principal | None:
+    return _authenticate_machine_token(
+        token,
+        hashes_env="STACKCERT_RELEASE_GATE_TOKEN_HASHES",
+        scopes_env="STACKCERT_RELEASE_GATE_TOKEN_SCOPES",
+        projects_env="STACKCERT_RELEASE_GATE_TOKEN_PROJECTS",
+        default_scopes=("release_gate:read",),
+    )
+
+
+def _authenticate_machine_token(
+    token: str,
+    *,
+    hashes_env: str,
+    scopes_env: str,
+    projects_env: str,
+    default_scopes: tuple[str, ...],
+) -> Principal | None:
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    for token_id, expected_hash in _machine_token_hashes().items():
+    for token_id, expected_hash in _machine_token_hashes(hashes_env).items():
         if hmac.compare_digest(token_hash, expected_hash):
-            scopes = _machine_token_scopes().get(token_id, ("mcp:read",))
             return Principal(
                 user_id=f"machine:{token_id}",
                 email=None,
                 role="machine",
                 principal_type="machine",
-                scopes=scopes,
+                scopes=_machine_token_scopes(scopes_env).get(token_id, default_scopes),
+                allowed_project_ids=_machine_token_projects(projects_env).get(token_id, (settings.demo_project_id,)),
             )
     return None
 
 
-def _machine_token_hashes() -> dict[str, str]:
-    raw = os.getenv("STACKCERT_MCP_MACHINE_TOKEN_HASHES", "")
+def _machine_token_hashes(env_name: str) -> dict[str, str]:
+    raw = os.getenv(env_name, "")
     parsed: dict[str, str] = {}
     for entry in raw.split(","):
         if ":" not in entry:
@@ -109,14 +137,27 @@ def _machine_token_hashes() -> dict[str, str]:
     return parsed
 
 
-def _machine_token_scopes() -> dict[str, tuple[str, ...]]:
-    raw = os.getenv("STACKCERT_MCP_MACHINE_TOKEN_SCOPES", "")
+def _machine_token_scopes(env_name: str) -> dict[str, tuple[str, ...]]:
+    raw = os.getenv(env_name, "")
     parsed: dict[str, tuple[str, ...]] = {}
     for entry in raw.split(","):
         if "=" not in entry:
             continue
         token_id, scopes = entry.split("=", 1)
         values = tuple(scope.strip() for scope in scopes.split("|") if scope.strip())
+        if token_id.strip() and values:
+            parsed[token_id.strip()] = values
+    return parsed
+
+
+def _machine_token_projects(env_name: str) -> dict[str, tuple[str, ...]]:
+    raw = os.getenv(env_name, "")
+    parsed: dict[str, tuple[str, ...]] = {}
+    for entry in raw.split(","):
+        if "=" not in entry:
+            continue
+        token_id, project_ids = entry.split("=", 1)
+        values = tuple(project_id.strip() for project_id in project_ids.split("|") if project_id.strip())
         if token_id.strip() and values:
             parsed[token_id.strip()] = values
     return parsed
@@ -147,5 +188,15 @@ def current_mcp_principal(authorization: Annotated[str | None, Header()] = None)
     return current_principal(authorization)
 
 
+def current_release_gate_principal(authorization: Annotated[str | None, Header()] = None) -> Principal:
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        machine = _authenticate_release_gate_machine_token(token)
+        if machine:
+            return machine
+    return current_principal(authorization)
+
+
 PrincipalDep = Annotated[Principal, Depends(current_principal)]
 McpPrincipalDep = Annotated[Principal, Depends(current_mcp_principal)]
+ReleaseGatePrincipalDep = Annotated[Principal, Depends(current_release_gate_principal)]

@@ -19,6 +19,10 @@ class AuthTest(unittest.TestCase):
         self.old_supabase_jwt_secret = settings.supabase_jwt_secret
         self.old_machine_hashes = os.environ.get("STACKCERT_MCP_MACHINE_TOKEN_HASHES")
         self.old_machine_scopes = os.environ.get("STACKCERT_MCP_MACHINE_TOKEN_SCOPES")
+        self.old_machine_projects = os.environ.get("STACKCERT_MCP_MACHINE_TOKEN_PROJECTS")
+        self.old_release_hashes = os.environ.get("STACKCERT_RELEASE_GATE_TOKEN_HASHES")
+        self.old_release_scopes = os.environ.get("STACKCERT_RELEASE_GATE_TOKEN_SCOPES")
+        self.old_release_projects = os.environ.get("STACKCERT_RELEASE_GATE_TOKEN_PROJECTS")
 
     def tearDown(self) -> None:
         object.__setattr__(settings, "environment", self.old_environment)
@@ -33,6 +37,22 @@ class AuthTest(unittest.TestCase):
             os.environ.pop("STACKCERT_MCP_MACHINE_TOKEN_SCOPES", None)
         else:
             os.environ["STACKCERT_MCP_MACHINE_TOKEN_SCOPES"] = self.old_machine_scopes
+        if self.old_machine_projects is None:
+            os.environ.pop("STACKCERT_MCP_MACHINE_TOKEN_PROJECTS", None)
+        else:
+            os.environ["STACKCERT_MCP_MACHINE_TOKEN_PROJECTS"] = self.old_machine_projects
+        if self.old_release_hashes is None:
+            os.environ.pop("STACKCERT_RELEASE_GATE_TOKEN_HASHES", None)
+        else:
+            os.environ["STACKCERT_RELEASE_GATE_TOKEN_HASHES"] = self.old_release_hashes
+        if self.old_release_scopes is None:
+            os.environ.pop("STACKCERT_RELEASE_GATE_TOKEN_SCOPES", None)
+        else:
+            os.environ["STACKCERT_RELEASE_GATE_TOKEN_SCOPES"] = self.old_release_scopes
+        if self.old_release_projects is None:
+            os.environ.pop("STACKCERT_RELEASE_GATE_TOKEN_PROJECTS", None)
+        else:
+            os.environ["STACKCERT_RELEASE_GATE_TOKEN_PROJECTS"] = self.old_release_projects
 
     def test_production_can_validate_token_through_supabase_auth_endpoint(self) -> None:
         object.__setattr__(settings, "environment", "production")
@@ -86,6 +106,26 @@ class AuthTest(unittest.TestCase):
         self.assertEqual(principal.user_id, "machine:ci")
         self.assertEqual(principal.principal_type, "machine")
         self.assertIn("mcp:write", principal.scopes)
+        self.assertEqual(principal.allowed_project_ids, ("proj_acme_copilot",))
+
+    def test_release_gate_machine_token_has_separate_scope_and_project_binding(self) -> None:
+        object.__setattr__(settings, "environment", "production")
+        object.__setattr__(settings, "supabase_jwt_secret", None)
+        object.__setattr__(settings, "supabase_url", None)
+        object.__setattr__(settings, "supabase_secret_key", None)
+        token = "stackcert_release_gate_test_token"
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        os.environ["STACKCERT_RELEASE_GATE_TOKEN_HASHES"] = f"deploy:{digest}"
+        os.environ["STACKCERT_RELEASE_GATE_TOKEN_SCOPES"] = "deploy=release_gate:read"
+        os.environ["STACKCERT_RELEASE_GATE_TOKEN_PROJECTS"] = "deploy=proj_acme_copilot"
+
+        principal = auth.current_release_gate_principal(f"Bearer {token}")
+
+        self.assertEqual(principal.user_id, "machine:deploy")
+        self.assertEqual(principal.principal_type, "machine")
+        self.assertIn("release_gate:read", principal.scopes)
+        self.assertNotIn("mcp:read", principal.scopes)
+        self.assertEqual(principal.allowed_project_ids, ("proj_acme_copilot",))
 
     def test_machine_token_does_not_authenticate_general_app_routes(self) -> None:
         object.__setattr__(settings, "environment", "production")

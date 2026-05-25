@@ -34,6 +34,18 @@ StackCert is now a usable prototype with a real product shape:
 - Managed worker path: users can configure REST safety-check and model-judge
   connectors, enqueue provider-style evaluation jobs against a committed suite,
   enforce a run budget cap, and persist the resulting CASS evidence run.
+- Managed provider-secret surface: connector secrets can be registered,
+  rotated, disabled, and inspected through redacted APIs. The backend stores
+  only references and metadata, supports local memory/env refs plus Google
+  Secret Manager refs for Cloud Run, and audits register/rotate/disable/use.
+- Worker lease renewal is available for long-running jobs, and
+  `scripts/worker_once.py` can claim one or more jobs across all projects when
+  using the Supabase service-role backend.
+- Release-gate API for CI/deploy systems:
+  `POST /api/projects/{project_id}/release-gates/evaluate` returns
+  `pass`/`warn`/`block`, blocking reasons, evidence packet id, retest
+  triggers, and machine-readable assumptions. It supports Supabase user auth or
+  release-gate-only machine tokens scoped separately from MCP tokens.
 - Worker-produced evidence writes are idempotent across retries: jobs, guard
   outputs, measurement recommendations, and usage events now have stable
   conflict keys instead of duplicate-prone append behavior.
@@ -53,7 +65,8 @@ StackCert is now a usable prototype with a real product shape:
 - Agent/MCP surface for release-evidence status, theory cards, measurement
   recommendations, cost ledgers, integration guides, and deployment-review
   prompts. MCP can authenticate with Supabase bearer tokens or MCP-only machine
-  bearer tokens scoped to `mcp:read` / `mcp:write`.
+  bearer tokens scoped to `mcp:read` / `mcp:write`; MCP machine tokens can now
+  be project-scoped through `STACKCERT_MCP_MACHINE_TOKEN_PROJECTS`.
 
 ## Hosted Demo State
 
@@ -93,14 +106,14 @@ The hosted demo is useful for product walkthroughs. It is still staging:
 Latest local verification from the current working tree:
 
 ```text
-uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py
+uv run python -m py_compile stackcert_service/services/pricing.py stackcert_service/services/jobs.py stackcert_service/services/usage.py stackcert_service/services/guard_connectors.py stackcert_service/services/provider_secrets.py stackcert_service/services/release_gates.py stackcert_service/db/supabase.py stackcert_service/security/auth.py stackcert_service/main.py stackcert_service/services/mcp.py stackcert/guards/rest_adapter.py stackcert/guards/model_judge_adapter.py scripts/hash_mcp_machine_token.py scripts/hash_release_gate_token.py scripts/certificate_gate.py scripts/worker_once.py
   -> OK
 
 uv run python -m unittest tests_service.test_access_control
   -> 10 tests passed
 
 uv run python -m unittest discover -s tests_service
-  -> 82 tests passed
+  -> 89 tests passed
 
 uv run python -m unittest discover -s tests
   -> 17 tests passed
@@ -208,10 +221,10 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready revision is `stackcert-api-00009-sb6`, deployed from commit
-  `086a54b`.
+- Latest ready revision is `stackcert-api-00011-pt2`, deployed from commit
+  `f80909d`.
 - Latest image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:086a54b-staging-202605250309-amd64`.
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:f80909d-staging-202605250340-amd64`.
 - Cloud Run staging explicitly sets `STACKCERT_ENABLE_DEMO_WORKSPACE=true` so
   the public demo user can see the seeded walkthrough while real production
   deployments can leave that flag unset.
@@ -221,7 +234,9 @@ Latest hosted verification:
   `scripts/cloud_run_api_smoke.py`, authenticated `scripts/mcp_client_smoke.py`
   against the hosted `/api/mcp` endpoint with the official Python MCP SDK, and
   full `scripts/deployment_smoke.py` against Cloudflare + Cloud Run +
-  Supabase Auth.
+  Supabase Auth. The smoke scripts now also call
+  `/api/projects/proj_acme_copilot/release-gates/evaluate` and assert the
+  response carries scoped non-guarantee assumptions.
 - Latest GitHub Actions runs for commit `086a54b` are green for `ci`,
   fallback `deploy pages`, and `deploy cloudflare`.
 - Cloudflare Workers static-assets config is present at root `wrangler.jsonc`.
@@ -267,7 +282,11 @@ Current worker status:
 - connector secrets now resolve through a backend-only provider-secret resolver:
   local development can use process-memory secrets for fake providers, while
   production connector configs point workers at explicit environment-secret
-  refs such as `STACKCERT_GUARD_SECRET_<GUARD_KEY>`;
+  refs such as `STACKCERT_GUARD_SECRET_<GUARD_KEY>` or Google Secret Manager
+  refs such as
+  `gcp-secret://projects/{project}/secrets/{secret}/versions/latest`;
+- connector secret APIs register, rotate, disable, and report redacted secret
+  metadata without returning provider secret values;
 - connector price cards now support per-request, input-token, and output-token
   cost estimates, with provider-reported token usage used when REST/model-judge
   endpoints return it;
@@ -277,8 +296,9 @@ Current worker status:
   pages can read that worker-produced run;
 - usage events are recorded per evaluated safety check with stable external
   event ids for retry-safe persistence;
-- retry, lease, dead-letter, manual retry, and run-next worker APIs remain in
-  place from the earlier worker hardening slice.
+- retry, lease, lease-renewal, dead-letter, manual retry, and run-next worker
+  APIs are in place; the remaining worker gap is deploying a separate Cloud Run
+  Job/service and adding operator UI for dead-letter review.
 
 Current trust-layer status:
 
@@ -290,7 +310,10 @@ Current trust-layer status:
 - Supabase-backed and local membership lookup paths filter accessible
   workspaces/projects and enforce project/run/certificate object access;
 - MCP user principals are filtered by project/run access, while MCP-only
-  machine tokens remain limited to scoped MCP surfaces;
+  machine tokens remain limited to scoped MCP surfaces and configured project
+  ids;
+- release-gate-only machine tokens are separate from MCP tokens, hash-only at
+  rest, project-scoped, and audited on every check;
 - audit events are recorded for workspace/project creation, suite commits,
   uploaded-output runs, connector/job/work creation, measurement plans,
   evidence issue/signoff/export, retest queueing, custom behaviors, and MCP tool
@@ -317,40 +340,48 @@ The imported pilot-readiness plan and feasibility review have been condensed
 into a five-milestone executable roadmap:
 
 1. Pilot trust layer: service-layer tenancy/RBAC, route access checks, and
-   audit events.
+   audit events. Status: implemented and tested.
 2. Immutable evidence and private artifacts: readiness gates, immutable issued
-   packets, artifact hashes, and signed access.
+   packets, artifact hashes, and signed access. Status: implemented, migrated,
+   deployed, and smoke-tested.
 3. Managed secrets and independent worker: Secret Manager/Vault-backed provider
    secrets, worker deployment, lease renewal, dead letters, and budget caps.
+   Status: secret metadata/rotation, Secret Manager refs, lease renewal, and
+   retry/dead-letter logic are implemented; the separate Cloud Run worker/job
+   deployment remains.
 4. Release gates and agent-friendly surfaces: conservative REST release-gate
    API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
+   Status: REST API, scoped tokens, script support, reusable GitHub workflow,
+   MCP project scoping, audit, and smoke coverage are implemented; GitLab/Circle
+   examples remain.
 5. Pilot UX and operational readiness: import/setup polish, evidence readiness
    UI, dead-letter UI, production monitoring, backups, terms, and privacy.
 
-The immediate execution queue is:
+The immediate execution queue is now:
 
-1. Create a route-by-route access matrix for `stackcert_service/main.py`.
-2. Implement `stackcert_service/security/access.py`.
-3. Add persistence membership lookup for Supabase and local fallback.
-4. Apply access checks to project, run, connector, job, usage, evidence, and
-   MCP routes.
-5. Add an audit event service and wire sensitive mutations.
-6. Add evidence-readiness gates before issue.
-7. Add private artifact storage first for evidence JSON/Markdown exports.
+1. Deploy a separate Cloud Run worker/job using the existing API image and
+   `scripts/worker_once.py --all-projects`, preserving the $10 staging budget
+   preflight and max-instance caps.
+2. Add dead-letter and lease status UI in the setup/test-plan area.
+3. Add GitLab/Circle examples for `scripts/certificate_gate.py --release-gate`
+   with release-gate machine tokens.
+4. Persist model/prompt/policy hashes into evidence packets so release gates can
+   compare those fields instead of returning them as assumptions.
+5. Add workspace-level budget caps and provider rate-limit/backoff settings.
 
 ## Current Priority
 
 The next engineering milestone should be:
 
 ```text
-Pilot trust layer: tenancy/RBAC + audit + immutable evidence + private artifacts
+Independent worker deployment + release-gate integration examples + operator UI
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run, Cloudflare, and
 GitHub CI/CD are wired and smoke-tested. The worker can now move a pilot team
 from uploaded outputs to deterministic, REST, or model-judge managed runs with
-retry-safe evidence writes and cost accounting. The next value milestone is
-replacing prototype workspace assumptions with real tenant membership/role
-enforcement, recording audit events, and making evidence/artifact handling
-defensible for design-partner data. The worker/secret/release-gate integration
-layer follows immediately after that trust layer.
+retry-safe evidence writes, managed secret refs, lease renewal, cost
+accounting, and release-gate checks. The highest-value remaining production
+work is to run the worker independently from the interactive API, expose
+operator-facing dead-letter/lease health, and wire release gates into deploy
+pipelines with clear examples.

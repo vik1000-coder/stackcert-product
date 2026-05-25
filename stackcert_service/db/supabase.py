@@ -432,6 +432,44 @@ class SupabaseStore:
         )
         return self._guard_connector_from_rows(definition, version_rows[0], project_id)
 
+    def update_guard_connector_config(self, project_id: str, guard_key: str, config: dict[str, Any]) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        definitions = self._request(
+            "GET",
+            "guard_definitions",
+            params={
+                "workspace_id": f"eq.{workspace_db_id}",
+                "project_id": f"eq.{project_db_id}",
+                "guard_key": f"eq.{guard_key}",
+                "select": "*",
+                "limit": "1",
+            },
+        )
+        if not definitions:
+            raise SupabasePersistenceError(f"Guard connector not found: {guard_key}")
+        definition = definitions[0]
+        versions = self._request(
+            "GET",
+            "guard_versions",
+            params={
+                "guard_id": f"eq.{definition['id']}",
+                "select": "*",
+                "order": "created_at.desc",
+                "limit": "1",
+            },
+        )
+        if not versions:
+            raise SupabasePersistenceError(f"Guard connector version not found: {guard_key}")
+        current = versions[0]
+        patched_rows = self._request(
+            "PATCH",
+            "guard_versions",
+            params={"id": f"eq.{current['id']}"},
+            json={"config": config},
+            prefer="return=representation",
+        )
+        return self._guard_connector_from_rows(definition, patched_rows[0] if patched_rows else {**current, "config": config}, project_id)
+
     def list_custom_behaviors(self, project_id: str) -> list[dict[str, Any]]:
         workspace_db_id, project_db_id = self._resolve_project(project_id)
         rows = self._request(
@@ -489,6 +527,24 @@ class SupabaseStore:
             },
         )
         return [self._job_from_row(row, project_id) for row in rows]
+
+    def list_worker_jobs(self, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._request(
+            "GET",
+            "jobs",
+            params={
+                "select": "*",
+                "order": "created_at.asc",
+                "limit": str(max(1, min(limit, 500))),
+            },
+        )
+        return [
+            self._job_from_row(
+                row,
+                settings.demo_project_id if str(row.get("project_id")) == settings.demo_project_db_id else str(row.get("project_id")),
+            )
+            for row in rows
+        ]
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         rows = self._request(
@@ -1573,6 +1629,7 @@ class SupabaseStore:
             "redaction": {
                 "auth_secret_stored": bool(config.get("has_secret")),
                 "auth_secret_visible": False,
+                "secret_status": config.get("secret_status"),
             },
         }
 

@@ -27,7 +27,8 @@ Machine scopes:
 
 - `mcp:read`: read-only MCP tools and resources
 - `mcp:write`: MCP tools that queue jobs or create plans
-- `release_gate:read`: future release-gate status checks
+- `release_gate:read`: release-gate status checks through the dedicated REST
+  release-gate route
 - `worker:run`: worker-only job execution routes
 
 The local demo principal may access the seeded demo workspace/project outside
@@ -61,6 +62,10 @@ lookup.
 | `GET` | `/api/projects/{project_id}/guards` | project | `viewer` | none |
 | `GET` | `/api/projects/{project_id}/guard-connectors` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/guard-connectors` | project | `project_maintainer` | `guard_connector.created` |
+| `GET` | `/api/projects/{project_id}/guard-connectors/{guard_id}/secret` | project/connector | `project_maintainer`; redacted metadata only | none |
+| `POST` | `/api/projects/{project_id}/guard-connectors/{guard_id}/secret` | project/connector | `project_maintainer`; raw secrets rejected in production | `provider_secret.registered` |
+| `POST` | `/api/projects/{project_id}/guard-connectors/{guard_id}/secret/rotate` | project/connector | `project_maintainer`; raw secrets rejected in production | `provider_secret.rotated` |
+| `POST` | `/api/projects/{project_id}/guard-connectors/{guard_id}/secret/disable` | project/connector | `project_maintainer` | `provider_secret.disabled` |
 | `GET` | `/api/projects/{project_id}/custom-behaviors` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/custom-behaviors` | project | `project_maintainer` | `custom_behavior.created` |
 | `POST` | `/api/projects/{project_id}/costs/estimate` | project | `viewer` | none |
@@ -97,12 +102,14 @@ lookup.
 | `GET` | `/api/jobs/{job_id}` | job | `viewer` on job project | none |
 | `POST` | `/api/jobs/{job_id}/run` | job | `project_maintainer` or `worker:run` machine scope | `evaluation_job.run` |
 | `POST` | `/api/jobs/{job_id}/retry` | job | `project_maintainer` | `evaluation_job.retry` |
+| `POST` | `/api/jobs/{job_id}/lease/renew` | job | `project_maintainer`; worker id must match active lease | `evaluation_job.lease_renewed` |
 
 ## Project Drift Routes
 
 | Method | Route | Scope | Requirement | Audit |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/projects/{project_id}/certificate-status` | project | `viewer`; `release_gate:read` machine support planned | `release_gate.checked` once machine-token route exists |
+| `GET` | `/api/projects/{project_id}/certificate-status` | project | `viewer` | none |
+| `POST` | `/api/projects/{project_id}/release-gates/evaluate` | project | `viewer` user or `release_gate:read` machine token scoped to project | `release_gate.checked` |
 | `GET` | `/api/projects/{project_id}/stacks` | project | `viewer` | none |
 | `GET` | `/api/projects/{project_id}/drift` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/recertify` | project | `project_maintainer` | `retest.queued` |
@@ -138,12 +145,32 @@ Outside production, the implicit local demo principal may access:
 This exception is only for local development and staging smoke tests. It must
 not allow anonymous production access.
 
-## Implementation Order
+## Machine Token Environment
 
-1. Add role/scope helpers.
-2. Add local and Supabase membership lookup.
-3. Filter workspace/project list routes.
-4. Protect project-scoped writes.
-5. Protect run/job/certificate routes.
-6. Protect MCP tool/resource dispatch.
-7. Add audit writer and wire mutation/export events.
+MCP and release-gate tokens are separate. Both are stored as SHA-256 hashes in
+server-side environment variables and can be project-scoped:
+
+```text
+STACKCERT_MCP_MACHINE_TOKEN_HASHES=ci:<sha256>
+STACKCERT_MCP_MACHINE_TOKEN_SCOPES=ci=mcp:read
+STACKCERT_MCP_MACHINE_TOKEN_PROJECTS=ci=proj_acme_copilot
+
+STACKCERT_RELEASE_GATE_TOKEN_HASHES=deploy:<sha256>
+STACKCERT_RELEASE_GATE_TOKEN_SCOPES=deploy=release_gate:read
+STACKCERT_RELEASE_GATE_TOKEN_PROJECTS=deploy=proj_acme_copilot
+```
+
+Use `*` as a project id only for highly trusted internal automation.
+
+## Implementation Status
+
+1. Role/scope helpers: implemented.
+2. Local and Supabase membership lookup: implemented.
+3. Workspace/project list filtering: implemented.
+4. Project/run/job/certificate route checks: implemented.
+5. MCP tool/resource dispatch checks: implemented.
+6. Audit writer and mutation/export events: implemented.
+7. Managed connector-secret route checks and redaction: implemented.
+8. Release-gate route and machine-token checks: implemented.
+9. Worker-only machine-token execution routes: still planned; current worker
+   run/lease routes require project-maintainer user auth.

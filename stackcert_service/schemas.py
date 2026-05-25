@@ -41,6 +41,13 @@ class GuardConnectorCreate(BaseModel):
     threshold: float | None = Field(default=None, ge=0, le=1)
 
 
+class GuardConnectorSecretUpdate(BaseModel):
+    auth_secret: str | None = Field(default=None, max_length=4000)
+    secret_env_var: str | None = Field(default=None, max_length=120, pattern="^[A-Z_][A-Z0-9_]*$")
+    secret_ref: str | None = Field(default=None, max_length=800)
+    backend: str = Field(default="auto", pattern="^(auto|env|local_memory|gcp_secret_manager)$")
+
+
 class CustomBehaviorCreate(BaseModel):
     name: str = Field(min_length=3, max_length=120)
     description: str = Field(min_length=10, max_length=2000)
@@ -120,3 +127,21 @@ class McpRpcRequest(BaseModel):
     id: str | int | None = None
     method: str = Field(min_length=1, max_length=120)
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReleaseGateEvaluateRequest(BaseModel):
+    environment: str | None = Field(default=None, max_length=80)
+    model_id: str | None = Field(default=None, max_length=160)
+    model_version: str | None = Field(default=None, max_length=160)
+    prompt_hash: str | None = Field(default=None, max_length=160)
+    policy_hash: str | None = Field(default=None, max_length=160)
+    guard_connector_versions: dict[str, str] = Field(default_factory=dict, max_length=100)
+    benchmark_suite_id: str | None = Field(default=None, max_length=160)
+    benchmark_suite_version: str | None = Field(default=None, max_length=160)
+    run_id: str | None = Field(default=None, max_length=160)
+    deployment_ref: str | None = Field(default=None, max_length=300)
+    commit_sha: str | None = Field(default=None, max_length=80)
+    changed_since_evidence: list[str] = Field(default_factory=list, max_length=50)
+    required_status: str = Field(default="valid", pattern="^(valid|provisional|needs_measurement)$")
+    mode: str = Field(default="fail", pattern="^(fail|warn)$")
+    lambda_cost: float = Field(default=5.0, ge=0, le=100)

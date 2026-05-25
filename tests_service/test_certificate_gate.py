@@ -37,6 +37,24 @@ class CertificateGateTest(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("certificate_provisional_does_not_meet_required_valid", result["blocking_reasons"])
 
+    def test_gate_understands_release_gate_decisions(self) -> None:
+        result = certificate_gate.evaluate_gate(
+            {
+                "decision": "block",
+                "status": "valid",
+                "certificate_id": "cert_demo",
+                "blocking_reasons": ["retest_required:model_change"],
+                "warnings": [],
+                "assumptions": {"not_a_guarantee": True, "scope": "finite benchmark"},
+            },
+            required_status="valid",
+            mode="fail",
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["decision"], "block")
+        self.assertIn("retest_required:model_change", result["blocking_reasons"])
+
     def test_warn_mode_exits_zero_with_machine_readable_failure(self) -> None:
         completed = subprocess.run(
             [

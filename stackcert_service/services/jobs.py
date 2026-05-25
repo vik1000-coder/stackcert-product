@@ -17,7 +17,9 @@ from stackcert.guards.model_judge_adapter import HTTPJSONModelJudgeAdapter, Mode
 from stackcert.guards.rest_adapter import RESTGuardAdapter, RESTGuardAdapterError
 from stackcert_service.config import settings
 from stackcert_service.db.supabase import SupabasePersistenceError, configured_supabase_store
+from stackcert_service.security.auth import Principal
 from stackcert_service.schemas import EvaluationJobCreate, MeasurementPlanCreate
+from stackcert_service.services import audit
 from stackcert_service.services import benchmark_imports
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
@@ -288,6 +290,25 @@ def retry_job(job_id: str) -> dict[str, Any]:
         "If the same provider or configuration error returns, review connector credentials, rate limits, and input payload.",
     ]
     _append_event(job, "manual_retry", "Operator requeued the job for another worker attempt.")
+    return _update(job)
+
+
+def renew_job_lease(job_id: str, worker_id: str, lease_seconds: int = DEFAULT_LEASE_SECONDS) -> dict[str, Any]:
+    job = get_job(job_id)
+    if job.get("status") != "running":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only running jobs can renew a worker lease")
+    if job.get("locked_by") != worker_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Job is leased by {job.get('locked_by') or 'unknown worker'}")
+    if _job_lease_expired(job, _now_dt()):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot renew an expired lease")
+    lease_seconds = max(30, min(int(lease_seconds), 3600))
+    job["lease_expires_at"] = _future(lease_seconds)
+    _append_event(
+        job,
+        "lease_renewed",
+        f"Worker {worker_id} renewed the job lease.",
+        {"lease_seconds": lease_seconds, "lease_expires_at": job["lease_expires_at"]},
+    )
     return _update(job)
 
 
@@ -815,6 +836,7 @@ def _execute_project_evaluation_job(job: dict[str, Any], payload: EvaluationJobC
         )
 
     if payload.adapter_mode in {"rest_guard", "model_judge"}:
+        _audit_provider_secret_use(project_id, requested_guard_ids, str(job.get("locked_by") or "worker"), payload.adapter_mode)
         adapters = _provider_adapters(project_id, str(job["run_id"]), requested_guard_ids, payload.adapter_mode)
     else:
         thresholds = _connector_thresholds(project_id)
@@ -1016,6 +1038,38 @@ def _usage_event_from_action(job: dict[str, Any], action: dict[str, Any]) -> dic
     }
 
 
+def _audit_provider_secret_use(project_id: str, guard_ids: list[str], worker_id: str, adapter_mode: str) -> None:
+    connectors = _project_connector_map(project_id)
+    project = projects.get_project(project_id) or {}
+    principal = Principal(
+        user_id=f"machine:{worker_id}",
+        email=None,
+        role="machine",
+        principal_type="machine",
+        scopes=("worker:execute",),
+        allowed_project_ids=(project_id,),
+    )
+    for guard_id in guard_ids:
+        connector = connectors.get(guard_id) or {}
+        config = connector.get("config") or {}
+        if not config.get("has_secret"):
+            continue
+        audit.record_event(
+            "provider_secret.used",
+            principal,
+            workspace_id=str(project.get("workspace_id")) if project else None,
+            project_id=project_id,
+            target_type="guard_connector",
+            target_id=guard_id,
+            metadata={
+                "adapter_mode": adapter_mode,
+                "worker_id": worker_id,
+                "secret_ref": provider_secrets.redacted_secret_response(config).get("secret_ref"),
+                "secret_status": config.get("secret_status"),
+            },
+        )
+
+
 def clear_jobs() -> None:
     _jobs.clear()
     usage.clear_usage_events()
@@ -1024,9 +1078,7 @@ def clear_jobs() -> None:
 def _all_jobs() -> list[dict[str, Any]]:
     store = _persistent_store()
     if store:
-        # The current worker scope is project-oriented; use demo project until
-        # workspace-scoped job leasing is added.
-        return store.list_jobs(settings.demo_project_id)
+        return store.list_worker_jobs()
     return list(_jobs.values())
 
 

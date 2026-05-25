@@ -222,6 +222,7 @@ class SupabaseStoreTest(unittest.TestCase):
 
         store.store_job(job)
         jobs = store.list_jobs(settings.demo_project_id)
+        worker_jobs = store.list_worker_jobs()
         fetched = store.get_job("job_demo")
         job["status"] = "complete"
         job["attempts"] = 1
@@ -229,6 +230,7 @@ class SupabaseStoreTest(unittest.TestCase):
 
         self.assertEqual(stored_row["status"], "succeeded")
         self.assertEqual(jobs[0]["id"], "job_demo")
+        self.assertEqual(worker_jobs[0]["id"], "job_demo")
         self.assertEqual(jobs[0]["status"], "complete")
         self.assertEqual(fetched["summary"]["outputs"], 8)
         self.assertEqual(requests[0]["method"], "POST")
@@ -960,6 +962,80 @@ class SupabaseStoreTest(unittest.TestCase):
         self.assertEqual(connector["price_card"]["output_price_per_1m_tokens_usd"], 8.0)
         self.assertTrue(connector["redaction"]["auth_secret_stored"])
         self.assertEqual([call.method for call in calls], ["POST", "POST"])
+
+    def test_update_guard_connector_config_patches_latest_version_without_secret_value(self) -> None:
+        patched_payload: dict[str, Any] | None = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal patched_payload
+            url = str(request.url)
+            if request.method == "GET" and "/rest/v1/guard_definitions" in url:
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "id": "00000000-0000-4000-8000-000000000801",
+                            "workspace_id": settings.demo_workspace_db_id,
+                            "project_id": settings.demo_project_db_id,
+                            "guard_key": "refund_policy_guard",
+                            "display_name": "Refund Policy Guard",
+                            "guard_type": "rest_guard",
+                            "vendor": "internal",
+                            "created_at": "2026-05-23T16:00:00+00:00",
+                        }
+                    ],
+                )
+            if request.method == "GET" and "/rest/v1/guard_versions" in url:
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "id": "00000000-0000-4000-8000-000000000802",
+                            "workspace_id": settings.demo_workspace_db_id,
+                            "guard_id": "00000000-0000-4000-8000-000000000801",
+                            "version": "v1",
+                            "threshold": 0.8,
+                            "adapter_type": "rest_guard",
+                            "config": {"endpoint_url": "https://guards.example.test/refund", "has_secret": False},
+                            "status": "active",
+                            "created_at": "2026-05-23T16:00:01+00:00",
+                        }
+                    ],
+                )
+            if request.method == "PATCH" and "/rest/v1/guard_versions" in url:
+                patched_payload = json.loads(request.content.decode("utf-8"))
+                self.assertNotIn("rotated-secret-token", json.dumps(patched_payload))
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "id": "00000000-0000-4000-8000-000000000802",
+                            "version": "v1",
+                            "threshold": 0.8,
+                            "adapter_type": "rest_guard",
+                            "config": patched_payload["config"],
+                            "status": "active",
+                            "created_at": "2026-05-23T16:00:01+00:00",
+                        }
+                    ],
+                )
+            return httpx.Response(500, json={"unexpected": url})
+
+        store = SupabaseStore("http://supabase.local", "sb_secret_test", transport=httpx.MockTransport(handler))
+        connector = store.update_guard_connector_config(
+            settings.demo_project_id,
+            "refund_policy_guard",
+            {
+                "endpoint_url": "https://guards.example.test/refund",
+                "has_secret": True,
+                "secret_ref": "env://STACKCERT_GUARD_SECRET_REFUND_POLICY_GUARD",
+                "secret_status": "pending_runtime_secret",
+            },
+        )
+
+        self.assertIsNotNone(patched_payload)
+        self.assertTrue(patched_payload["config"]["has_secret"])
+        self.assertEqual(connector["redaction"]["secret_status"], "pending_runtime_secret")
 
 
 if __name__ == "__main__":

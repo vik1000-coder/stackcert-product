@@ -341,6 +341,14 @@ Goal: move provider-backed runs from API-triggered staging behavior to a
 separate worker runtime that can handle real connector secrets, retries,
 leases, budgets, and dead letters.
 
+Status as of 2026-05-25: partially implemented. Redacted connector-secret
+register/rotate/disable APIs, local/env/Google Secret Manager secret reference
+resolution, audit events, lease renewal, retry/dead-letter behavior, and
+multi-job worker CLI support are implemented and tested. The remaining
+Milestone 3 production work is deploying the independent Cloud Run worker/job,
+adding worker-only machine auth for execution routes, and exposing
+dead-letter/lease review in the UI.
+
 ### User Stories
 
 - As an AI platform engineer, I can register a REST or model-judge connector
@@ -420,6 +428,15 @@ uv run python scripts/deployment_smoke.py --web-url "$STACKCERT_WEB_URL" --api-u
 
 Goal: make StackCert operationally sticky by letting CI, deployment platforms,
 and agent runtimes check release evidence conservatively.
+
+Status as of 2026-05-25: partially implemented. The REST release-gate endpoint,
+release-gate-only hash-scoped machine tokens, project scoping, audit event,
+`scripts/certificate_gate.py --release-gate`, reusable GitHub workflow support,
+token hash helper, MCP project scoping, and hosted smoke-script coverage are
+implemented and tested. The remaining Milestone 4 work is packaging
+GitLab/Circle examples and persisting model/prompt/policy hashes in evidence
+packets so release gates can compare them directly rather than treating them as
+assumptions.
 
 ### User Stories
 

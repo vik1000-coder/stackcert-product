@@ -96,6 +96,13 @@ def require_any_scope(principal: Principal, scopes: Iterable[str]) -> Principal:
     return principal
 
 
+def machine_project_allowed(principal: Principal, project_id: str) -> bool:
+    if principal.principal_type != "machine":
+        return False
+    allowed = set(principal.allowed_project_ids or ())
+    return "*" in allowed or project_id in allowed
+
+
 def grant_from_workspace(
     principal: Principal,
     workspace_id: str,

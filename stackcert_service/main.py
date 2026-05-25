@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from stackcert_service.config import settings
 from stackcert_service.observability import configure_logging, request_middleware
 from stackcert_service.security import access
-from stackcert_service.security.auth import McpPrincipalDep, Principal, PrincipalDep
+from stackcert_service.security.auth import McpPrincipalDep, Principal, PrincipalDep, ReleaseGatePrincipalDep
 from stackcert_service.schemas import (
     BenchmarkImportCommitRequest,
     BenchmarkImportPreviewRequest,
@@ -17,9 +17,11 @@ from stackcert_service.schemas import (
     CustomBehaviorCreate,
     EvaluationJobCreate,
     GuardConnectorCreate,
+    GuardConnectorSecretUpdate,
     MeasurementPlanCreate,
     McpRpcRequest,
     ProjectCreate,
+    ReleaseGateEvaluateRequest,
     UploadedOutputRunCreate,
     WorkspaceCreate,
 )
@@ -35,6 +37,7 @@ from stackcert_service.services import jobs
 from stackcert_service.services import mcp
 from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
+from stackcert_service.services import release_gates
 from stackcert_service.services import usage
 
 
@@ -83,6 +86,18 @@ def _require_project_access(
     role = projects.project_membership_role(project_id, principal) if project else None
     access.grant_from_project(principal, project, membership_role=role, required=required)
     return project
+
+
+def _require_release_gate_project_access(project_id: str, principal: Principal) -> dict[str, object]:
+    if principal.principal_type == "machine":
+        access.require_scope(principal, "release_gate:read")
+        if not access.machine_project_allowed(principal, project_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Release-gate token is not scoped to this project")
+        project = projects.get_project(project_id)
+        if not project:
+            raise _not_found("Project not found")
+        return project
+    return _require_project_access(project_id, principal)
 
 
 def _require_run_access(
@@ -280,6 +295,90 @@ def create_guard_connector(project_id: str, payload: GuardConnectorCreate, princ
         metadata={"guard_key": connector["guard_key"], "adapter_type": connector["adapter_type"]},
     )
     return {"connector": connector}
+
+
+@app.get("/api/projects/{project_id}/guard-connectors/{guard_id}/secret")
+def get_guard_connector_secret(project_id: str, guard_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_project_access(project_id, principal, required="project_maintainer")
+    return {"secret": guard_connectors.connector_secret_state(project_id, guard_id)}
+
+
+@app.post("/api/projects/{project_id}/guard-connectors/{guard_id}/secret")
+def upsert_guard_connector_secret(
+    project_id: str,
+    guard_id: str,
+    payload: GuardConnectorSecretUpdate,
+    principal: PrincipalDep,
+) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    connector = guard_connectors.upsert_connector_secret(
+        project_id,
+        guard_id,
+        raw_secret=payload.auth_secret,
+        secret_env_var=payload.secret_env_var,
+        secret_ref=payload.secret_ref,
+        backend=payload.backend,
+        actor_id=principal.user_id,
+    )
+    secret = guard_connectors.connector_secret_state(project_id, guard_id)
+    audit.record_event(
+        "provider_secret.registered",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="guard_connector",
+        target_id=str(connector["guard_key"]),
+        metadata={"secret_status": secret["secret_status"], "provider": secret.get("provider")},
+    )
+    return {"secret": secret, "connector": connector}
+
+
+@app.post("/api/projects/{project_id}/guard-connectors/{guard_id}/secret/rotate")
+def rotate_guard_connector_secret(
+    project_id: str,
+    guard_id: str,
+    payload: GuardConnectorSecretUpdate,
+    principal: PrincipalDep,
+) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    connector = guard_connectors.upsert_connector_secret(
+        project_id,
+        guard_id,
+        raw_secret=payload.auth_secret,
+        secret_env_var=payload.secret_env_var,
+        secret_ref=payload.secret_ref,
+        backend=payload.backend,
+        actor_id=principal.user_id,
+        action="rotate",
+    )
+    secret = guard_connectors.connector_secret_state(project_id, guard_id)
+    audit.record_event(
+        "provider_secret.rotated",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="guard_connector",
+        target_id=str(connector["guard_key"]),
+        metadata={"secret_status": secret["secret_status"], "provider": secret.get("provider")},
+    )
+    return {"secret": secret, "connector": connector}
+
+
+@app.post("/api/projects/{project_id}/guard-connectors/{guard_id}/secret/disable")
+def disable_guard_connector_secret(project_id: str, guard_id: str, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    connector = guard_connectors.disable_connector_secret(project_id, guard_id, actor_id=principal.user_id)
+    secret = guard_connectors.connector_secret_state(project_id, guard_id)
+    audit.record_event(
+        "provider_secret.disabled",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="guard_connector",
+        target_id=str(connector["guard_key"]),
+        metadata={"secret_status": secret["secret_status"], "provider": secret.get("provider")},
+    )
+    return {"secret": secret, "connector": connector}
 
 
 @app.get("/api/projects/{project_id}/stacks")
@@ -557,6 +656,21 @@ def retry_job(job_id: str, principal: PrincipalDep) -> dict[str, object]:
     return {"job": job}
 
 
+@app.post("/api/jobs/{job_id}/lease/renew")
+def renew_job_lease(job_id: str, principal: PrincipalDep, worker_id: str, lease_seconds: int = jobs.DEFAULT_LEASE_SECONDS) -> dict[str, object]:
+    existing = _require_job_access(job_id, principal, required="project_maintainer")
+    job = jobs.renew_job_lease(job_id, worker_id=worker_id, lease_seconds=lease_seconds)
+    audit.record_event(
+        "evaluation_job.lease_renewed",
+        principal,
+        project_id=str(existing["project_id"]),
+        target_type="job",
+        target_id=job_id,
+        metadata={"worker_id": worker_id, "lease_seconds": lease_seconds},
+    )
+    return {"job": job}
+
+
 @app.post("/api/runs/{run_id}/certificate/issue")
 def issue_certificate(run_id: str, payload: CertificateIssueRequest, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     run = _require_run_access(run_id, principal, required="evidence_issuer", lambda_cost=lambda_cost)
@@ -653,6 +767,27 @@ def get_certificate(run_id: str, principal: PrincipalDep, lambda_cost: float = 5
     payload = demo_project.certificate_payload(lambda_cost)
     payload["run_id"] = run_id
     return payload
+
+
+@app.post("/api/projects/{project_id}/release-gates/evaluate")
+def evaluate_release_gate(project_id: str, payload: ReleaseGateEvaluateRequest, principal: ReleaseGatePrincipalDep) -> dict[str, object]:
+    project = _require_release_gate_project_access(project_id, principal)
+    result = release_gates.evaluate_project_gate(project_id, payload)
+    audit.record_event(
+        "release_gate.checked",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={
+            "decision": result["decision"],
+            "run_id": result.get("run_id"),
+            "blocking_reasons": result.get("blocking_reasons", []),
+            "mode": payload.mode,
+        },
+    )
+    return {"release_gate": result}
 
 
 @app.get("/api/runs/{run_id}/certificate.json")
