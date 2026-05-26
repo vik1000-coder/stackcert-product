@@ -12,10 +12,12 @@ import {
   type ProjectOnboardingProfileInput
 } from '../lib/api';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
+import { isDemoEmail } from '../lib/authFlow';
+import { supabase } from '../lib/supabase';
 
 const demoPath = '/demo';
 const demoSetupPathLink = '/demo?next=setup';
-const draftKey = 'stackcert:onboarding-draft:v1';
+const draftKey = 'stackcert:onboarding-draft:v2';
 
 type OnboardingDraft = {
   companyName: string;
@@ -33,8 +35,8 @@ type OnboardingDraft = {
 };
 
 const initialDraft: OnboardingDraft = {
-  companyName: 'Design Partner Lab',
-  projectName: 'Customer Support Agent',
+  companyName: '',
+  projectName: '',
   riskTier: 'high',
   dataMode: 'redacted_snippets',
   role: 'platform',
@@ -42,7 +44,7 @@ const initialDraft: OnboardingDraft = {
   appCategory: 'customer_support',
   deploymentStage: 'pre_production',
   optimizationGoal: 'balanced',
-  primaryRiskConcerns: ['tool_misuse', 'data_leakage'],
+  primaryRiskConcerns: [],
   releaseGateTarget: 'not_yet',
   budgetRange: 'under_100'
 };
@@ -150,10 +152,47 @@ export function OnboardingPage() {
   const [draft, setDraft] = useState<OnboardingDraft>(() => loadDraft());
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState('');
+  const [authState, setAuthState] = useState<'checking' | 'none' | 'demo' | 'beta'>(supabase ? 'checking' : 'none');
 
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!supabase) {
+      setAuthState('none');
+      return;
+    }
+
+    const applySessionEmail = (email: string | null | undefined) => {
+      if (!mounted) return;
+      if (!email) {
+        setAuthState('none');
+        return;
+      }
+      setAuthState(isDemoEmail(email) ? 'demo' : 'beta');
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        applySessionEmail(data.session?.user.email);
+      })
+      .catch(() => {
+        applySessionEmail(null);
+      });
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySessionEmail(session?.user.email);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (new URLSearchParams(location.search).get('resume')) {
@@ -167,9 +206,15 @@ export function OnboardingPage() {
   const selectedGoal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
   const readiness = useMemo(() => setupReadiness(draft), [draft]);
   const canContinue = canContinueStep(stepIndex, draft);
+  const isDemoSession = authState === 'demo';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isDemoSession) {
+      setStatus('error');
+      setError('Sign out of the demo sandbox before creating a beta pilot workspace.');
+      return;
+    }
     if (stepIndex < steps.length - 1) {
       if (canContinue) setStepIndex((current) => current + 1);
       return;
@@ -204,6 +249,19 @@ export function OnboardingPage() {
       }
       setStatus('error');
       setError(message);
+    }
+  }
+
+  async function signOutDemoSession() {
+    setStatus('saving');
+    setError('');
+    try {
+      await supabase?.auth.signOut();
+      setAuthState('none');
+      setStatus('idle');
+    } catch (caught) {
+      setStatus('error');
+      setError(caught instanceof Error ? caught.message : 'Could not sign out of the demo sandbox.');
     }
   }
 
@@ -245,98 +303,143 @@ export function OnboardingPage() {
             </p>
           </div>
 
-          <form className="onboarding-layout" onSubmit={handleSubmit}>
-            <div className="onboarding-main">
-              <Card>
-                <div className="onboarding-step-kicker">
-                  <span className="mono">0{stepIndex + 1}</span>
-                  <span>{activeStep.title}</span>
-                </div>
-                <h2 className="onboarding-step-title">{activeStep.subtitle}</h2>
-                {activeStep.id === 'scope' ? (
-                  <ScopeStep draft={draft} update={update} />
-                ) : activeStep.id === 'risks' ? (
-                  <RiskStep draft={draft} update={update} toggleRisk={toggleRisk} />
-                ) : activeStep.id === 'evidence' ? (
-                  <EvidenceStep draft={draft} update={update} />
-                ) : activeStep.id === 'objective' ? (
-                  <ObjectiveStep draft={draft} update={update} />
-                ) : (
-                  <ReviewStep draft={draft} selectedEvidence={selectedEvidence} selectedGoal={selectedGoal} />
-                )}
-              </Card>
-
-              <div className="onboarding-actions">
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={stepIndex === 0 || status === 'saving'}
-                  onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
-                >
-                  Back
-                </button>
-                <div style={{ flex: 1 }} />
-                {draft.evidenceMode === 'demo_first' && activeStep.id === 'review' ? (
-                  <ButtonLink to={demoSetupPathLink} variant="primary">
-                    Open demo walkthrough
-                  </ButtonLink>
-                ) : null}
-                <button className="btn primary" type="submit" disabled={!canContinue || status === 'saving'}>
-                  {status === 'saving'
-                    ? 'Creating pilot...'
-                    : activeStep.id === 'review'
-                      ? draft.evidenceMode === 'demo_first'
-                        ? 'Create pilot anyway'
-                        : 'Create pilot workspace'
-                      : 'Continue'}
-                </button>
+          {authState === 'checking' ? (
+            <Card>
+              <div className="onboarding-auth-boundary">
+                <Badge tone="neutral">Checking session</Badge>
+                <h2>Preparing the beta pilot builder.</h2>
+                <p className="muted">StackCert is checking whether this browser is signed in to the demo sandbox or a beta account.</p>
               </div>
-              {status === 'error' ? <p className="form-error">{error}</p> : null}
-            </div>
+            </Card>
+          ) : isDemoSession ? (
+            <DemoSessionBoundary status={status} error={error} onSignOut={signOutDemoSession} />
+          ) : (
+            <form className="onboarding-layout" onSubmit={handleSubmit}>
+              <div className="onboarding-main">
+                <Card>
+                  <div className="onboarding-step-kicker">
+                    <span className="mono">0{stepIndex + 1}</span>
+                    <span>{activeStep.title}</span>
+                  </div>
+                  <h2 className="onboarding-step-title">{activeStep.subtitle}</h2>
+                  {activeStep.id === 'scope' ? (
+                    <ScopeStep draft={draft} update={update} />
+                  ) : activeStep.id === 'risks' ? (
+                    <RiskStep draft={draft} update={update} toggleRisk={toggleRisk} />
+                  ) : activeStep.id === 'evidence' ? (
+                    <EvidenceStep draft={draft} update={update} />
+                  ) : activeStep.id === 'objective' ? (
+                    <ObjectiveStep draft={draft} update={update} />
+                  ) : (
+                    <ReviewStep draft={draft} selectedEvidence={selectedEvidence} selectedGoal={selectedGoal} />
+                  )}
+                </Card>
 
-            <aside className="onboarding-side">
-              <Card>
-                <div className="stat-label">Setup readiness</div>
-                <div className="mono onboarding-readiness">{readiness}%</div>
-                <div className="progress-track" style={{ marginTop: 12 }}>
-                  <span style={{ width: `${readiness}%` }} />
+                <div className="onboarding-actions">
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={stepIndex === 0 || status === 'saving'}
+                    onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
+                  >
+                    Back
+                  </button>
+                  <div style={{ flex: 1 }} />
+                  {draft.evidenceMode === 'demo_first' && activeStep.id === 'review' ? (
+                    <ButtonLink to={demoSetupPathLink} variant="primary">
+                      Open demo walkthrough
+                    </ButtonLink>
+                  ) : null}
+                  <button className="btn primary" type="submit" disabled={!canContinue || status === 'saving'}>
+                    {status === 'saving'
+                      ? 'Creating pilot...'
+                      : activeStep.id === 'review'
+                        ? draft.evidenceMode === 'demo_first'
+                          ? 'Create pilot anyway'
+                          : 'Create pilot workspace'
+                        : 'Continue'}
+                  </button>
                 </div>
-                <div className="onboarding-progress-list">
-                  {steps.map((step, index) => (
-                    <button
-                      key={step.id}
-                      type="button"
-                      className={`onboarding-progress-item ${index === stepIndex ? 'active' : ''} ${index < stepIndex ? 'complete' : ''}`}
-                      onClick={() => {
-                        if (index <= stepIndex || canContinueStep(stepIndex, draft)) setStepIndex(index);
-                      }}
-                    >
-                      <span className="pilot-step-marker" aria-hidden="true" />
-                      <span>
-                        <strong>{step.title}</strong>
-                        <small>{step.subtitle}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="onboarding-plan-card">
-                  <Badge tone={draft.riskTier === 'critical' ? 'bad' : draft.riskTier === 'high' ? 'warn' : 'neutral'}>
-                    {titleCase(draft.riskTier)} risk
-                  </Badge>
-                  <p>
-                    Next setup task: <strong>{selectedEvidence.next}</strong>
-                  </p>
-                  <p className="muted">
-                    StackCert will produce scoped release evidence for this app and test mix; it cannot guarantee broad
-                    model safety.
-                  </p>
-                </div>
-              </Card>
-            </aside>
-          </form>
+                {status === 'error' ? <p className="form-error">{error}</p> : null}
+              </div>
+
+              <aside className="onboarding-side">
+                <Card>
+                  <div className="stat-label">Draft completeness</div>
+                  <div className="mono onboarding-readiness">{readiness}%</div>
+                  <div className="progress-track" style={{ marginTop: 12 }}>
+                    <span style={{ width: `${readiness}%` }} />
+                  </div>
+                  <div className="onboarding-progress-list">
+                    {steps.map((step, index) => (
+                      <button
+                        key={step.id}
+                        type="button"
+                        className={`onboarding-progress-item ${index === stepIndex ? 'active' : ''} ${index < stepIndex ? 'complete' : ''}`}
+                        onClick={() => {
+                          if (index <= stepIndex || canContinueStep(stepIndex, draft)) setStepIndex(index);
+                        }}
+                      >
+                        <span className="pilot-step-marker" aria-hidden="true" />
+                        <span>
+                          <strong>{step.title}</strong>
+                          <small>{step.subtitle}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="onboarding-plan-card">
+                    <Badge tone={draft.riskTier === 'critical' ? 'bad' : draft.riskTier === 'high' ? 'warn' : 'neutral'}>
+                      {titleCase(draft.riskTier)} risk
+                    </Badge>
+                    <p>
+                      Next setup task: <strong>{selectedEvidence.next}</strong>
+                    </p>
+                    <p className="muted">
+                      StackCert will produce scoped release evidence for this app and test mix; it cannot guarantee broad
+                      model safety.
+                    </p>
+                  </div>
+                </Card>
+              </aside>
+            </form>
+          )}
         </div>
       </main>
     </div>
+  );
+}
+
+function DemoSessionBoundary({
+  status,
+  error,
+  onSignOut
+}: {
+  status: 'idle' | 'saving' | 'error';
+  error: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <Card>
+      <div className="onboarding-auth-boundary">
+        <Badge tone="warn">Demo session active</Badge>
+        <h2>Sign out of the demo before starting a beta pilot.</h2>
+        <p>
+          The demo account only opens seeded support-copilot data. A beta pilot creates a real workspace for your app,
+          examples, safety options, and release evidence.
+        </p>
+        <p className="muted">
+          Your beta pilot draft is saved in this browser while you switch out of the demo sandbox.
+        </p>
+        <div className="onboarding-auth-actions">
+          <button className="btn primary" type="button" disabled={status === 'saving'} onClick={onSignOut}>
+            {status === 'saving' ? 'Signing out...' : 'Sign out of demo sandbox'}
+          </button>
+          <ButtonLink to={demoPath}>Return to demo</ButtonLink>
+        </div>
+        {status === 'error' ? <p className="form-error">{error}</p> : null}
+      </div>
+    </Card>
   );
 }
 
@@ -346,11 +449,19 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
       <div className="form-grid">
         <label>
           Company or workspace
-          <input value={draft.companyName} onChange={(event) => update('companyName', event.currentTarget.value)} />
+          <input
+            placeholder="e.g. Acme Support"
+            value={draft.companyName}
+            onChange={(event) => update('companyName', event.currentTarget.value)}
+          />
         </label>
         <label>
           LLM app or workflow
-          <input value={draft.projectName} onChange={(event) => update('projectName', event.currentTarget.value)} />
+          <input
+            placeholder="e.g. customer support agent"
+            value={draft.projectName}
+            onChange={(event) => update('projectName', event.currentTarget.value)}
+          />
         </label>
         <label>
           App category
@@ -560,13 +671,16 @@ function profileFromDraft(draft: OnboardingDraft): ProjectOnboardingProfileInput
 }
 
 function setupReadiness(draft: OnboardingDraft) {
+  const scopeReady = draft.companyName.trim().length >= 2 && draft.projectName.trim().length >= 2;
+  const risksReady = Boolean(draft.role) && draft.primaryRiskConcerns.length > 0;
+  const evidenceReady = Boolean(draft.evidenceMode);
+  const objectiveReady = Boolean(draft.optimizationGoal) && Boolean(draft.budgetRange);
   const items = [
-    draft.companyName.trim().length >= 2,
-    draft.projectName.trim().length >= 2,
-    Boolean(draft.role),
-    Boolean(draft.evidenceMode),
-    draft.primaryRiskConcerns.length > 0,
-    Boolean(draft.optimizationGoal)
+    scopeReady,
+    risksReady,
+    evidenceReady,
+    objectiveReady,
+    scopeReady && risksReady && evidenceReady && objectiveReady
   ];
   return Math.round((items.filter(Boolean).length / items.length) * 100);
 }

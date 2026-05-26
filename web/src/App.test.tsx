@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
-import { authDestination } from './pages/AuthPage';
+import { authDestination } from './lib/authFlow';
 
 describe('StackCert app', () => {
   it('renders the landing page value proposition', () => {
@@ -87,7 +87,9 @@ describe('StackCert app', () => {
 
     expect(screen.getByText(/Create the first evidence packet/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
-    expect(screen.getByText(/Setup readiness/i)).toBeInTheDocument();
+    expect(screen.getByText(/Draft completeness/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Company or workspace/i)).toHaveValue('');
+    expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');
   });
 
   it('renders footer helper pages from marketing links', () => {

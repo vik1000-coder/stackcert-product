@@ -572,6 +572,11 @@ tr:last-child td {
   background: rgba(188, 42, 42, 0.06);
 }
 
+.notice.warn {
+  border-color: rgba(178, 117, 0, 0.24);
+  background: rgba(178, 117, 0, 0.07);
+}
+
 .marketing-nav {
   display: flex;
   align-items: center;
@@ -783,6 +788,31 @@ tr:last-child td {
 .onboarding-head .hero-copy {
   max-width: 780px;
   margin: 16px 0 0;
+}
+
+.onboarding-auth-boundary {
+  display: grid;
+  gap: 14px;
+  max-width: 740px;
+}
+
+.onboarding-auth-boundary h2 {
+  margin: 2px 0 0;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.onboarding-auth-boundary p {
+  margin: 0;
+  color: var(--sc-ink-2);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.onboarding-auth-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .onboarding-step-kicker {
