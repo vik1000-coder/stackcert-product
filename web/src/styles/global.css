@@ -740,26 +740,207 @@ tr:last-child td {
   flex-wrap: wrap;
 }
 
-.demo-access-grid {
+.demo-page {
+  flex: 1;
+  background: var(--sc-surface);
+}
+
+.demo-hero {
+  padding: 84px 0 62px;
+}
+
+.demo-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 28px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 42px;
+  align-items: center;
 }
 
 .demo-access-copy {
-  max-width: 760px;
+  max-width: 820px;
 }
 
 .demo-access-copy .section-title {
   margin-top: 18px;
+  max-width: 780px;
+  font-size: 46px;
+  line-height: 1.08;
+}
+
+.demo-access-copy .hero-copy {
+  max-width: 760px;
+  margin: 18px 0 0;
+}
+
+.demo-proof-row {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.demo-proof-row span {
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-surface-2);
+  color: var(--sc-ink-2);
+  font-size: 12.5px;
+  font-weight: 650;
+  padding: 8px 11px;
 }
 
 .demo-access-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 24px;
+  margin-top: 28px;
+}
+
+.demo-preview-panel {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-surface-2);
+  box-shadow: var(--sc-shadow-2);
+  padding: 22px;
+}
+
+.demo-preview-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--sc-line);
+  padding-bottom: 16px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.demo-recommendation {
+  display: grid;
+  gap: 8px;
+}
+
+.demo-recommendation span,
+.demo-metric-grid span {
+  color: var(--sc-ink-3);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.demo-recommendation strong {
+  color: var(--sc-ink);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.demo-recommendation p {
+  margin: 0;
+  color: var(--sc-ink-3);
+  line-height: 1.55;
+}
+
+.demo-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.demo-metric-grid div {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  padding: 12px;
+}
+
+.demo-metric-grid strong {
+  color: var(--sc-ink);
+  font-size: 20px;
+}
+
+.demo-section {
+  padding: 58px 0;
+  border-top: 1px solid var(--sc-line);
+}
+
+.demo-section-muted {
+  background: var(--sc-surface-2);
+}
+
+.demo-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.55fr);
+  gap: 34px;
+  align-items: end;
+  margin-bottom: 26px;
+}
+
+.demo-section-head p {
+  margin: 0;
+  color: var(--sc-ink-3);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.demo-tour-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.demo-tour-grid .card {
+  display: grid;
+  gap: 12px;
+}
+
+.demo-tour-grid h3,
+.demo-card-title {
+  margin: 0;
+  color: var(--sc-ink);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.demo-tour-grid p {
+  margin: 0;
+  color: var(--sc-ink-3);
+  line-height: 1.55;
+}
+
+.demo-step-number {
+  color: var(--sc-accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.demo-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.demo-screen-list {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.demo-screen-list span {
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-surface-2);
+  color: var(--sc-ink-2);
+  font-size: 12.5px;
+  font-weight: 650;
+  padding: 8px 10px;
 }
 
 .demo-boundary-list {
@@ -2042,7 +2223,10 @@ tr:last-child td {
   }
 
   .footer-grid,
-  .demo-access-grid,
+  .demo-hero-grid,
+  .demo-section-head,
+  .demo-tour-grid,
+  .demo-details-grid,
   .onboarding-layout,
   .blog-hero-grid,
   .blog-section-head,
@@ -2094,6 +2278,38 @@ tr:last-child td {
   .job-row,
   .project-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .demo-hero {
+    padding: 64px 0 46px;
+  }
+
+  .demo-access-copy .section-title {
+    font-size: 38px;
+    line-height: 1.08;
+  }
+
+  .demo-access-copy .hero-copy {
+    font-size: 16px;
+  }
+
+  .demo-preview-panel {
+    padding: 18px;
+  }
+
+  .demo-recommendation strong {
+    font-size: 28px;
+  }
+
+  .demo-section {
+    padding: 44px 0;
+  }
+
+  .demo-section-head {
+    gap: 16px;
+    margin-bottom: 20px;
   }
 }
 

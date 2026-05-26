@@ -68,8 +68,11 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Explore StackCert with sample data/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Preview StackCert with safe sample data/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Demo sandbox/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/What you will see/i)).toBeInTheDocument();
+    expect(screen.getByText(/Recommendation preview/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Demo data is intentionally isolated/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Continue to demo sandbox/i })).toHaveAttribute(
       'href',
       '/auth/sign-in?flow=demo&next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview'
