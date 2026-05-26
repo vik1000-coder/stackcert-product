@@ -211,6 +211,16 @@ class TraceImportPreviewRequest(BaseModel):
     max_examples: int = Field(default=50, ge=1, le=500)
 
 
+class TraceImportCommitRequest(TraceImportPreviewRequest):
+    name: str = Field(min_length=3, max_length=120)
+    version: str | None = Field(default=None, min_length=1, max_length=60)
+    description: str | None = Field(default=None, max_length=2000)
+    license: str | None = Field(default=None, max_length=200)
+    source_name: str | None = Field(default=None, max_length=240)
+    source_uri: str | None = Field(default=None, max_length=500)
+    review_approved: bool = False
+
+
 class CertificateIssueRequest(BaseModel):
     acknowledge_limitations: bool
     expires_in_days: int = Field(default=30, ge=1, le=365)

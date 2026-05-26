@@ -39,8 +39,8 @@ export function BlogIndexPage() {
               <Badge tone="neutral">StackCert blog</Badge>
               <h1>Evidence-backed safety decisions for production LLM apps.</h1>
               <p>
-                A research and product series on why safety checks should be selected as combinations, how CASS
-                targets the measurements that matter, and what our current empirical results do and do not support.
+                Direct notes on choosing safety-check combinations, measuring the overlap that matters, and knowing
+                what the current evidence does and does not prove.
               </p>
               <div className="blog-hero-actions">
                 <ButtonLink to={`/blog/${featured.slug}`} variant="primary">
@@ -72,8 +72,8 @@ export function BlogIndexPage() {
                 <h2 className="section-title">From product problem to empirical evidence.</h2>
               </div>
               <p>
-                The posts are ordered for readers moving from the buyer problem to the theory, method, and results.
-                Each one includes the limits of the evidence it uses.
+                Start with the product decision, then move through the business case, theory, method, and empirical
+                results. Each post states the limits of its evidence.
               </p>
             </div>
             <div className="blog-post-grid">
@@ -90,8 +90,8 @@ export function BlogIndexPage() {
               <div>
                 <h2>Want to compare this against your own safety checks?</h2>
                 <p>
-                  Start with the sample support-copilot demo, then bring one real workflow and a candidate set from your
-                  own app.
+                  Start with the sample support-copilot demo, then bring one real workflow and the checks you might
+                  actually ship.
                 </p>
               </div>
               <ButtonLink to="/onboarding">Start pilot</ButtonLink>

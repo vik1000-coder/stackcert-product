@@ -64,6 +64,7 @@ lookup.
 | `GET` | `/api/projects/{project_id}/benchmark-suites/schema` | project | `viewer` | none |
 | `POST` | `/api/projects/{project_id}/benchmark-suites/preview` | project | `project_maintainer` | none |
 | `POST` | `/api/projects/{project_id}/trace-imports/preview` | project | `project_maintainer` | none |
+| `POST` | `/api/projects/{project_id}/trace-imports` | project | `project_maintainer` | `trace_import.committed` |
 | `POST` | `/api/projects/{project_id}/benchmark-suites` | project | `project_maintainer` | `benchmark_suite.committed` |
 | `GET` | `/api/projects/{project_id}/guards` | project | `viewer` | none |
 | `GET` | `/api/projects/{project_id}/guard-connectors` | project | `viewer` | none |

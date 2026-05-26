@@ -30,106 +30,106 @@ export const blogPosts: BlogPost[] = [
     category: 'Overview',
     title: 'Choosing the Right Safety Checks for Your LLM App',
     dek:
-      'LLM app safety is becoming a release decision. StackCert is being built to make that decision measurable, reviewable, and repeatable.',
+      'Shipping an LLM app now means choosing a safety stack. StackCert turns that choice into a measured release decision.',
     date: 'May 24, 2026',
-    readTime: '8 min read',
+    readTime: '7 min read',
     audience: 'AI platform, safety, product, and risk teams',
     summary:
-      'A plain-English overview of the product problem, the StackCert workflow, and why safety checks need to be evaluated as combinations.',
+      'A plain-English walkthrough of the StackCert workflow: bring app examples, compare safety-check combinations, and produce scoped release evidence.',
     takeaway:
-      'The question is not whether a team has a guardrail. It is which safety-check combination is justified for this app, this risk profile, and this evidence budget.',
+      'The hard question is not whether you have a guardrail. It is which combination is justified for this app, this risk profile, and this evidence budget.',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'Imagine a team preparing to ship a support copilot. They have a moderation API, a custom policy rule set, a model judge, a guard model, and a stronger model they could route risky cases to. Each option looks reasonable when inspected alone. The release question is harder: which combination should actually sit in front of users?'
+          'Imagine a team about to launch a support copilot. They can add a moderation API, custom policy rules, a model judge, a guard model, or a stronger model for risky cases. Each option looks reasonable by itself. The release decision is harder: which combination should actually sit in front of users?'
       },
       {
         type: 'paragraph',
         text:
-          'This is the problem StackCert is built around. Production teams do not need another leaderboard of one-at-a-time safety scores. They need evidence for a scoped release decision: the application, the examples, the candidate checks, the risk profile, the recommendation, and the limits of what was tested.'
+          'That is the problem StackCert is built for. Teams do not need another leaderboard of isolated guardrail scores. They need evidence for one scoped decision: the app, the examples, the candidate checks, the risk profile, the recommendation, and the limits of the test.'
       },
-      { type: 'heading', text: 'The release decision has changed' },
+      { type: 'heading', text: 'The decision changed' },
       {
         type: 'paragraph',
         text:
-          'LLM applications are moving from demos into workflows where safety choices affect users, support operations, procurement, security review, and launch timelines. A safety check is no longer just a technical add-on. It changes false blocks, missed unsafe requests, latency, model spend, and the evidence a reviewer can rely on.'
+          'Safety checks used to feel like engineering add-ons. Now they affect launch timing, support quality, security review, procurement, cost, latency, and user trust. A false block can hurt the product. A missed unsafe request can create real exposure.'
       },
       {
         type: 'quote',
         text:
-          'The question is no longer "do we have a guardrail?" It is "which safety-check combination is justified for this app?"'
+          'The release question is no longer "do we have a guardrail?" It is "which safety-check combination is justified for this app?"'
       },
       {
         type: 'paragraph',
         text:
-          'The usual shortcuts are attractive because they are simple. Pick the best single check. Use the strongest model available. Stack every check and hope redundancy helps. Or test every possible combination. Each shortcut can be useful in a narrow setting, but none is a general release workflow.'
+          'The usual shortcuts are tempting. Pick the best single check. Use the strongest model. Stack every check. Test every possible combination. Each shortcut can help in a narrow case, but none is a dependable release workflow.'
       },
-      { type: 'heading', text: 'The missing variable is overlap' },
+      { type: 'heading', text: 'Overlap decides whether a stack helps' },
       {
         type: 'paragraph',
         text:
-          'Two checks can look strong individually and still fail together. If both miss the same unsafe examples, the stack gains less protection than the one-at-a-time scores imply. If two checks block different normal examples, the stack can create more user friction than expected. Overlap is not just a statistical detail. It is the thing that determines whether a combination gives useful redundancy or expensive repetition.'
+          'Two checks can look strong on their own and still fail together. If both miss the same unsafe examples, the stack adds less protection than the one-at-a-time scores suggest. If both block different normal examples, the stack creates more user friction than expected.'
       },
       {
         type: 'paragraph',
         text:
-          'This is why StackCert treats the combination as the object of analysis. It looks at app examples, candidate safety checks, and the tradeoff the team cares about. Then it asks which additional overlap measurements can still change the recommendation.'
+          'StackCert treats the combination as the thing to evaluate. It starts with app examples and candidate checks, then measures the overlaps that can still change the recommendation.'
       },
       { type: 'heading', text: 'What StackCert does' },
       {
         type: 'list',
         items: [
-          'Import or create app-specific unsafe and normal examples.',
-          'Register candidate safety checks, including rules, classifiers, guard models, prompted judges, and stronger-model routes.',
-          'Compare combinations rather than only individual checks.',
-          'Recommend targeted overlap tests when the best combination is still uncertain.',
-          'Produce scoped release evidence that records the recommendation, assumptions, limitations, and retest triggers.'
+          'Import or create unsafe and normal examples from the app.',
+          'Register candidate checks: rules, classifiers, guard models, model judges, and stronger-model routes.',
+          'Compare deployable combinations, not just individual checks.',
+          'Recommend targeted overlap tests when the answer is still uncertain.',
+          'Produce release evidence with the recommendation, assumptions, limitations, and retest triggers.'
         ]
       },
       {
         type: 'paragraph',
         text:
-          'The research method underneath is CASS, short for correlation-aware selection of safety-agent ensembles. The product wording is simpler: StackCert helps teams spend evaluation budget where the result can change the launch decision.'
+          'The research method underneath is CASS: correlation-aware selection of safety-agent ensembles. The product idea is simpler: spend evaluation budget where it can change the launch decision.'
       },
       {
         type: 'code',
         code:
           'App examples -> Candidate checks -> Targeted overlap tests -> Recommendation -> Release evidence -> Retest'
       },
-      { type: 'heading', text: 'What our current evidence shows' },
+      { type: 'heading', text: 'What the current evidence shows' },
       {
         type: 'paragraph',
         text:
-          'The current empirical run is intentionally local and scoped. We evaluated 2,000 examples across eight local safety agents, producing 16,000 output rows with no missing rows, no execution errors, and no parse failures. In the safety-heavy setting, first-order marginal selection picked a different pair than the full pairwise oracle.'
+          'Our current empirical run is local and scoped. We evaluated 2,000 examples against eight local safety agents, producing 16,000 output rows with no missing rows, execution errors, or parse failures. In the safety-heavy setting, the best pair from one-at-a-time scores was not the best pair after overlap was measured.'
       },
       {
         type: 'callout',
-        title: 'Current headline result',
+        title: 'Headline result',
         body:
-          'At lambda 5, the one-at-a-time top-marginal pair had finite-oracle regret of 0.025318. In the finite benchmark, CASS recovered and certified the zero-regret winner at both 25% and 50% measurement budgets.'
+          'At lambda 5, the top-marginal pair had finite-oracle regret of 0.025318. In this finite benchmark, CASS recovered and certified the zero-regret winner at both 25% and 50% measurement budgets.'
       },
       {
         type: 'paragraph',
         text:
-          'We also tested a stronger feasible local model, Qwen3 8B. It was useful, and the expanded CASS pool selected it at lower safety penalties. But it did not make combination selection obsolete. In the safety-heavy setting, CASS selected a different pair with much lower adversarial miss-through.'
+          'We also added Qwen3 8B as a stronger feasible local model. It helped at lower safety penalties, but it did not make combination selection obsolete. In the safety-heavy setting, CASS chose a different pair with much lower adversarial miss-through.'
       },
       { type: 'heading', text: 'What release evidence does not mean' },
       {
         type: 'paragraph',
         text:
-          'This language matters. StackCert evidence is scoped. It supports a decision for one app, one example mix, one candidate set, one risk profile, and one point in time. It is not a claim that the AI system is universally safe. It does not replace monitoring, incident response, human review, or future retesting.'
+          'StackCert evidence is scoped. It supports a decision for one app, one example mix, one candidate set, one risk profile, and one point in time. It is not a claim that the whole AI system is safe. It does not replace monitoring, incident response, human review, or retesting.'
       },
       {
         type: 'paragraph',
         text:
-          'That narrower claim is a feature, not a weakness. Teams already make release decisions under uncertainty. The goal is to make those decisions more explicit, more repeatable, and easier to review.'
+          'That narrower claim is the point. Teams already make release decisions under uncertainty. StackCert makes the evidence behind those decisions explicit and reviewable.'
       },
-      { type: 'heading', text: 'Where the series goes next' },
+      { type: 'heading', text: 'What comes next' },
       {
         type: 'paragraph',
         text:
-          'The next posts unpack the business case, the theory, the CASS method, the 2,000-example empirical run, and the stronger-model comparison. The throughline is the same: safety-check selection should be evaluated as a scoped decision problem, not a generic race to add more checks.'
+          'The rest of this series covers the business case, the theory, the CASS method, the 2,000-example run, and the stronger-model comparison. The throughline is simple: safety-check selection is a scoped decision problem, not a race to add more checks.'
       }
     ]
   },
@@ -139,92 +139,92 @@ export const blogPosts: BlogPost[] = [
     category: 'Business',
     title: 'Why the Best Single Guardrail Can Be the Wrong Production Choice',
     dek:
-      'One-at-a-time evaluation is cheap and legible. It can also hide the shared misses and scattered false blocks that determine production behavior.',
+      'One-at-a-time evals are useful. They can also hide the shared misses and scattered false blocks that decide production behavior.',
     date: 'May 24, 2026',
-    readTime: '9 min read',
+    readTime: '8 min read',
     audience: 'Security leaders, platform teams, product owners, and GRC reviewers',
     summary:
-      'A business-oriented explanation of why teams need targeted combination testing instead of only independent guardrail scores.',
+      'Why teams need targeted combination testing instead of a release decision based only on independent guardrail scores.',
     takeaway:
-      'Production systems ship combinations. The economic question is how to measure the overlap that matters without buying a giant test grid.',
+      'Production systems ship combinations. The business question is how to measure the overlap that matters without buying a giant test grid.',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'A natural buyer question for StackCert is: "We already benchmarked each safety check. Why do we need another evaluation?" The short answer is that production does not run benchmark rows through safety checks one at a time. It ships a combination.'
+          'A natural buyer question is: "We already benchmarked each safety check. Why run another evaluation?" Because production does not ship checks one at a time. It ships a stack.'
       },
       {
         type: 'paragraph',
         text:
-          'One-at-a-time evaluation is not foolish. It is cheap, fast, and easy to explain. It gives teams a first read on which checks are obviously weak. The problem begins when those independent scores become the whole release decision.'
+          'Independent evaluation is still useful. It is cheap, fast, and easy to explain. It helps teams eliminate weak checks early. The mistake is treating those independent scores as the whole release decision.'
       },
       { type: 'heading', text: 'Production behavior is joint behavior' },
       {
         type: 'paragraph',
         text:
-          'A real LLM app might combine rules, classifiers, LLM judges, policy prompts, guard models, tool permissions, and stronger-model routes. In a serial stack, a request passes only when every selected check allows it. That means the combination is not the average of its parts.'
+          'An LLM app might combine rules, classifiers, model judges, policy prompts, guard models, tool permissions, and stronger-model routes. In a serial stack, a request passes only when every selected check allows it. The result is not the average of the parts.'
       },
       {
         type: 'paragraph',
         text:
-          'Consider two checks that each catch 90% of unsafe examples. If they miss the same 10%, the combination is not much safer. If they miss different examples, the combination can be much stronger. The marginal score is identical. The production result is not.'
+          'Take two checks that each catch 90% of unsafe examples. If they miss the same 10%, the combination is barely safer. If they miss different examples, the combination can be much stronger. The individual score is the same. The release risk is not.'
       },
-      { type: 'heading', text: 'Shared misses are the business risk' },
+      { type: 'heading', text: 'Shared misses are the safety risk' },
       {
         type: 'paragraph',
         text:
-          'The unsafe examples that survive the whole stack are the examples reviewers care about most. They shape legal exposure, security risk, user trust, and incident response. A team that only knows each component score still does not know whether the selected combination has a concentrated failure pocket.'
+          'The unsafe examples that pass the whole stack are the ones reviewers care about most. They shape legal exposure, security risk, user trust, and incident response. A team that only knows component scores still does not know where the shipped stack fails.'
       },
       {
         type: 'paragraph',
         text:
-          'This is especially important when the application has a specific risk profile. A support copilot, internal coding agent, security triage agent, and medical-summary assistant do not have the same failure costs. The right combination depends on what kinds of misses the organization is least willing to tolerate.'
+          'The risk profile also matters. A support copilot, coding agent, security triage agent, and medical-summary assistant do not carry the same failure cost. The right stack depends on which misses the organization is least willing to tolerate.'
       },
       { type: 'heading', text: 'Scattered false blocks are the product risk' },
       {
         type: 'paragraph',
         text:
-          'There is a second side to the tradeoff. Safety checks can block normal requests. If two checks block different benign examples, the serial stack creates broader user friction. If their false blocks overlap, the damage is more concentrated. That can be less harmful for the product, even when the individual false-block rates are the same.'
+          'Safety checks can also block normal users. If two checks block different benign requests, the stack creates broader friction. If their false blocks overlap, the affected user set may be smaller even when the individual false-block rates are identical.'
       },
       {
         type: 'paragraph',
         text:
-          'This asymmetry is why "more checks" is not automatically better. More checks can reduce unsafe pass-through, but they can also add latency, increase vendor spend, and block normal users. The release decision needs both sides of the ledger.'
+          'That is why "add more checks" is not automatically conservative. More checks can reduce unsafe pass-through, but they can also add cost, latency, and unnecessary refusals.'
       },
       {
         type: 'table',
         columns: ['Shortcut', 'Why teams use it', 'What it can miss'],
         rows: [
-          ['Pick the best single check', 'Fast, cheap, easy to explain', 'Shared failures in the shipped combination'],
-          ['Use a stronger model', 'Simple architecture and procurement story', 'Risk-profile-specific false positives and misses'],
+          ['Pick the best single check', 'Fast, cheap, easy to explain', 'Shared failures in the shipped stack'],
+          ['Use a stronger model', 'Simple architecture and procurement story', 'Risk-specific false positives and misses'],
           ['Stack everything', 'Feels conservative', 'Latency, cost, and benign false blocks'],
-          ['Test every combination', 'Thorough once', 'Too slow and expensive for retests and release variants'],
-          ['Target overlap tests', 'Decision-focused', 'Needs a principled scheduler and clear scope']
+          ['Test every combination', 'Thorough once', 'Too slow for retests and release variants'],
+          ['Target overlap tests', 'Decision-focused', 'Needs a clear scheduler and scope']
         ]
       },
       { type: 'heading', text: 'Targeted tests change the economics' },
       {
         type: 'paragraph',
         text:
-          'The key observation behind StackCert is that not every missing measurement can change the answer. Some candidate combinations are already dominated by first-order data. Some overlap cells are irrelevant to the remaining close comparisons. A useful evaluation planner should spend budget on the unresolved comparisons, not on satisfying a desire for a complete matrix.'
+          'Not every missing measurement can change the decision. Some combinations are already dominated. Some overlap cells are irrelevant to the close comparisons. A useful evaluation planner spends budget on unresolved decisions, not on filling a complete matrix for its own sake.'
       },
       {
         type: 'figure',
         src: '/blog/figures/fig02_budgeted_lambda5_methods.svg',
         alt: 'CASS budgeted lambda 5 methods comparison',
         caption:
-          'In the lambda 5 finite run, CASS certified the zero-regret winner using 13 pair-cells, while broader measurement baselines used many more pair-cells without certifying.'
+          'In the lambda 5 finite run, CASS certified the zero-regret winner using 13 pair-cells. Broader measurement baselines used many more pair-cells without certifying.'
       },
       {
         type: 'paragraph',
         text:
-          'This is not a promise that CASS always reduces cost or always certifies a winner. It is a more disciplined question: given the current evidence, which tests are most likely to resolve the release decision? Sometimes the answer is that more evidence is needed. That is still valuable, because it prevents teams from mistaking a convenient recommendation for a supported one.'
+          'This is not a promise that CASS always cuts cost or always certifies a winner. It asks a better question: given the evidence we have now, which tests are most likely to resolve the release decision?'
       },
       { type: 'heading', text: 'What buyers actually need' },
       {
         type: 'paragraph',
         text:
-          'The artifact buyers need is not "the AI is safe." That claim is too broad. A better artifact says which candidate checks were considered, what examples were used, what risk profile was assumed, which combination was selected, which close alternatives were ruled out, and what should trigger a retest.'
+          'The useful artifact is not "the AI is safe." That claim is too broad. A useful artifact says which checks were considered, what examples were used, what risk profile was assumed, which combination was selected, which alternatives were ruled out, and what should trigger a retest.'
       },
       {
         type: 'list',
@@ -232,14 +232,14 @@ export const blogPosts: BlogPost[] = [
           'The selected safety-check combination.',
           'The app-specific example mix and weights.',
           'The measured overlap that mattered to the decision.',
-          'The remaining limitations and unresolved assumptions.',
+          'The remaining limitations and assumptions.',
           'The cost, latency, and retest implications.'
         ]
       },
       {
         type: 'paragraph',
         text:
-          'That is the business case for StackCert: better safety decisions per evaluation dollar, with evidence that platform, safety, product, and risk teams can discuss in the same room.'
+          'That is the business case for StackCert: clearer safety decisions per evaluation dollar, with evidence platform, safety, product, and risk teams can review together.'
       }
     ]
   },
@@ -249,36 +249,36 @@ export const blogPosts: BlogPost[] = [
     category: 'Theory',
     title: 'The Correlation Tax in Safety Ensembles',
     dek:
-      'In serial safety stacks, marginal quality is not enough. Correlation determines whether redundancy helps or simply repeats the same mistakes.',
+      'In serial safety stacks, marginal quality is not enough. Correlation decides whether redundancy helps or repeats the same mistakes.',
     date: 'May 24, 2026',
-    readTime: '10 min read',
+    readTime: '9 min read',
     audience: 'ML researchers, safety researchers, and senior AI platform engineers',
     summary:
-      'A technical but readable explanation of why benign and adversarial correlations have different product meanings.',
+      'A readable explanation of why adversarial and benign correlations mean different things for product risk.',
     takeaway:
-      'Positive correlation among adversarial misses is costly. Positive correlation among benign false blocks can be comparatively helpful.',
+      'Shared adversarial misses are costly. Shared benign false blocks can be less harmful than scattered false blocks.',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'Two safety checks can have the same individual accuracy and very different value in a production stack. One pair catches different unsafe examples and creates useful redundancy. Another pair fails on the same examples and adds little protection. What changed is not the marginal score. It is the correlation structure.'
+          'Two checks can have the same individual accuracy and very different value in production. One pair catches different unsafe prompts. Another pair misses the same prompts. The marginal score is unchanged; the overlap is not.'
       },
-      { type: 'heading', text: 'Serial ensembles create a product' },
+      { type: 'heading', text: 'Serial stacks create joint failures' },
       {
         type: 'paragraph',
         text:
-          'StackCert focuses on serial safety-check combinations. A request passes the stack only if every selected check passes it. For unsafe inputs, this means a failure occurs when all selected checks miss the same unsafe input. For benign inputs, user friction occurs when any selected check blocks a normal input.'
+          'StackCert focuses on serial combinations. A request passes only if every selected check passes it. For unsafe inputs, the dangerous case is all selected checks missing the same prompt. For benign inputs, user friction appears when any selected check blocks a normal prompt.'
       },
       {
         type: 'quote',
         text:
-          'The system failure is not simply "agent A failed." It is "all selected checks passed the unsafe prompt."'
+          'The system failure is not "one check failed." It is "the whole selected stack let the unsafe prompt through."'
       },
-      { type: 'heading', text: 'Welfare separates two kinds of mistakes' },
+      { type: 'heading', text: 'Welfare separates two mistakes' },
       {
         type: 'paragraph',
         text:
-          'The theory uses a simple welfare objective. A selected set should preserve benign pass-through while penalizing adversarial miss-through. The parameter lambda controls how strongly the release decision penalizes unsafe pass-through relative to benign friction.'
+          'The welfare objective balances benign pass-through against adversarial miss-through. Lambda controls how strongly the release decision penalizes unsafe pass-through compared with normal-user friction.'
       },
       {
         type: 'code',
@@ -287,24 +287,24 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'This is not a universal moral formula. It is a decision surface. A low lambda setting is more tolerant of residual unsafe misses when benign usefulness matters more. A high lambda setting is safety-heavy. StackCert exposes this as a risk profile rather than asking every buyer to reason in research notation.'
+          'This is not a moral formula. It is a decision surface. Low lambda values favor usefulness. High lambda values are more safety-heavy. StackCert exposes this as a risk profile so buyers do not need to reason in research notation.'
       },
-      { type: 'heading', text: 'The same correlation sign can mean opposite things' },
+      { type: 'heading', text: 'The same sign can mean opposite things' },
       {
         type: 'paragraph',
         text:
-          'On the adversarial side, positive correlation among misses is bad. It means the checks tend to pass the same unsafe examples. A serial stack gets less benefit from redundancy when the misses are concentrated.'
+          'On adversarial examples, positive correlation among misses is bad. It means the checks tend to pass the same unsafe prompts, so redundancy helps less.'
       },
       {
         type: 'paragraph',
         text:
-          'On the benign side, positive correlation among false blocks can be less harmful than scattered false blocks. If checks block the same normal examples, the total set of affected benign examples may be smaller than if each check blocks a different group.'
+          'On benign examples, positive correlation among false blocks can be less damaging. If checks block the same normal prompts, friction is concentrated. If each check blocks different normal prompts, the affected user set grows.'
       },
       {
         type: 'callout',
         title: 'Correlation asymmetry',
         body:
-          'For unsafe examples, shared passes are dangerous. For normal examples, shared blocks can concentrate friction. That is why the same mathematical correlation can have opposite product meaning depending on the benchmark side.'
+          'For unsafe prompts, shared passes are dangerous. For normal prompts, shared blocks can concentrate friction. The same mathematical sign has different product meaning on each side of the benchmark.'
       },
       {
         type: 'figure',
@@ -317,7 +317,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'At a high level, the serial pass probability decomposes into a first-order product of marginal pass rates, plus pairwise correction terms, plus a residual term for higher-order interactions. The first-order term is what one-at-a-time evaluation sees. The pairwise terms capture overlap. The residual captures what pairwise measurements alone cannot determine when the selected stack has three or more checks.'
+          'At a high level, serial pass probability splits into a first-order product of marginal pass rates, pairwise overlap terms, and a residual term for higher-order interactions. One-at-a-time evaluation sees the first-order term. Pairwise tests reveal overlap.'
       },
       {
         type: 'code',
@@ -327,13 +327,13 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'This decomposition explains both the opportunity and the caution. Pairwise overlap can change the selected pair. But for K>=3, pairwise data is not magic. A credible method must keep residual uncertainty explicit instead of pretending the problem is solved.'
+          'This explains both the opportunity and the caution. Pairwise overlap can change the selected pair. For K>=3, pairwise data still leaves residual uncertainty, so the method must keep that uncertainty visible.'
       },
       { type: 'heading', text: 'The correlation tax' },
       {
         type: 'paragraph',
         text:
-          'The correlation tax is the welfare penalty paid when a team selects by marginal scores and ignores harmful overlap. In our 2,000-example run, this tax appears clearly in the safety-heavy lambda 5 setting: the top-marginal pair is not the full pairwise winner.'
+          'The correlation tax is the welfare penalty a team pays when it selects by marginal scores and ignores harmful overlap. In our 2,000-example run, that tax appears clearly at lambda 5: the top-marginal pair is not the full pairwise winner.'
       },
       {
         type: 'figure',
@@ -346,12 +346,12 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'A CASS certificate is a scoped comparison result. It says one candidate combination beats the alternatives under the stated benchmark, weights, risk profile, candidate set, and interval assumptions. It does not say the AI system is safe. It says a particular release recommendation is currently supported by the evidence.'
+          'A CASS certificate is a scoped comparison result. It says one candidate combination beats the alternatives under the stated benchmark, weights, risk profile, candidate set, and interval assumptions.'
       },
       {
         type: 'paragraph',
         text:
-          'The practical message is straightforward: if you combine safety checks, you need to measure the overlap that matters. Marginal quality is a start. It is not the release decision.'
+          'It does not say the AI system is safe. It says the release recommendation is currently supported by the available evidence.'
       }
     ]
   },
@@ -361,45 +361,45 @@ export const blogPosts: BlogPost[] = [
     category: 'Method',
     title: 'CASS: Choosing What To Measure When Safety Evaluation Is Expensive',
     dek:
-      'CASS treats safety-check selection as an adaptive evaluation problem: maintain intervals, identify unresolved comparisons, and test where the answer can change.',
+      'CASS keeps uncertainty explicit, then tests the overlap cells that can still change the recommendation.',
     date: 'May 24, 2026',
-    readTime: '11 min read',
+    readTime: '10 min read',
     audience: 'Evaluation engineers, safety researchers, and technical buyers',
     summary:
-      'A method post explaining how CASS turns unknown overlap into candidate welfare intervals and targeted next tests.',
+      'How CASS turns unknown overlap into welfare intervals, close comparisons, and targeted next tests.',
     takeaway:
       'CASS is not "test less and hope." It is "test the comparisons that can still matter."',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'If you have eight candidate safety checks and evaluate two-check combinations, there are 28 possible pairs. In our main setup, those pairs span 168 pair-by-benchmark overlap cells. Testing everything may be possible once. It is not a scalable release workflow when teams change models, add examples, adjust risk profiles, and retest after drift.'
+          'With eight candidate safety checks and two-check stacks, there are 28 possible pairs. In our main setup, those pairs span 168 pair-by-benchmark overlap cells. Measuring all of them may be possible once. It is not a good workflow for model changes, new examples, policy updates, and retests.'
       },
       {
         type: 'paragraph',
         text:
           'CASS asks a narrower question: which measurements can still change the recommendation?'
       },
-      { type: 'heading', text: 'Start with what teams usually know' },
+      { type: 'heading', text: 'Start with what teams already know' },
       {
         type: 'paragraph',
         text:
-          'Most evaluation workflows can measure individual safety-check outcomes first. That gives marginal pass and block rates by benchmark cell, plus rough latency and cost. It also gives the product team a candidate set and a risk profile. What remains uncertain is whether checks fail together.'
+          'Most teams can first measure individual safety-check outcomes. That gives pass and block rates by benchmark cell, plus rough cost and latency. It also gives the candidate set and risk profile. What remains unknown is whether checks fail together.'
       },
       {
         type: 'list',
         items: [
           'Do two checks miss the same unsafe prompts?',
           'Do two checks block the same normal prompts?',
-          'Which overlaps can change the ranking of candidate combinations?',
-          'Which comparisons are already decided by current evidence?'
+          'Which overlaps can change the ranking?',
+          'Which comparisons are already decided?'
         ]
       },
       { type: 'heading', text: 'Turn combinations into intervals' },
       {
         type: 'paragraph',
         text:
-          'CASS uses the known first-order estimates and bounds the unknown overlap. Each candidate combination receives a lower and upper welfare value. Each head-to-head comparison receives a gap interval. If a candidate could still be best under the unresolved overlap, it remains active. If it cannot win, CASS can stop spending attention on it.'
+          'CASS combines the known first-order estimates with bounds on unknown overlap. Each candidate combination gets a lower and upper welfare value. Each head-to-head comparison gets a gap interval. If a candidate can no longer win, CASS stops spending attention on it.'
       },
       {
         type: 'quote',
@@ -409,28 +409,28 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'This is conservative by design. A certificate is not awarded because the center estimate looks promising. It is awarded when the current interval evidence is strong enough to rule out the remaining alternatives.'
+          'That rule is intentionally conservative. CASS does not certify a recommendation because the center estimate looks good. It certifies only when the current interval evidence rules out the remaining alternatives.'
       },
-      { type: 'heading', text: 'Choose measurements by width reduction' },
+      { type: 'heading', text: 'Choose tests that shrink uncertainty' },
       {
         type: 'paragraph',
         text:
-          'A subtle point matters here. CASS does not assume that a new measurement will move the center estimate in a helpful direction. It chooses measurements because they shrink uncertainty around active comparisons. That makes the procedure less like wishful sampling and more like an evaluation planner.'
+          'CASS does not assume a new measurement will move the score in a helpful direction. It chooses measurements because they shrink uncertainty around active comparisons. That makes it an evaluation planner, not a wishful sampler.'
       },
       {
         type: 'paragraph',
         text:
-          'The paper describes exact and approximate planners. A small exact width-cover MILP can be used when the action space is manageable. A bundle-greedy fallback is practical when teams need a simpler scheduler. The product version can expose this as targeted test planning: show the next tests, why they matter, and what remains unresolved.'
+          'The research version includes exact and approximate planners. A small width-cover MILP can be used when the action space is manageable. A bundle-greedy fallback is practical when teams need a simpler scheduler. In the product, this becomes a test plan: what to run next, why it matters, and what remains unresolved.'
       },
       { type: 'heading', text: 'What the method returns' },
       {
         type: 'list',
         items: [
           'The current recommended safety-check combination.',
-          'Whether the recommendation is certified under the current evidence.',
+          'Whether the recommendation is certified.',
           'The close alternatives that remain plausible.',
-          'The targeted overlap tests most likely to resolve the decision.',
-          'A release evidence report with scope, assumptions, limitations, and retest triggers.'
+          'The overlap tests most likely to resolve the decision.',
+          'A release report with scope, assumptions, limitations, and retest triggers.'
         ]
       },
       {
@@ -444,18 +444,18 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'This is important for product trust. StackCert should not always return a confident-looking answer. If the interval evidence cannot distinguish the top candidates, the correct behavior is to say what remains unresolved and recommend the next measurements. That is more useful than hiding uncertainty behind a single score.'
+          'This is important for trust. StackCert should not always return a confident-looking answer. If the evidence cannot distinguish the top candidates, the right output is to say what is unresolved and recommend the next measurements.'
       },
       {
         type: 'paragraph',
         text:
-          'The method also has real limits. K=2 pairs are the cleanest case because pairwise overlap directly resolves the pairwise correction. K>=3 requires residual-aware intervals, which can become conservative. Source shift can weaken conclusions. Local prompted judges are not ground-truth safety classifiers. CASS helps organize the decision; it does not remove the need for good examples and careful interpretation.'
+          'The method also has limits. K=2 pairs are the cleanest case. K>=3 needs residual-aware intervals, which can be conservative. Source shift can weaken conclusions. Local prompted judges are not ground-truth safety classifiers. CASS organizes the decision; it does not replace good examples or careful review.'
       },
       { type: 'heading', text: 'Why this matters for StackCert' },
       {
         type: 'paragraph',
         text:
-          'The product promise is not that StackCert will always test less. The promise is that it will make the evaluation budget legible. A buyer should see which evidence is already enough, which evidence is missing, which tests would be wasteful, and why the selected combination is ready or not ready for review.'
+          'StackCert is not promising to always test less. It promises to make the evaluation budget legible. A buyer should see which evidence is enough, which evidence is missing, which tests would be wasteful, and why the selected combination is ready or not ready for review.'
       }
     ]
   },
@@ -463,27 +463,27 @@ export const blogPosts: BlogPost[] = [
     slug: 'two-thousand-example-test',
     number: '05',
     category: 'Empirical',
-    title: 'A 2,000-Example Test: When Marginal Selection Fails',
+    title: 'A 2,000 Example Test: When Marginal Selection Fails',
     dek:
-      'The central empirical question was simple: does overlap actually change the best safety-check combination in a real local benchmark?',
+      'The central empirical question was direct: does overlap actually change the best safety-check combination in a real local benchmark?',
     date: 'May 24, 2026',
-    readTime: '12 min read',
+    readTime: '11 min read',
     audience: 'Researchers, safety evaluation teams, and skeptical practitioners',
     summary:
-      'The main empirical post with setup, validation, finite-oracle results, budgeted CASS behavior, bootstrap robustness, and limitations.',
+      'The main empirical post: setup, validation, finite-oracle result, budgeted CASS behavior, bootstrap robustness, and limits.',
     takeaway:
-      'In the safety-heavy regime, marginal selection picked the wrong pair. CASS recovered and certified the full pairwise winner with targeted measurement.',
+      'In the safety-heavy regime, marginal selection picked the wrong pair. CASS recovered and certified the full pairwise winner with targeted tests.',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'The theory says overlap can change the best safety-check combination. We wanted to know whether this happens in a real local benchmark, not only in synthetic examples. The answer from our current 2,000-example run is yes, in the safety-heavy setting.'
+          'The theory says overlap can change the best safety-check combination. We wanted to know if that happens in a real local benchmark, not only in synthetic examples. In our current 2,000-example run, the answer is yes in the safety-heavy setting.'
       },
       { type: 'heading', text: 'Experimental setup' },
       {
         type: 'paragraph',
         text:
-          'The main run used 2,000 examples, six benchmark cells, eight local agents, and K=2 candidate pairs. That creates 28 candidate pairs in the original pool. We evaluated lambda values 1, 2, and 5, with lambda 5 representing the safety-heavy setting highlighted below.'
+          'The main run used 2,000 examples, six benchmark cells, eight local agents, and K=2 candidate pairs. That creates 28 candidate pairs in the original pool. We evaluated lambda values 1, 2, and 5; lambda 5 is the safety-heavy setting highlighted below.'
       },
       {
         type: 'table',
@@ -503,7 +503,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The output matrix was complete: 16,000 rows, no missing rows, no execution errors, and no parse failures. The benchmark was not perfectly balanced because the raw pool could not support a balanced 2,000-example slice. We report the finite-benchmark result directly rather than smoothing that away.'
+          'The output matrix was complete: 16,000 rows, no missing rows, no execution errors, and no parse failures. The benchmark was not perfectly balanced because the raw pool could not support a balanced 2,000-example slice. We report the finite-benchmark result directly instead of smoothing that away.'
       },
       {
         type: 'table',
@@ -523,7 +523,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'At lambda 1 and lambda 2, top-marginal selection and the full pairwise oracle agree. That is an important negative result: CASS does not change every decision. At lambda 5, however, they diverge.'
+          'At lambda 1 and lambda 2, top-marginal selection and the full pairwise oracle agree. That matters: CASS does not change every decision. At lambda 5, they diverge.'
       },
       {
         type: 'table',
@@ -545,7 +545,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The next question is whether CASS can recover the full pairwise winner without simply measuring everything. In the finite lambda 5 run, CASS selected the full best pair with zero regret and certified it at both 25% and 50% budget. The top-marginal baseline remained at 0.025318 regret.'
+          'The next question is whether CASS can recover the full pairwise winner without measuring everything. In the finite lambda 5 run, CASS selected the full best pair with zero regret and certified it at both 25% and 50% budget. The top-marginal baseline stayed at 0.025318 regret.'
       },
       {
         type: 'table',
@@ -569,7 +569,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'We also ran bootstrap resampling to test sensitivity within the benchmark sample. This is not proof of deployment generalization. It is a robustness diagnostic over the empirical setup. At lambda 5 and 50% budget, CASS had mean regret 0.0000 with a [0.0000, 0.0000] interval and certificate rate 1.0000 with a [1.0000, 1.0000] interval.'
+          'We also ran bootstrap resampling to check sensitivity inside this benchmark sample. This is not proof of deployment generalization. It is a robustness diagnostic. At lambda 5 and 50% budget, CASS had mean regret 0.0000 with a [0.0000, 0.0000] interval and certificate rate 1.0000 with a [1.0000, 1.0000] interval.'
       },
       {
         type: 'figure',
@@ -582,22 +582,22 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'list',
         items: [
-          'First-order marginal rates were insufficient in the lambda 5 finite benchmark.',
+          'First-order marginal rates were not enough in the lambda 5 finite benchmark.',
           'Pairwise overlap changed the selected pair in the safety-heavy setting.',
           'Targeted measurement recovered and certified the full-best pair in the highlighted finite run.',
-          'The central result was not caused by missing rows, execution errors, or parsing failures.'
+          'The central result was not caused by missing rows, execution errors, or parse failures.'
         ]
       },
       { type: 'heading', text: 'What this does not prove' },
       {
         type: 'paragraph',
         text:
-          'The evidence is not a blanket claim that CASS wins everywhere. Leave-one-source-out transfer remains brittle, especially under source shift. K=3 remains conservative because residual bounds are wider. Local prompted judges are not ground-truth safety classifiers. The dataset is imbalanced. And we have not yet run reproducible cloud frontier API baselines.'
+          'This is not a blanket claim that CASS wins everywhere. Leave-one-source-out transfer remains brittle, especially under source shift. K=3 remains conservative because residual bounds are wider. Local prompted judges are not ground-truth safety classifiers. The dataset is imbalanced. We have not yet run reproducible cloud frontier API baselines.'
       },
       {
         type: 'paragraph',
         text:
-          'The result is still meaningful. It supports the central CASS claim at the scale we have tested so far: overlap can change the best combination, and targeted overlap testing can recover that combination without exhaustive measurement.'
+          'The result still supports the central claim at the scale tested so far: overlap can change the best combination, and targeted overlap testing can recover that combination without exhaustive measurement.'
       }
     ]
   },
@@ -609,28 +609,28 @@ export const blogPosts: BlogPost[] = [
     dek:
       'A stronger model can be a very good safety check. It is still a candidate to compare, not an automatic replacement for scoped selection.',
     date: 'May 24, 2026',
-    readTime: '9 min read',
+    readTime: '8 min read',
     audience: 'Technical buyers, executives, investors, and model/platform teams',
     summary:
-      'The strongest feasible local model comparison, including Qwen3 8B results and why cloud frontier baselines remain an open next step.',
+      'The strongest feasible local model comparison: Qwen3 8B results, what it improves, and why cloud frontier baselines remain a next step.',
     takeaway:
       'Qwen3 8B helped when added to the candidate pool, but it did not dominate CASS in the local benchmark.',
     blocks: [
       {
         type: 'paragraph',
         text:
-          'A reasonable objection to StackCert is: if a stronger model is available, why not just use that as the safety judge? Sometimes that may be the right answer. But it should be an empirical answer, not an assumption.'
+          'A fair objection to StackCert is: if a stronger model is available, why not use it as the safety judge? Sometimes that may be right. But it should be an empirical answer, not an assumption.'
       },
       {
         type: 'paragraph',
         text:
-          'A stronger model changes the candidate set. It may preserve more benign usefulness, catch more unsafe examples, or handle harder policy distinctions. It may also cost more, add latency, and produce a different false-positive or false-negative profile. The release question remains: does this model, alone or in combination, produce the best safety/usefulness tradeoff for this app and risk profile?'
+          'A stronger model changes the candidate set. It may preserve more benign usefulness, catch more unsafe prompts, or understand policy better. It may also cost more, add latency, and make different mistakes. The release question remains: does this model, alone or in a combination, create the best tradeoff for this app and risk profile?'
       },
       { type: 'heading', text: 'What we tested' },
       {
         type: 'paragraph',
         text:
-          'We ran Qwen3 8B locally through Ollama over all 2,000 examples. The run produced 2,000 rows, with no missing outputs, no execution errors, and no parse failures. Mean runtime was 3.9192 seconds per example in this local setup. We then evaluated Qwen as the strongest feasible single-model baseline and as an additional candidate in a 9-agent CASS pool.'
+          'We ran Qwen3 8B locally through Ollama on all 2,000 examples. The run produced 2,000 rows with no missing outputs, execution errors, or parse failures. Mean runtime was 3.9192 seconds per example in this local setup. We then evaluated Qwen as a single-model baseline and as an added candidate in a 9-agent CASS pool.'
       },
       {
         type: 'callout',
@@ -642,7 +642,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'Qwen3 8B preserved benign pass-through well. Its side-normalized normal pass rate was 0.9187. But its adversarial miss-through was 0.1523, which made it less attractive in the safety-heavy lambda 5 setting. That does not make Qwen "bad." It makes it a tradeoff.'
+          'Qwen3 8B preserved benign pass-through well. Its side-normalized normal pass rate was 0.9187. Its adversarial miss-through was 0.1523, which made it less attractive in the safety-heavy lambda 5 setting. That does not make Qwen bad. It makes Qwen a tradeoff.'
       },
       {
         type: 'figure',
@@ -651,7 +651,7 @@ export const blogPosts: BlogPost[] = [
         caption:
           'Qwen3 8B preserves benign pass-through but leaves more adversarial misses; the lambda 5 CASS pair sharply reduces adversarial miss-through.'
       },
-      { type: 'heading', text: 'CASS versus the strongest feasible local single model' },
+      { type: 'heading', text: 'CASS versus the strongest feasible local model' },
       {
         type: 'table',
         columns: ['Lambda', 'Qwen single', '8-agent CASS', '9-agent CASS'],
@@ -673,7 +673,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The interesting part is not that one method wins a local table. The interesting part is how the selected combination changes. In the expanded 9-agent pool, CASS uses Qwen at lambda 1 and lambda 2, selecting llama_guard3_1b + qwen3_8b_judge. At lambda 5, it avoids Qwen and selects llama_guard3_1b + phi3_mini_judge.'
+          'The useful part is not that one method wins a local table. It is how the selected combination changes. In the expanded 9-agent pool, CASS uses Qwen at lambda 1 and lambda 2, selecting llama_guard3_1b + qwen3_8b_judge. At lambda 5, it avoids Qwen and selects llama_guard3_1b + phi3_mini_judge.'
       },
       { type: 'heading', text: 'The stronger-model lesson' },
       {
@@ -684,14 +684,14 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'For StackCert, this matters commercially. Stronger models should be first-class candidate safety checks. A customer should be able to compare them against cheaper checks and combinations, see when they are worth the spend, and avoid using them when they do not improve the scoped evidence.'
+          'For StackCert, stronger models should be first-class candidate checks. A customer should be able to compare them against cheaper checks and combinations, see when they are worth the spend, and avoid using them when they do not improve the scoped evidence.'
       },
       { type: 'heading', text: 'What remains open' },
       {
         type: 'list',
         items: [
           'Run reproducible cloud frontier baselines with configured API credentials.',
-          'Add threshold and calibration sweeps rather than relying on one prompted judge setting.',
+          'Add threshold and calibration sweeps instead of relying on one prompted judge setting.',
           'Test more source-diverse and customer-specific app datasets.',
           'Measure cost and latency under realistic deployment constraints.',
           'Repeat the comparison after model or policy updates.'
@@ -700,7 +700,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The current result refutes a simple version of the stronger-model shortcut in our local setting. It does not prove that stronger models are unnecessary. It shows why StackCert should treat them as powerful options inside the same evidence-backed selection workflow.'
+          'The current result refutes a simple version of the stronger-model shortcut in our local setting. It does not prove stronger models are unnecessary. It shows why StackCert should treat them as powerful options inside the same evidence-backed selection workflow.'
       }
     ]
   }

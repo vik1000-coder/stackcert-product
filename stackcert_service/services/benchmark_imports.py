@@ -203,8 +203,14 @@ def get_committed_suite_bundle(project_id: str, suite_id: str | None = None) -> 
     return next(iter(bundles.values()))
 
 
-def commit_import(project_id: str, payload: BenchmarkImportCommitRequest) -> dict[str, Any]:
-    bundle = build_import_bundle(project_id, payload)
+def commit_import(
+    project_id: str,
+    payload: BenchmarkImportCommitRequest,
+    *,
+    source_kind: str = "custom_import",
+    source_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    bundle = build_import_bundle(project_id, payload, source_kind=source_kind, source_metadata=source_metadata)
     store = _persistent_store()
     if store:
         try:
@@ -221,7 +227,13 @@ def commit_import(project_id: str, payload: BenchmarkImportCommitRequest) -> dic
     return {"suite": suite, "import_preview": bundle["preview"]}
 
 
-def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) -> dict[str, Any]:
+def build_import_bundle(
+    project_id: str,
+    payload: BenchmarkImportCommitRequest,
+    *,
+    source_kind: str = "custom_import",
+    source_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     preview = preview_import(payload)
     if preview["status"] != "valid":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"message": "Import has blocking validation errors", "preview": preview})
@@ -245,7 +257,7 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
                 "cell_id": cell_id,
                 "cell_key": cell_key,
                 "side": side,
-                "source": "custom_import",
+                "source": source_kind,
                 "policy_category": category,
                 "severity": _highest_severity(row["severity"] for row in rows),
                 "weight": round(len(rows) / total, 6),
@@ -278,7 +290,7 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
             "name": payload.name.strip(),
             "version": version,
             "status": "draft",
-            "source": "custom_import",
+            "source": source_kind,
             "description": payload.description or "",
             "license": payload.license,
             "created_at": now.isoformat(),
@@ -289,6 +301,7 @@ def build_import_bundle(project_id: str, payload: BenchmarkImportCommitRequest) 
                 "source_uri": payload.source_uri,
                 "field_mapping": payload.field_mapping,
                 "fingerprint": preview["fingerprint"],
+                **(source_metadata or {}),
             },
         },
         "cells": cells,

@@ -18,7 +18,7 @@ FOCUS_BY_EVIDENCE_MODE = {
     "uploaded_outputs": "setup#import-examples",
     "connected_guards": "setup#safety-options",
     "model_judge": "setup#safety-options",
-    "trace_import": "setup#import-examples",
+    "trace_import": "setup#trace-import",
     "demo_first": "overview",
 }
 

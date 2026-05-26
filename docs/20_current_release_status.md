@@ -156,8 +156,12 @@ true production launch:
 2. Backup/restore rehearsal for Supabase Postgres and Storage artifacts.
 3. Auth sender-domain setup, email templates, and invite/account lifecycle
    policy.
-4. Trace-import commit flow after the existing trace preview.
-5. Signed generic deployment webhooks and first customer-specific deployment
+4. Signed generic deployment webhooks and first customer-specific deployment
    adapter.
-6. Provider throttling observability beyond the current retry/dead-letter
+5. Provider throttling observability beyond the current retry/dead-letter
    handling.
+
+Completed in the current implementation branch:
+
+- Reviewed trace-import commits now turn trace previews into draft benchmark
+  suites through `POST /api/projects/{project_id}/trace-imports`.

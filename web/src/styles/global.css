@@ -1385,6 +1385,7 @@ tr:last-child td {
   font-weight: 650;
   line-height: 1.06;
   letter-spacing: 0;
+  text-wrap: balance;
 }
 
 .blog-hero p {
@@ -1393,6 +1394,7 @@ tr:last-child td {
   color: var(--sc-ink-3);
   font-size: 18px;
   line-height: 1.58;
+  text-wrap: pretty;
 }
 
 .blog-hero-actions {
@@ -1503,6 +1505,7 @@ tr:last-child td {
   font-size: 22px;
   font-weight: 650;
   line-height: 1.18;
+  text-wrap: balance;
 }
 
 .blog-post-card p {
@@ -1510,6 +1513,7 @@ tr:last-child td {
   color: var(--sc-ink-3);
   font-size: 14px;
   line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .blog-card-footer {
@@ -1585,6 +1589,7 @@ tr:last-child td {
   font-weight: 650;
   line-height: 1.06;
   letter-spacing: 0;
+  text-wrap: balance;
 }
 
 .blog-article-head p {
@@ -1593,6 +1598,7 @@ tr:last-child td {
   color: var(--sc-ink-3);
   font-size: 19px;
   line-height: 1.56;
+  text-wrap: pretty;
 }
 
 .blog-article-layout {
@@ -1633,13 +1639,15 @@ tr:last-child td {
 
 .blog-article-body {
   min-width: 0;
+  max-width: 72ch;
 }
 
 .blog-article-body > p {
   margin: 0 0 22px;
   color: var(--sc-ink-2);
   font-size: 17px;
-  line-height: 1.72;
+  line-height: 1.68;
+  text-wrap: pretty;
 }
 
 .blog-article-body h2 {
@@ -1648,6 +1656,7 @@ tr:last-child td {
   font-size: 29px;
   font-weight: 650;
   line-height: 1.2;
+  text-wrap: balance;
 }
 
 .blog-article-body h3 {
@@ -1665,6 +1674,11 @@ tr:last-child td {
   color: var(--sc-ink-2);
   font-size: 16px;
   line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.blog-article-body li::marker {
+  color: var(--sc-accent);
 }
 
 .blog-article-body blockquote {
@@ -1698,6 +1712,7 @@ tr:last-child td {
   margin: 0;
   color: var(--sc-ink-2);
   line-height: 1.6;
+  text-wrap: pretty;
 }
 
 .blog-code {
@@ -1746,6 +1761,7 @@ tr:last-child td {
   padding: 13px 16px;
   font-size: 12.5px;
   line-height: 1.45;
+  text-wrap: pretty;
 }
 
 .blog-next-card {

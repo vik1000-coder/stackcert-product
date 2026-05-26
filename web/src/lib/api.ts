@@ -636,6 +636,26 @@ export type TraceImportPreview = {
   review_note: string;
 };
 
+export type TraceImportSource = 'auto' | 'langsmith' | 'langfuse' | 'opentelemetry' | 'generic_jsonl';
+
+export type TraceImportPreviewInput = {
+  source?: TraceImportSource;
+  content: string;
+  default_side?: 'adversarial' | 'benign';
+  default_policy_category?: string;
+  max_examples?: number;
+};
+
+export type TraceImportCommitInput = TraceImportPreviewInput & {
+  name: string;
+  version?: string;
+  description?: string;
+  license?: string;
+  source_name?: string;
+  source_uri?: string;
+  review_approved: boolean;
+};
+
 export type WorkspaceInput = {
   name: string;
   slug?: string;
@@ -980,8 +1000,13 @@ export const api = {
     post<{ project_id: string; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites/preview`, payload),
   previewTraceImport: (
     projectId: string,
-    payload: { source?: 'auto' | 'langsmith' | 'langfuse' | 'opentelemetry' | 'generic_jsonl'; content: string; default_side?: 'adversarial' | 'benign'; default_policy_category?: string; max_examples?: number }
+    payload: TraceImportPreviewInput
   ) => post<{ project_id: string; trace_import_preview: TraceImportPreview }>(`/api/projects/${projectId}/trace-imports/preview`, payload),
+  commitTraceImport: (projectId: string, payload: TraceImportCommitInput) =>
+    post<{ project_id: string; suite: BenchmarkSuite; import_preview: BenchmarkImportPreview; trace_import_preview: TraceImportPreview }>(
+      `/api/projects/${projectId}/trace-imports`,
+      payload
+    ),
   createBenchmarkSuite: (projectId: string, payload: BenchmarkImportCommitInput) =>
     post<{ project_id: string; suite: BenchmarkSuite; import_preview: BenchmarkImportPreview }>(`/api/projects/${projectId}/benchmark-suites`, payload),
   guards: (projectId: string) => request<{ guards: GuardCatalogItem[] }>(`/api/projects/${projectId}/guards?lambda_cost=5`),

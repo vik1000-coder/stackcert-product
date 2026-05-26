@@ -751,8 +751,9 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 ## Current Next Move
 
 The next implementation move is the production-operations and integration
-slice: trace-import commit flows after preview review, signed generic
-deployment webhooks, richer provider throttling observability, monitoring,
-backup/restore rehearsal, and auth sender-domain setup. Keep the existing GCP
-guardrails in place: Cloud Run API max instances `3`, worker job task count
-`1`, worker parallelism `1`, and the `StackCert staging $50` budget.
+slice: signed generic deployment webhooks, richer provider throttling
+observability, monitoring, backup/restore rehearsal, and auth sender-domain
+setup. Reviewed trace-import commits are now implemented on top of the
+benchmark-suite import path. Keep the existing GCP guardrails in place: Cloud
+Run API max instances `3`, worker job task count `1`, worker parallelism `1`,
+and the `StackCert staging $50` budget.

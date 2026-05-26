@@ -26,6 +26,7 @@ from stackcert_service.schemas import (
     ProjectBudgetPolicyUpdate,
     ProjectOnboardingProfileUpdate,
     ReleaseGateEvaluateRequest,
+    TraceImportCommitRequest,
     TraceImportPreviewRequest,
     UploadedOutputRunCreate,
     UploadedOutputPreviewRequest,
@@ -339,6 +340,22 @@ def preview_benchmark_import(project_id: str, payload: BenchmarkImportPreviewReq
 def preview_trace_import(project_id: str, payload: TraceImportPreviewRequest, principal: PrincipalDep) -> dict[str, object]:
     _require_project_access(project_id, principal, required="project_maintainer")
     return {"project_id": project_id, "trace_import_preview": trace_imports.preview_trace_import(payload)}
+
+
+@app.post("/api/projects/{project_id}/trace-imports")
+def create_trace_import_suite(project_id: str, payload: TraceImportCommitRequest, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    committed = trace_imports.commit_trace_import(project_id, payload)
+    audit.record_event(
+        "trace_import.committed",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="benchmark_suite",
+        target_id=str(committed["suite"]["id"]),
+        metadata={"source": payload.source, "name": payload.name, "draft_examples": committed["trace_import_preview"]["draft_examples"]},
+    )
+    return {"project_id": project_id, **committed}
 
 
 @app.post("/api/projects/{project_id}/benchmark-suites")

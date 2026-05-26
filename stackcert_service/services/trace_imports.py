@@ -4,7 +4,10 @@ import hashlib
 import json
 from typing import Any
 
-from stackcert_service.schemas import TraceImportPreviewRequest
+from fastapi import HTTPException, status
+
+from stackcert_service.schemas import BenchmarkImportCommitRequest, TraceImportCommitRequest, TraceImportPreviewRequest
+from stackcert_service.services import benchmark_imports
 
 
 def preview_trace_import(payload: TraceImportPreviewRequest) -> dict[str, Any]:
@@ -63,6 +66,49 @@ def preview_trace_import(payload: TraceImportPreviewRequest) -> dict[str, Any]:
         "review_required": True,
         "review_note": "Trace imports produce draft examples. Review side/category/expected behavior before committing a benchmark suite.",
     }
+
+
+def commit_trace_import(project_id: str, payload: TraceImportCommitRequest) -> dict[str, Any]:
+    preview = preview_trace_import(payload)
+    blocking_errors = [issue for issue in preview["issues"] if issue["severity"] == "error"]
+    if preview["status"] != "valid" or blocking_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "Trace import has blocking validation errors", "trace_import_preview": preview},
+        )
+    if preview["review_required"] and not payload.review_approved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "Trace import review must be approved before committing a benchmark suite", "trace_import_preview": preview},
+        )
+
+    import_payload = BenchmarkImportCommitRequest(
+        format="jsonl",
+        content=str(preview["benchmark_import_content"]),
+        field_mapping={},
+        source_name=payload.source_name or f"{payload.source} trace import",
+        source_uri=payload.source_uri,
+        name=payload.name,
+        version=payload.version,
+        description=payload.description or f"Reviewed examples drafted from {payload.source} traces.",
+        license=payload.license,
+    )
+    committed = benchmark_imports.commit_import(
+        project_id,
+        import_payload,
+        source_kind="trace_import",
+        source_metadata={
+            "trace_import": {
+                "source": payload.source,
+                "default_side": payload.default_side,
+                "default_policy_category": payload.default_policy_category,
+                "max_examples": payload.max_examples,
+                "review_approved": payload.review_approved,
+                "fingerprint": preview["fingerprint"],
+            }
+        },
+    )
+    return {**committed, "trace_import_preview": preview}
 
 
 def _jsonl_rows(content: str) -> list[dict[str, Any]]:

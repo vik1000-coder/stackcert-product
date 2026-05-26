@@ -143,7 +143,7 @@ describe('StackCert app', () => {
     );
 
     expect(screen.getByRole('heading', { name: /Evidence-backed safety decisions/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /A 2,000-Example Test/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /A 2,000 Example Test/i })).toHaveAttribute(
       'href',
       '/blog/two-thousand-example-test'
     );

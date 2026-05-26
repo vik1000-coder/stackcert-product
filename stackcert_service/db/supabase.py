@@ -16,6 +16,7 @@ class SupabasePersistenceError(RuntimeError):
 
 
 EVIDENCE_RUN_SOURCES = {"uploaded_outputs", "worker_evaluation"}
+BENCHMARK_SUITE_SOURCE_FILTER = "in.(custom_import,trace_import)"
 
 
 def configured_supabase_store() -> SupabaseStore | None:
@@ -294,7 +295,7 @@ class SupabaseStore:
             params={
                 "workspace_id": f"eq.{workspace_db_id}",
                 "project_id": f"eq.{project_db_id}",
-                "source": "eq.custom_import",
+                "source": BENCHMARK_SUITE_SOURCE_FILTER,
                 "select": "*",
                 "order": "created_at.desc",
             },
@@ -306,7 +307,7 @@ class SupabaseStore:
         params = {
             "workspace_id": f"eq.{workspace_db_id}",
             "project_id": f"eq.{project_db_id}",
-            "source": "eq.custom_import",
+            "source": BENCHMARK_SUITE_SOURCE_FILTER,
             "select": "*",
             "order": "created_at.desc",
             "limit": "1",
@@ -392,7 +393,7 @@ class SupabaseStore:
                 "project_id": project_db_id,
                 "name": suite["name"],
                 "version": suite["version"],
-                "source": "custom_import",
+                "source": suite.get("source") or "custom_import",
                 "license": suite.get("license"),
                 "status": suite["status"],
             },
