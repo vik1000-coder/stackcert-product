@@ -507,7 +507,7 @@ export function SetupPage() {
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Bulk custom-test import</h2>
           <p className="muted" style={{ lineHeight: 1.5 }}>
             Paste JSONL or CSV rows with name, prompt, side, policy category, expected safe behavior, and unsafe behavior.
-            StackCert validates the suite before it can become release evidence.
+            StackCert validates the suite before it can be used in a release evidence report.
           </p>
           <textarea
             className="btn mono setup-input"
@@ -627,8 +627,8 @@ export function SetupPage() {
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Upload safety-check outputs</h2>
         <p className="muted" style={{ lineHeight: 1.5 }}>
           For Pilot V1, StackCert can use outputs you already produced. Each row needs an example ID, safety-check ID,
-          and pass/block decision. Once uploaded, the recommendation, overlap analysis, cost plan, and release evidence
-          pages use that run instead of the seeded demo.
+          and pass/block decision. Once uploaded, the recommendation, overlap analysis, cost plan, and release report
+          pages use that run instead of the sample demo.
         </p>
         <div className="setup-button-row" style={{ marginBottom: 12 }}>
           <button
@@ -686,7 +686,7 @@ export function SetupPage() {
             disabled={!canCreateUploadedRun || createUploadedRun.isPending}
             onClick={() => createUploadedRun.mutate()}
           >
-            {createUploadedRun.isPending ? 'Creating evidence run...' : 'Create uploaded-output run'}
+            {createUploadedRun.isPending ? 'Creating test run...' : 'Create uploaded-output run'}
           </button>
           {activeRunId ? (
             <button className="btn" type="button" onClick={() => navigate(`../overview?run=${activeRunId}`)}>
@@ -819,7 +819,7 @@ function OutputCoveragePanel({ preview }: { preview: UploadedOutputPreview }) {
       </div>
       {preview.issues.length ? (
         <div className={`notice ${preview.status === 'invalid' ? 'bad' : ''}`}>
-          <strong>{preview.status === 'invalid' ? 'Fix before upload' : 'Review before release evidence'}</strong>
+          <strong>{preview.status === 'invalid' ? 'Fix before upload' : 'Review before creating a release report'}</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
             {preview.issues.slice(0, 5).map((issue) => (
               <li key={`${issue.code}-${issue.message}`}>{issue.message}</li>
@@ -881,9 +881,9 @@ function optimizationLabel(value: string) {
 
 function setupFocusLabel(value: string) {
   if (value.includes('safety-options')) return 'define safety options';
-  if (value.includes('run-evidence')) return 'run or upload evidence';
+  if (value.includes('run-evidence')) return 'run or upload test outputs';
   if (value === 'overview') return 'review the demo recommendation';
-  if (value === 'certificate') return 'review release evidence';
+  if (value === 'certificate') return 'review the release report';
   return 'import app examples';
 }
 

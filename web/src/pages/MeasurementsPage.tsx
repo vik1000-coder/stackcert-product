@@ -181,7 +181,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
           <div className="notice bad">{queuePlan.error instanceof Error ? queuePlan.error.message : 'Could not queue test plan.'}</div>
         ) : (
           <p className="muted" style={{ margin: 0 }}>
-            Production workers execute queued test plans asynchronously with workspace budget checks, provider rate
+            Production workers execute queued test plans asynchronously with team budget checks, provider rate
             limits, idempotent jobs, and audit events.
           </p>
         )}

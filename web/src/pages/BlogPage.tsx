@@ -89,8 +89,8 @@ export function BlogIndexPage() {
               <div>
                 <h2>Want to compare this against your own safety checks?</h2>
                 <p>
-                  Start with the seeded support-copilot demo, then bring one real workflow and a candidate set from
-                  your own app.
+                  Start with the sample support-copilot demo, then bring one real workflow and a candidate set from your
+                  own app.
                 </p>
               </div>
               <ButtonLink to="/onboarding">Start pilot</ButtonLink>

@@ -23,7 +23,7 @@ describe('StackCert app', () => {
     );
   });
 
-  it('renders beta sign-in by default instead of prefilled demo credentials', async () => {
+  it('renders pilot sign-in by default instead of prefilled demo credentials', async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter initialEntries={['/auth/sign-in']}>
@@ -31,21 +31,21 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Sign in to your beta workspace/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Continue to beta/i })).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to your pilot account/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue to pilot/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('');
     await user.click(screen.getByRole('button', { name: /Create account/i }));
-    expect(screen.getByText(/Create a beta workspace account/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a pilot account/i)).toBeInTheDocument();
   });
 
-  it('keeps the seeded demo behind an explicit sandbox flow', () => {
+  it('keeps the sample demo behind an explicit sandbox flow', () => {
     render(
       <MemoryRouter initialEntries={['/demo']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Explore StackCert without mixing it with a beta workspace/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Explore StackCert with sample data/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Demo sandbox/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /Continue to demo sandbox/i })).toHaveAttribute(
       'href',
@@ -60,7 +60,7 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Open the isolated seeded demo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open the isolated sample demo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('demo@stackcert.dev');
     expect(screen.getByRole('button', { name: /Open demo sandbox/i })).toBeInTheDocument();
   });
@@ -85,10 +85,10 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Create the first evidence packet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Set up a real pilot/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
     expect(screen.getByText(/Draft completeness/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Company or workspace/i)).toHaveValue('');
+    expect(screen.getByLabelText(/Company or team/i)).toHaveValue('');
     expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');
   });
 

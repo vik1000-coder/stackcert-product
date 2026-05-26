@@ -90,7 +90,7 @@ export function AdminPage() {
     <div className="page">
       <PageHeader
         title="Admin operations"
-        subtitle="Monitor worker health, spend, evidence readiness, connector setup, and audit activity across this workspace."
+        subtitle="Monitor worker health, spend, release-report readiness, connector setup, and audit activity across this team."
         actions={
           <>
             <label className="btn" style={{ gap: 8 }}>
@@ -125,7 +125,7 @@ export function AdminPage() {
       </Explainer>
 
       <div className="grid grid-4">
-        <Stat label="Actual spend" value={fmtUsd(admin.metrics.actual_cost_usd, 2)} tone={admin.metrics.actual_cost_usd > 0 ? 'ok' : undefined} description="Ledgered provider and worker spend across the workspace." />
+        <Stat label="Actual spend" value={fmtUsd(admin.metrics.actual_cost_usd, 2)} tone={admin.metrics.actual_cost_usd > 0 ? 'ok' : undefined} description="Ledgered provider and worker spend across the team." />
         <Stat label="Queued jobs" value={String(admin.metrics.queued_jobs)} tone={admin.metrics.queued_jobs ? 'warn' : undefined} description="Runnable work waiting for the Cloud Run worker job." />
         <Stat label="Dead letters" value={String(admin.metrics.dead_letter_jobs)} tone={admin.metrics.dead_letter_jobs ? 'bad' : undefined} description="Jobs that need operator review before retry." />
         <Stat label="Missing secrets" value={String(admin.metrics.missing_secret_connectors)} tone={admin.metrics.missing_secret_connectors ? 'warn' : undefined} description="REST or model-judge checks without usable secret material." />
@@ -152,7 +152,7 @@ export function AdminPage() {
             }}
           >
             <div className="admin-budget-subhead">
-              <strong>Workspace policy</strong>
+              <strong>Team policy</strong>
               <span className="muted">Applies across every app in {admin.workspace.name}.</span>
             </div>
             <BudgetNumberInput label="Monthly cap" value={workspaceBudgetDraft.monthlyCapUsd} onChange={(value) => setWorkspaceBudgetDraft((draft) => ({ ...draft, monthlyCapUsd: value }))} />
@@ -193,9 +193,9 @@ export function AdminPage() {
               />
             </label>
             <button className="btn primary" disabled={updateWorkspaceBudget.isPending} type="submit">
-              {updateWorkspaceBudget.isPending ? 'Saving...' : 'Save workspace policy'}
+              {updateWorkspaceBudget.isPending ? 'Saving...' : 'Save team policy'}
             </button>
-            {updateWorkspaceBudget.isError ? <div className="form-error">{errorText(updateWorkspaceBudget.error, 'Could not save workspace budget policy.')}</div> : null}
+            {updateWorkspaceBudget.isError ? <div className="form-error">{errorText(updateWorkspaceBudget.error, 'Could not save team budget policy.')}</div> : null}
           </form>
 
           <form
@@ -323,7 +323,7 @@ export function AdminPage() {
       </div>
 
       <Card style={{ marginTop: 16 }}>
-        <h2 className="admin-section-title">Workspace apps</h2>
+        <h2 className="admin-section-title">Team apps</h2>
         <div className="table-wrap admin-project-table">
           <table>
             <thead>
@@ -536,7 +536,7 @@ function BudgetStatus({ state }: { state: BudgetState }) {
 function BudgetMeter({ state }: { state: BudgetState }) {
   const percent = state.usage_percent == null ? 0 : Math.max(0, Math.min(1, state.usage_percent));
   return (
-    <div className="admin-budget-meter" aria-label="Workspace budget usage">
+    <div className="admin-budget-meter" aria-label="Team budget usage">
       <span style={{ width: `${Math.round(percent * 100)}%` }} />
     </div>
   );

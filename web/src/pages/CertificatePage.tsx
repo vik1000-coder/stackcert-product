@@ -54,12 +54,12 @@ export function CertificatePage({ lambda }: { lambda: number }) {
   });
 
   if (runsLoading && !activeRunId) return <LoadingState />;
-  if (!activeRunId) return <NoRunState title="No release evidence yet" />;
+  if (!activeRunId) return <NoRunState title="No release report yet" />;
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const cert = query.data!;
   const evidencePreview = [
-    '# StackCert Release Evidence',
+    '# StackCert Release Evidence Report',
     '',
     `Selected combination: ${cert.certified_label ?? cert.recommended_label}`,
     `Recommended combination: ${cert.recommended_label}`,
@@ -72,17 +72,24 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     'It does not guarantee universal safety, legal compliance, or future behavior after model, prompt, safety option, tool, traffic, or policy changes.',
     '',
     'Reviewer action:',
-    'Use this packet as release evidence, then retest if any trigger below changes.'
+    'Use this report as release evidence, then retest if any trigger below changes.'
   ].join('\n');
 
   return (
     <div className="page">
       <PageHeader
-        title="Release evidence"
-        subtitle="This packet supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
+        title="Release report"
+        subtitle="This report supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
       />
-      <Explainer title="What this evidence packet means" tone="accent" style={{ marginBottom: 16 }}>
+      <Explainer title="What this release report means" tone="accent" style={{ marginBottom: 16 }}>
         <div className="definition-list">
+          <div className="definition-row">
+            <div className="definition-term">It is</div>
+            <div className="definition-copy">
+              A locked review record: the tested examples, candidate safety-check combinations, recommendation, cost
+              assumptions, limitations, and retest triggers.
+            </div>
+          </div>
           <div className="definition-row">
             <div className="definition-term">It supports</div>
             <div className="definition-copy">
@@ -104,7 +111,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             {displayEvidenceStatus(cert.status_compact)}
           </Badge>
           <h2 style={{ margin: '14px 0 4px', fontSize: 28 }}>{cert.certified_label ?? cert.recommended_label}</h2>
-          <div className="mono muted">Evidence ID {displayEvidenceId(cert.certificate_id)}</div>
+          <div className="mono muted">Report ID {displayEvidenceId(cert.certificate_id)}</div>
           <div style={{ display: 'grid', gap: 9, marginTop: 18 }}>
             <Fact label="Test run" value={cert.run_id} />
             <Fact label="Generated" value={cert.generated_at} />
@@ -129,7 +136,8 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           <div>
             <h2 style={{ margin: 0, fontSize: 18 }}>Readiness to issue</h2>
             <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
-              StackCert checks that the run is complete, outputs cover the current example mix, and the CASS result is within the evidence scope.
+              StackCert checks that the run is complete, outputs cover the current example mix, and the CASS result is
+              within the report scope.
             </p>
           </div>
           <Badge tone={readinessTone(readiness?.status)} dot>
@@ -167,12 +175,12 @@ export function CertificatePage({ lambda }: { lambda: number }) {
       <Card style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>Lock evidence for review</h2>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Lock report for review</h2>
             <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
-              Issuing creates an immutable packet snapshot and private artifacts for reviewers.
+              Issuing creates an immutable release-report snapshot and private artifacts for reviewers.
             </p>
           </div>
-          {issued ? <Badge tone="ok" dot>immutable packet issued</Badge> : <Badge tone="neutral">not issued</Badge>}
+          {issued ? <Badge tone="ok" dot>immutable report issued</Badge> : <Badge tone="neutral">not issued</Badge>}
         </div>
         <div className="grid grid-2">
           <div style={{ display: 'grid', gap: 12 }}>
@@ -184,7 +192,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 style={{ marginTop: 3 }}
               />
               <span>
-                I understand this evidence packet is scoped to the example mix, safety options, risk weighting, and
+                I understand this release report is scoped to the example mix, safety options, risk weighting, and
                 assumptions shown here. It is not a guarantee of safety or compliance.
               </span>
             </label>
@@ -193,10 +201,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
               disabled={!acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
               onClick={() => issueCertificate.mutate()}
             >
-              {issueCertificate.isPending ? 'Issuing...' : 'Issue release evidence'}
+              {issueCertificate.isPending ? 'Issuing...' : 'Issue release report'}
             </button>
             {issueCertificate.isError ? (
-              <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue release evidence.'}</div>
+              <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue release report.'}</div>
             ) : null}
           </div>
           <div style={{ display: 'grid', gap: 9 }}>
@@ -209,16 +217,17 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 <Fact label="Signoffs" value={String(issued.signoffs.length)} />
               </>
             ) : (
-              <p className="muted" style={{ margin: 0 }}>No locked evidence snapshot yet.</p>
+              <p className="muted" style={{ margin: 0 }}>No locked release report yet.</p>
             )}
           </div>
         </div>
       </Card>
       {issued ? (
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Private evidence artifacts</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Private report artifacts</h2>
           <p className="muted" style={{ marginTop: -4, lineHeight: 1.5 }}>
-            Locked packets are stored as private artifacts. Download links are short-lived and every verification recomputes the stored SHA-256.
+            Locked reports are stored as private artifacts. Download links are short-lived and every verification
+            recomputes the stored SHA-256.
           </p>
           <div style={{ display: 'grid', gap: 10 }}>
             {artifacts.map((artifact) => (
@@ -347,7 +356,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </Card>
       </div>
       <Card>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Evidence packet preview</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Release report preview</h2>
         <pre
           className="mono"
           style={{
@@ -447,7 +456,7 @@ function explainRetestTrigger(trigger: string) {
   return {
     label: 'Scope change',
     tone: 'neutral',
-    copy: 'Treat this as a boundary change and retest before using the packet as release evidence.'
+    copy: 'Treat this as a boundary change and retest before using the report as release evidence.'
   };
 }
 
@@ -503,8 +512,8 @@ function displayEvidenceId(value: string) {
 function displayScopeText(text: string) {
   return text
     .replaceAll('K=2 serial stack certificates', 'two-check combination evidence')
-    .replaceAll('certificate', 'evidence packet')
-    .replaceAll('Certificate', 'Evidence packet')
+    .replaceAll('certificate', 'release report')
+    .replaceAll('Certificate', 'Release report')
     .replaceAll('Guardrail model', 'Safety option model')
     .replaceAll('guardrail model', 'safety option model')
     .replaceAll('benchmark mixture', 'example mix')

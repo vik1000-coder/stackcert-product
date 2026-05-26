@@ -430,7 +430,7 @@ export const blogPosts: BlogPost[] = [
           'Whether the recommendation is certified under the current evidence.',
           'The close alternatives that remain plausible.',
           'The targeted overlap tests most likely to resolve the decision.',
-          'A release-evidence packet with scope, assumptions, limitations, and retest triggers.'
+          'A release evidence report with scope, assumptions, limitations, and retest triggers.'
         ]
       },
       {

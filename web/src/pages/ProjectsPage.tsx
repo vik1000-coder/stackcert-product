@@ -75,13 +75,13 @@ export function ProjectsPage() {
     <div className="page">
       <PageHeader
         title="Apps"
-        subtitle="Create pilot app records before attaching example suites, safety options, test jobs, and release evidence."
+        subtitle="Create private pilot projects before attaching example suites, safety options, test jobs, and release reports."
       />
       <div className="grid grid-2">
         <Card>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Create workspace</h2>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Create team</h2>
           <form onSubmit={submitWorkspace} style={{ display: 'grid', gap: 12 }}>
-            <Field label="Workspace name" value={workspaceDraft.name} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, name: value }))} />
+            <Field label="Team name" value={workspaceDraft.name} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, name: value }))} />
             <Field label="Slug" value={workspaceDraft.slug ?? ''} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, slug: value || undefined }))} />
             <label>
               <span className="stat-label">Plan</span>
@@ -92,18 +92,18 @@ export function ProjectsPage() {
               </select>
             </label>
             <button className="btn primary" type="submit" disabled={createWorkspace.isPending}>
-              {createWorkspace.isPending ? 'Creating...' : 'Create workspace'}
+              {createWorkspace.isPending ? 'Creating...' : 'Create team'}
             </button>
-            {createWorkspace.isSuccess ? <div className="notice">Workspace created: {createWorkspace.data.workspace.name}</div> : null}
+            {createWorkspace.isSuccess ? <div className="notice">Team created: {createWorkspace.data.workspace.name}</div> : null}
           </form>
         </Card>
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Create project</h2>
           <form onSubmit={submitProject} style={{ display: 'grid', gap: 12 }}>
             <label>
-              <span className="stat-label">Workspace</span>
+              <span className="stat-label">Team</span>
               <select className="btn setup-input" style={{ marginTop: 6 }} value={selectedWorkspaceId} onChange={(event) => setSelectedWorkspaceId(event.currentTarget.value)}>
-                {workspaceOptions.length === 0 ? <option value="">Create a beta workspace first</option> : null}
+                {workspaceOptions.length === 0 ? <option value="">Create a private pilot first</option> : null}
                 {workspaceOptions.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
                 ))}
@@ -133,7 +133,7 @@ export function ProjectsPage() {
             <Field label="Description" value={projectDraft.description ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, description: value }))} textarea />
             {demoProjects.length > 0 ? (
               <div className="notice">
-                The demo sandbox is listed separately and cannot be used as the parent for beta projects.
+                The demo sandbox is listed separately and cannot be used as the parent for real pilot projects.
               </div>
             ) : null}
             <button className="btn primary" type="submit" disabled={createProject.isPending || !selectedWorkspaceId}>
@@ -144,9 +144,9 @@ export function ProjectsPage() {
         </Card>
       </div>
       <Card style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Workspace apps</h2>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Private pilot apps</h2>
         <div style={{ display: 'grid', gap: 10 }}>
-          {betaProjects.length === 0 ? <div className="notice">No beta apps yet. Create a workspace and project to start testing your own agent.</div> : null}
+          {betaProjects.length === 0 ? <div className="notice">No private pilot apps yet. Create a team and project to start testing your own agent.</div> : null}
           {betaProjects.map((project) => (
             <div key={project.id} className="project-row">
               <div>

@@ -52,7 +52,7 @@ const initialDraft: OnboardingDraft = {
 const steps = [
   { id: 'scope', title: 'Scope', subtitle: 'Name the app and deployment surface.' },
   { id: 'risks', title: 'Risks', subtitle: 'Capture who owns review and what failures matter.' },
-  { id: 'evidence', title: 'Evidence', subtitle: 'Choose the first artifact StackCert should use.' },
+  { id: 'evidence', title: 'Starting data', subtitle: 'Choose what StackCert should use first.' },
   { id: 'objective', title: 'Objective', subtitle: 'Set the first CASS decision preference.' },
   { id: 'review', title: 'Review', subtitle: 'Create the pilot and open the right setup task.' }
 ] as const;
@@ -92,7 +92,7 @@ const evidenceModes: Array<{ id: OnboardingEvidenceMode; label: string; detail: 
   {
     id: 'demo_first',
     label: 'Demo first',
-    detail: 'Walk through the seeded support-copilot project before creating production evidence.',
+    detail: 'Walk through the sample support-copilot project before creating a release report for your app.',
     next: 'Open the demo walkthrough, then return to your saved draft.'
   }
 ];
@@ -212,7 +212,7 @@ export function OnboardingPage() {
     event.preventDefault();
     if (isDemoSession) {
       setStatus('error');
-      setError('Sign out of the demo sandbox before creating a beta pilot workspace.');
+      setError('Sign out of the demo sandbox before creating a real pilot.');
       return;
     }
     if (stepIndex < steps.length - 1) {
@@ -241,7 +241,7 @@ export function OnboardingPage() {
       clearDraft();
       navigate(nextSetupPath(response.workspace.id, response.project.id, response.profile.first_setup_focus));
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Could not create the pilot workspace.';
+      const message = caught instanceof Error ? caught.message : 'Could not create the pilot project.';
       if (isAuthError(message)) {
         saveDraft(draft);
         navigate(`/auth/sign-in?next=${encodeURIComponent('/onboarding?resume=1')}`);
@@ -296,10 +296,10 @@ export function OnboardingPage() {
         <div className="landing-container">
           <div className="marketing-page-head onboarding-head">
             <Badge tone="neutral">Pilot builder</Badge>
-            <h1 className="section-title">Create the first evidence packet for one LLM app.</h1>
+            <h1 className="section-title">Set up a real pilot for one LLM app.</h1>
             <p className="hero-copy">
-              StackCert starts with a scoped pilot: the app, the examples that matter, the safety options you can ship,
-              and the CASS objective that explains the recommendation.
+              A pilot is an isolated project for your app. StackCert uses it to compare safety checks and create a
+              release evidence report: what was tested, what is recommended, what is out of scope, and when to retest.
             </p>
           </div>
 
@@ -307,8 +307,8 @@ export function OnboardingPage() {
             <Card>
               <div className="onboarding-auth-boundary">
                 <Badge tone="neutral">Checking session</Badge>
-                <h2>Preparing the beta pilot builder.</h2>
-                <p className="muted">StackCert is checking whether this browser is signed in to the demo sandbox or a beta account.</p>
+                <h2>Preparing your pilot setup.</h2>
+                <p className="muted">StackCert is checking whether this browser is signed in to the demo sandbox or a real pilot account.</p>
               </div>
             </Card>
           ) : isDemoSession ? (
@@ -356,7 +356,7 @@ export function OnboardingPage() {
                       : activeStep.id === 'review'
                         ? draft.evidenceMode === 'demo_first'
                           ? 'Create pilot anyway'
-                          : 'Create pilot workspace'
+                          : 'Create pilot project'
                         : 'Continue'}
                   </button>
                 </div>
@@ -396,8 +396,8 @@ export function OnboardingPage() {
                       Next setup task: <strong>{selectedEvidence.next}</strong>
                     </p>
                     <p className="muted">
-                      StackCert will produce scoped release evidence for this app and test mix; it cannot guarantee broad
-                      model safety.
+                      StackCert will produce a release evidence report for this app and test mix; it cannot guarantee
+                      broad model safety.
                     </p>
                   </div>
                 </Card>
@@ -423,13 +423,13 @@ function DemoSessionBoundary({
     <Card>
       <div className="onboarding-auth-boundary">
         <Badge tone="warn">Demo session active</Badge>
-        <h2>Sign out of the demo before starting a beta pilot.</h2>
+        <h2>Sign out of the demo before starting a real pilot.</h2>
         <p>
-          The demo account only opens seeded support-copilot data. A beta pilot creates a real workspace for your app,
-          examples, safety options, and release evidence.
+          The demo account only opens sample support-copilot data. A real pilot creates an isolated project for your
+          app, examples, safety options, and release evidence reports.
         </p>
         <p className="muted">
-          Your beta pilot draft is saved in this browser while you switch out of the demo sandbox.
+          Your pilot draft is saved in this browser while you switch out of the demo sandbox.
         </p>
         <div className="onboarding-auth-actions">
           <button className="btn primary" type="button" disabled={status === 'saving'} onClick={onSignOut}>
@@ -448,7 +448,7 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
     <div className="onboarding-step-body">
       <div className="form-grid">
         <label>
-          Company or workspace
+          Company or team
           <input
             placeholder="e.g. Acme Support"
             value={draft.companyName}
@@ -621,9 +621,9 @@ function ReviewStep({
   selectedGoal: (typeof optimizationGoals)[number];
 }) {
   const rows = [
-    ['Workspace', draft.companyName],
+    ['Team', draft.companyName],
     ['App', draft.projectName],
-    ['Evidence starts with', selectedEvidence.label],
+    ['Starting data', selectedEvidence.label],
     ['CASS objective', `${selectedGoal.label} / lambda ${selectedGoal.lambda}`],
     ['Release gate', releaseGateTargets.find((item) => item.id === draft.releaseGateTarget)?.label ?? 'Not yet'],
     ['Data handling', titleCase(draft.dataMode.replaceAll('_', ' '))]
@@ -639,15 +639,16 @@ function ReviewStep({
         ))}
       </div>
       <div className="notice">
-        <strong>First useful packet path</strong>
+        <strong>First release-report path</strong>
         <p style={{ margin: '6px 0 0' }}>
           {selectedEvidence.next} Then StackCert can compare safety-check combinations, show cost/latency tradeoffs,
-          issue scoped evidence, and give your CI or agent workflow a release-gate response.
+          issue a release evidence report, and give your CI or agent workflow a release-gate response.
         </p>
       </div>
       <div className="notice warn">
-        StackCert evidence reduces release risk for the committed app scope. It is not a guarantee that the model is safe
-        everywhere or that untested prompts, tools, policies, retrieval changes, or traffic shifts are covered.
+        A StackCert release report reduces release risk for the committed app scope. It is not a guarantee that the
+        model is safe everywhere or that untested prompts, tools, policies, retrieval changes, or traffic shifts are
+        covered.
       </div>
     </div>
   );

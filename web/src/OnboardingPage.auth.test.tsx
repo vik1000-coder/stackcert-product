@@ -38,7 +38,7 @@ describe('Onboarding auth boundary', () => {
     });
   });
 
-  it('blocks beta onboarding while the demo sandbox session is active', async () => {
+  it('blocks real-pilot onboarding while the demo sandbox session is active', async () => {
     const user = userEvent.setup();
     authMocks.getSession.mockResolvedValue({
       data: {
@@ -58,7 +58,7 @@ describe('Onboarding auth boundary', () => {
     );
 
     expect(await screen.findByText(/Demo session active/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Sign out of the demo before starting a beta pilot/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Sign out of the demo before starting a real pilot/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Name the app and deployment surface/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Sign out of demo sandbox/i }));
@@ -67,7 +67,7 @@ describe('Onboarding auth boundary', () => {
     expect(await screen.findByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
   });
 
-  it('renders a blank beta pilot draft for non-demo sessions', async () => {
+  it('renders a blank real-pilot draft for non-demo sessions', async () => {
     authMocks.getSession.mockResolvedValue({
       data: {
         session: {
@@ -87,7 +87,7 @@ describe('Onboarding auth boundary', () => {
     expect(await screen.findByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
     expect(screen.getByText(/Draft completeness/i)).toBeInTheDocument();
     expect(screen.getByText('40%')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Company or workspace/i)).toHaveValue('');
+    expect(screen.getByLabelText(/Company or team/i)).toHaveValue('');
     expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');
   });
 });

@@ -126,7 +126,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
         </NavLink>
         <div className="notice">
           <div style={{ color: 'var(--sc-ink)', fontWeight: 600, marginBottom: 4 }}>
-            {projectStatus === 'demo_seeded' ? 'Demo sandbox: sample data' : activeRun ? 'Pilot evidence run' : 'App setup'}
+            {projectStatus === 'demo_seeded' ? 'Demo sandbox: sample data' : activeRun ? 'Pilot test run' : 'App setup'}
           </div>
           <div className="mono">{activeRun?.id ?? projectStatus}</div>
           <div style={{ marginTop: 7 }}>
@@ -134,7 +134,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
               ? `${activeRun.guards} safety options · ${activeRun.candidate_stacks} combinations · ${activeRun.examples.toLocaleString()} examples`
               : 'Add examples, safety options, and uploaded outputs before review.'}
             {projectStatus === 'demo_seeded' ? (
-              <div style={{ marginTop: 7 }}>This is not connected to beta customer data.</div>
+              <div style={{ marginTop: 7 }}>This is not connected to any private pilot data.</div>
             ) : null}
           </div>
         </div>

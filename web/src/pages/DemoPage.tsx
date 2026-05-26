@@ -18,7 +18,7 @@ export function DemoPage() {
             <span style={{ fontWeight: 650, fontSize: 15 }}>StackCert</span>
           </Link>
           <div style={{ flex: 1 }} />
-          <ButtonLink to="/auth/sign-in">Beta sign in</ButtonLink>
+          <ButtonLink to="/auth/sign-in">Pilot sign in</ButtonLink>
           <ButtonLink to="/onboarding" variant="primary">
             Start pilot
           </ButtonLink>
@@ -30,16 +30,16 @@ export function DemoPage() {
           <div className="demo-access-grid">
             <section className="demo-access-copy">
               <Badge tone="neutral">Demo sandbox</Badge>
-              <h1 className="section-title">Explore StackCert without mixing it with a beta workspace.</h1>
+              <h1 className="section-title">Explore StackCert with sample data before starting your own pilot.</h1>
               <p className="hero-copy">
-                The support-copilot demo is a seeded walkthrough. It shows recommendations, overlap analysis, cost
-                planning, evidence, and retest logic using sample data only.
+                The support-copilot demo is a sample walkthrough. It shows recommendations, overlap analysis, cost
+                planning, release reports, and retest logic using sample data only.
               </p>
               <div className="demo-access-actions">
                 <ButtonLink to={demoAuthPath} variant="primary">
                   Continue to demo sandbox
                 </ButtonLink>
-                <ButtonLink to="/onboarding">Create a beta pilot</ButtonLink>
+                <ButtonLink to="/onboarding">Create a private pilot</ButtonLink>
               </div>
             </section>
 
@@ -47,15 +47,15 @@ export function DemoPage() {
               <div className="demo-boundary-list">
                 <BoundaryItem
                   label="Demo sandbox"
-                  body="Uses the prefilled demo account and seeded Acme support-copilot evidence. Treat it as product tour data."
+                  body="Uses the prefilled demo account and sample Acme support-copilot data. Treat it as a product tour, not your own evaluation."
                 />
                 <BoundaryItem
-                  label="Beta pilot"
-                  body="Uses your account, creates your workspace, and guides you toward your first evidence packet."
+                  label="Private pilot"
+                  body="Uses your account and creates an isolated project for your app. The first output is a release evidence report: what was tested, what StackCert recommends, the limits, and when to retest."
                 />
                 <BoundaryItem
                   label="No shared state"
-                  body="Demo credentials do not create customer workspaces, and beta users do not receive demo workspace access by default."
+                  body="Demo credentials cannot create real projects, and pilot accounts do not inherit the sample demo data by default."
                 />
               </div>
             </Card>
