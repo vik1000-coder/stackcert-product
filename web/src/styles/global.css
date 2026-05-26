@@ -474,8 +474,18 @@ tr:last-child td {
 }
 
 .landing {
+  min-height: 100vh;
   background: var(--sc-surface);
   color: var(--sc-ink);
+}
+
+.marketing-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.marketing-shell > main {
+  flex: 1;
 }
 
 .landing-container {
@@ -1131,6 +1141,27 @@ tr:last-child td {
 .static-cta p {
   margin: 8px 0 18px;
   color: var(--sc-ink-3);
+}
+
+.static-page-main {
+  background: var(--sc-surface);
+}
+
+.static-note {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  margin-top: 28px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-surface-2);
+  padding: 18px;
+}
+
+.static-note p {
+  margin: 0;
+  color: var(--sc-ink-3);
+  line-height: 1.6;
 }
 
 .blog-index {

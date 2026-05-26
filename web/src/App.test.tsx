@@ -1,9 +1,32 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
 import { authDestination } from './lib/authFlow';
+
+const footerLinkedRoutes = [
+  { path: '/why-stackcert', heading: /Why StackCert/i, staticPage: true },
+  { path: '/how-it-works', heading: /How It Works/i, staticPage: true },
+  { path: '/pricing', heading: /Pricing/i, staticPage: true },
+  { path: '/changelog', heading: /Changelog/i, staticPage: true },
+  { path: '/status', heading: /Status/i, staticPage: true },
+  { path: '/docs', heading: /Documentation/i, staticPage: true },
+  { path: '/methodology-paper', heading: /Methodology Paper/i, staticPage: true },
+  { path: '/replication-kit', heading: /Replication Kit/i, staticPage: true },
+  { path: '/blog', heading: /Evidence-backed safety decisions/i },
+  { path: '/glossary', heading: /Glossary/i, staticPage: true },
+  { path: '/about', heading: /About StackCert/i, staticPage: true },
+  { path: '/customers', heading: /Customers/i, staticPage: true },
+  { path: '/security', heading: /Security/i, staticPage: true },
+  { path: '/careers', heading: /Careers/i, staticPage: true },
+  { path: '/press', heading: /Press/i, staticPage: true },
+  { path: '/privacy', heading: /Privacy/i, staticPage: true },
+  { path: '/terms', heading: /Terms of Service/i, staticPage: true },
+  { path: '/soc-2', heading: /SOC 2/i, staticPage: true },
+  { path: '/dpa', heading: /Data Processing Addendum/i, staticPage: true },
+  { path: '/subprocessors', heading: /Subprocessors/i, staticPage: true },
+];
 
 describe('StackCert app', () => {
   it('renders the landing page value proposition', () => {
@@ -92,15 +115,21 @@ describe('StackCert app', () => {
     expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');
   });
 
-  it('renders footer helper pages from marketing links', () => {
+  it.each(footerLinkedRoutes)('renders $path with clear page content and a footer', ({ path, heading, staticPage }) => {
     render(
-      <MemoryRouter initialEntries={['/terms']}>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Terms of Service/i)).toBeInTheDocument();
-    expect(screen.getByText(/does not guarantee outcomes/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    if (staticPage) {
+      expect(screen.getByText(/Current state/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Ready to try the workflow/i })).toBeInTheDocument();
+    }
+    const footer = screen.getByRole('contentinfo');
+    expect(within(footer).getByRole('link', { name: /Privacy/i })).toHaveAttribute('href', '/privacy');
+    expect(within(footer).getByRole('link', { name: /Terms/i })).toHaveAttribute('href', '/terms');
   });
 
   it('renders the blog index and full empirical article route', () => {
@@ -130,5 +159,6 @@ describe('StackCert app', () => {
       '/blog/figures/fig01_finite_oracle_gap.svg'
     );
     expect(screen.getByText(/What this does not prove/i)).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Badge, ButtonLink, Card, Chip, LogoMark } from '../components/Primitives';
 import { blogPosts, getBlogPost, type BlogBlock, type BlogPost } from '../data/blogPosts';
+import { Footer } from './LandingPage';
 
 function BlogNav() {
   return (
@@ -29,7 +30,7 @@ function BlogNav() {
 export function BlogIndexPage() {
   const [featured, ...remaining] = blogPosts;
   return (
-    <div className="landing">
+    <div className="landing marketing-shell">
       <BlogNav />
       <main className="blog-index">
         <section className="blog-hero">
@@ -98,6 +99,7 @@ export function BlogIndexPage() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }
@@ -130,7 +132,7 @@ export function BlogPostPage() {
   const nextPost = blogPosts[currentIndex + 1] ?? blogPosts[0];
 
   return (
-    <div className="landing">
+    <div className="landing marketing-shell">
       <BlogNav />
       <main className="blog-post-page">
         <article className="blog-article">
@@ -178,6 +180,7 @@ export function BlogPostPage() {
           </div>
         </article>
       </main>
+      <Footer />
     </div>
   );
 }

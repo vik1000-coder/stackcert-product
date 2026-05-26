@@ -511,7 +511,7 @@ function FinalCta() {
   );
 }
 
-function Footer() {
+export function Footer() {
   const columns = [
     {
       title: 'Product',
@@ -564,7 +564,7 @@ function Footer() {
               <span style={{ fontWeight: 650, fontSize: 14 }}>StackCert</span>
             </div>
             <p className="muted" style={{ lineHeight: 1.55, margin: 0, maxWidth: 290 }}>
-              Safety-check selection and release evidence for teams shipping LLM applications into real review processes.
+              Safety-check selection and release reports for teams shipping LLM applications into real review processes.
             </p>
           </div>
           {columns.map((column) => (
