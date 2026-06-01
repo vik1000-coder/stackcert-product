@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { fmtNumber, fmtPercent, fmtUsd } from '../lib/format';
 import { Badge, ButtonLink, Card, ErrorState, Explainer, ExternalButton, LoadingState, PageHeader, Stat } from '../components/Primitives';
 import { PilotReadinessPanel } from '../components/PilotReadinessPanel';
+import { FirstReportJourney } from '../components/FirstReportJourney';
 import { BenchmarkMix, WelfareMovementChart } from '../components/Charts';
 import { useStackCertApp } from '../lib/appContext';
 
@@ -21,7 +22,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           <h1 style={{ marginTop: 0, fontSize: 26 }}>No recommendation yet</h1>
           <p className="muted" style={{ lineHeight: 1.55 }}>
             Follow the pilot path in app setup. Once examples and safety-check outputs are in place, StackCert will
-            rank combinations, estimate remaining tests, and prepare release evidence for this app.
+            rank combinations, estimate remaining tests, and prepare a release report for this app.
           </p>
           <ButtonLink to="../setup" variant="primary">
             Go to app setup
@@ -36,7 +37,9 @@ export function OverviewPage({ lambda }: { lambda: number }) {
   const data = overview.data!;
   const rows = ranking.data!.rows;
   const projectName = data.project.name || 'This app';
-  const appDescription = data.project.description || 'Compare tested safety options against your uploaded examples and release goals.';
+  const appDescription = displayProjectDescription(
+    data.project.description || 'Compare tested safety options against your uploaded examples and release goals.'
+  );
   const recommendationChanged = data.recommended_stack.architecture_id !== data.marginal_stack.architecture_id;
   const subtitle = appDescription.toLowerCase().startsWith(projectName.toLowerCase())
     ? appDescription
@@ -50,19 +53,35 @@ export function OverviewPage({ lambda }: { lambda: number }) {
         actions={
           <>
             <ButtonLink to="../certificate" variant="primary">
-              Open release evidence
+              Open release report
             </ButtonLink>
             <ButtonLink to="../co-failure">Inspect overlap</ButtonLink>
           </>
         }
       />
+      {projectId === 'proj_acme_copilot' ? (
+        <FirstReportJourney
+          title="Demo guide: follow the first release-report path"
+          intro="This sample walkthrough shows the same path a private pilot follows. Start with the release question, then inspect why the recommendation changes and what the report can actually support."
+          activeStep="recommendation"
+          links={{
+            scope: '../overview',
+            examples: '../setup#import-examples',
+            options: '../ranking',
+            run: '../measurements',
+            recommendation: '../overview',
+            report: '../certificate',
+            retest: '../drift'
+          }}
+        />
+      ) : null}
       <Explainer title="What this run is deciding" tone="accent" style={{ marginBottom: 16 }}>
         <p>
           {projectName} has {data.run.guards} safety options and {data.run.candidate_stacks} candidate combinations in
           this run. If you test options one at a time, <strong>{data.marginal_stack.label}</strong> looks best.{' '}
           {recommendationChanged
-            ? 'The overlap evidence changes that launch decision, so StackCert recommends '
-            : 'The uploaded outputs keep that option ahead after available overlap evidence, so StackCert recommends '}
+            ? 'The overlap results change that launch decision, so StackCert recommends '
+            : 'The uploaded outputs keep that option ahead after the available overlap checks, so StackCert recommends '}
           <strong>{data.recommended_stack.label}</strong> for this app. It ran{' '}
           <strong>{data.stats.pair_cells_measured}/{data.stats.pair_cells_total}</strong> useful overlap tests and
           avoided <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> of estimated testing spend.
@@ -70,7 +89,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
       </Explainer>
       {readiness.data ? <PilotReadinessPanel readiness={readiness.data.readiness} compact /> : null}
       <div className="grid grid-4">
-        <Stat label="Goal score" value={fmtNumber(data.stats.welfare)} tone="ok" description="Higher is better: more normal requests pass and fewer unsafe requests slip through." />
+        <Stat label="App fit score" value={fmtNumber(data.stats.welfare)} tone="ok" description="Higher is better: more normal requests pass and fewer unsafe requests slip through." />
         <Stat label="Better than obvious pick" value={fmtNumber(data.stats.regret_avoided)} tone={data.stats.regret_avoided >= 0 ? 'ok' : 'bad'} description="Lift over the combination you would choose from one-at-a-time testing." />
         <Stat label="Options ruled out" value={`${data.stats.certified_comparison_count}/${data.stats.comparison_count}`} tone="ok" description="Head-to-head comparisons where this recommendation is no longer ambiguous." />
         <Stat label="Testing saved" value={fmtUsd(data.stats.cost_avoided_usd)} tone="ok" description="Estimated testing spend saved versus checking every overlap." />
@@ -88,7 +107,7 @@ export function OverviewPage({ lambda }: { lambda: number }) {
               </p>
             </div>
             <div className="mono" style={{ color: 'var(--sc-ink-3)', fontSize: 12 }}>
-              Risk weight {lambda}
+              Release goal {lambda}
             </div>
           </div>
           <WelfareMovementChart rows={rows} />
@@ -118,11 +137,11 @@ export function OverviewPage({ lambda }: { lambda: number }) {
         <Card>
           <div className="stat-label">Exports</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <ExternalButton href={api.certificateMarkdownUrl(activeRunId, lambda)}>Evidence Markdown</ExternalButton>
-            <ExternalButton href={api.certificateJsonUrl(activeRunId, lambda)}>Evidence JSON</ExternalButton>
+            <ExternalButton href={api.certificateMarkdownUrl(activeRunId, lambda)}>Report Markdown</ExternalButton>
+            <ExternalButton href={api.certificateJsonUrl(activeRunId, lambda)}>Report JSON</ExternalButton>
             <ExternalButton href={api.rankingCsvUrl(activeRunId, lambda)}>Options CSV</ExternalButton>
           </div>
-          <p className="muted">Exports are app-specific evidence, not broad safety guarantees.</p>
+          <p className="muted">Exports are app-specific release reports, not broad safety guarantees.</p>
         </Card>
       </div>
       <Card>
@@ -139,14 +158,14 @@ export function OverviewPage({ lambda }: { lambda: number }) {
         </div>
       </Card>
       <div className="notice" style={{ marginTop: 16 }}>
-        Evidence scope: this app, this example mix, the tested safety options, and risk weight {lambda}. Current example coverage is {fmtPercent(data.benchmark_mix.reduce((sum, row) => sum + row.weight, 0), 0)} of the tested mix.
+        Report scope: this app, this example mix, the tested safety options, and release goal weighting {lambda}. Current example coverage is {fmtPercent(data.benchmark_mix.reduce((sum, row) => sum + row.weight, 0), 0)} of the tested mix.
       </div>
     </div>
   );
 }
 
 function displayActivityKind(kind: string) {
-  if (kind === 'certificate') return 'evidence';
+  if (kind === 'certificate') return 'report';
   if (kind === 'planner') return 'test plan';
   return kind;
 }
@@ -154,15 +173,25 @@ function displayActivityKind(kind: string) {
 function displayEvidenceStatus(status: string) {
   if (status === 'valid') return 'ready for review';
   if (status === 'certified') return 'ready for review';
-  if (status === 'open') return 'needs more evidence';
+  if (status === 'open') return 'needs more test output';
   if (status === 'negative') return 'not recommended';
   return status;
 }
 
+function displayProjectDescription(description: string) {
+  return description
+    .replace('CASS 2,000-example benchmark mixture', '2,000-example sample run')
+    .replace('Seeded guardrail-stack certification run over the 2,000-example sample run.', 'Seeded safety-check comparison with 2,000 sample examples.')
+    .replace('certification run', 'release-review run')
+    .replace('benchmark mixture', 'example mix')
+    .replace('CASS', 'StackCert');
+}
+
 function displayActivityMessage(message: string) {
   return message
-    .replace('Scoped certificate generated from CASS engine.', 'Release evidence generated from the tested app examples.')
+    .replace('Scoped certificate generated from CASS engine.', 'Release report generated from the tested app examples.')
+    .replace('Release evidence generated from uploaded safety-check outputs.', 'Release report generated from uploaded safety-check outputs.')
     .replace('measurement actions', 'targeted tests')
-    .replace('Certificate will require recertification', 'Release evidence will require retesting')
+    .replace('Certificate will require recertification', 'Release report will require retesting')
     .replace('guard/model/prompt drift', 'safety option, model, or prompt drift');
 }

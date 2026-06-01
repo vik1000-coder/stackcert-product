@@ -11,6 +11,7 @@ import {
   type OnboardingRole,
   type ProjectOnboardingProfileInput
 } from '../lib/api';
+import { FirstReportJourney } from '../components/FirstReportJourney';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
 import { isDemoEmail } from '../lib/authFlow';
 import { supabase } from '../lib/supabase';
@@ -53,14 +54,14 @@ const steps = [
   { id: 'scope', title: 'Scope', subtitle: 'Name the app and deployment surface.' },
   { id: 'risks', title: 'Risks', subtitle: 'Capture who owns review and what failures matter.' },
   { id: 'evidence', title: 'Starting data', subtitle: 'Choose what StackCert should use first.' },
-  { id: 'objective', title: 'Objective', subtitle: 'Set the first CASS decision preference.' },
+  { id: 'objective', title: 'Objective', subtitle: 'Set the first release goal preference.' },
   { id: 'review', title: 'Review', subtitle: 'Create the pilot and open the right setup task.' }
 ] as const;
 
 const roles: Array<{ id: OnboardingRole; label: string; detail: string }> = [
   { id: 'platform', label: 'AI platform', detail: 'Owns release gates, routing, cost, latency, and worker setup.' },
   { id: 'safety', label: 'Safety', detail: 'Defines risky examples, reviews failures, and decides when to retest.' },
-  { id: 'risk', label: 'Risk or GRC', detail: 'Needs scoped evidence, limitations, signoffs, and audit history.' },
+  { id: 'risk', label: 'Risk or GRC', detail: 'Needs scoped reports, limitations, signoffs, and audit history.' },
   { id: 'mixed', label: 'Mixed team', detail: 'A shared pilot with platform, safety, and reviewer handoffs.' }
 ];
 
@@ -87,7 +88,7 @@ const evidenceModes: Array<{ id: OnboardingEvidenceMode; label: string; detail: 
     id: 'trace_import',
     label: 'Trace import',
     detail: 'Transform LangSmith, Langfuse, OpenTelemetry, or JSONL traces into reviewable examples.',
-    next: 'Create a reviewed example suite before running evidence.'
+    next: 'Create a reviewed example suite before the first test run.'
   },
   {
     id: 'demo_first',
@@ -108,7 +109,7 @@ const appCategories: Array<{ id: OnboardingAppCategory; label: string }> = [
 
 const deploymentStages: Array<{ id: OnboardingDeploymentStage; label: string; detail: string }> = [
   { id: 'exploration', label: 'Exploration', detail: 'Learning which checks might fit.' },
-  { id: 'pre_production', label: 'Pre-production', detail: 'Preparing evidence before a launch or policy change.' },
+  { id: 'pre_production', label: 'Pre-production', detail: 'Preparing a release report before a launch or policy change.' },
   { id: 'production_monitoring', label: 'Production monitoring', detail: 'Retesting a live app as behavior drifts.' }
 ];
 
@@ -212,7 +213,7 @@ export function OnboardingPage() {
     event.preventDefault();
     if (isDemoSession) {
       setStatus('error');
-      setError('Sign out of the demo sandbox before creating a real pilot.');
+      setError('Sign out of the sample walkthrough before creating a real pilot.');
       return;
     }
     if (stepIndex < steps.length - 1) {
@@ -261,7 +262,7 @@ export function OnboardingPage() {
       setStatus('idle');
     } catch (caught) {
       setStatus('error');
-      setError(caught instanceof Error ? caught.message : 'Could not sign out of the demo sandbox.');
+      setError(caught instanceof Error ? caught.message : 'Could not sign out of the sample walkthrough.');
     }
   }
 
@@ -299,16 +300,31 @@ export function OnboardingPage() {
             <h1 className="section-title">Set up a real pilot for one LLM app.</h1>
             <p className="hero-copy">
               A pilot is an isolated project for your app. StackCert uses it to compare safety checks and create a
-              release evidence report: what was tested, what is recommended, what is out of scope, and when to retest.
+              release report: what was tested, what is recommended, what is out of scope, and when to retest.
             </p>
           </div>
+          <FirstReportJourney
+            title="What this pilot will produce"
+            intro="You are creating the private version of the sample walkthrough: your app, your examples, your safety options, and a scoped release report for one release decision."
+          />
+          <Card>
+            <div className="onboarding-auth-boundary">
+              <Badge tone="neutral">Private pilot boundary</Badge>
+              <h2>First release report path</h2>
+              <p>
+                Demo data cannot become a real pilot. The sample walkthrough stays isolated; a private pilot starts
+                from your app, your examples, and your safety options so the release report can support your actual
+                release decision.
+              </p>
+            </div>
+          </Card>
 
           {authState === 'checking' ? (
             <Card>
               <div className="onboarding-auth-boundary">
                 <Badge tone="neutral">Checking session</Badge>
                 <h2>Preparing your pilot setup.</h2>
-                <p className="muted">StackCert is checking whether this browser is signed in to the demo sandbox or a real pilot account.</p>
+                <p className="muted">StackCert is checking whether this browser is signed in to the sample walkthrough or a real pilot account.</p>
               </div>
             </Card>
           ) : isDemoSession ? (
@@ -355,8 +371,8 @@ export function OnboardingPage() {
                       ? 'Creating pilot...'
                       : activeStep.id === 'review'
                         ? draft.evidenceMode === 'demo_first'
-                          ? 'Create pilot anyway'
-                          : 'Create pilot project'
+                          ? 'Create private pilot anyway'
+                          : 'Create private pilot'
                         : 'Continue'}
                   </button>
                 </div>
@@ -396,7 +412,7 @@ export function OnboardingPage() {
                       Next setup task: <strong>{selectedEvidence.next}</strong>
                     </p>
                     <p className="muted">
-                      StackCert will produce a release evidence report for this app and test mix; it cannot guarantee
+                      StackCert will produce a release report for this app and test mix; it cannot guarantee
                       broad model safety.
                     </p>
                   </div>
@@ -423,17 +439,17 @@ function DemoSessionBoundary({
     <Card>
       <div className="onboarding-auth-boundary">
         <Badge tone="warn">Demo session active</Badge>
-        <h2>Sign out of the demo before starting a real pilot.</h2>
+        <h2>Sign out of the sample walkthrough before starting a real pilot.</h2>
         <p>
-          The demo account only opens sample support-copilot data. A real pilot creates an isolated project for your
-          app, examples, safety options, and release evidence reports.
+          The sample walkthrough account only opens sample support-copilot data. A real pilot creates an isolated project for your
+          app, examples, safety options, and release reports.
         </p>
         <p className="muted">
-          Your pilot draft is saved in this browser while you switch out of the demo sandbox.
+          Your pilot draft is saved in this browser while you switch out of the sample walkthrough.
         </p>
         <div className="onboarding-auth-actions">
           <button className="btn primary" type="button" disabled={status === 'saving'} onClick={onSignOut}>
-            {status === 'saving' ? 'Signing out...' : 'Sign out of demo sandbox'}
+            {status === 'saving' ? 'Signing out...' : 'Sign out of sample walkthrough'}
           </button>
           <ButtonLink to={demoPath}>Return to demo</ButtonLink>
         </div>
@@ -489,6 +505,7 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
             className={`choice-button ${draft.deploymentStage === item.id ? 'active' : ''}`}
             key={item.id}
             type="button"
+            aria-pressed={draft.deploymentStage === item.id}
             onClick={() => update('deploymentStage', item.id)}
           >
             <strong>{item.label}</strong>
@@ -498,7 +515,13 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
       </div>
       <div className="segmented-row" role="group" aria-label="Risk tier">
         {(['standard', 'high', 'critical'] as const).map((tier) => (
-          <button className={`btn ${draft.riskTier === tier ? 'accent' : ''}`} key={tier} type="button" onClick={() => update('riskTier', tier)}>
+          <button
+            className={`btn ${draft.riskTier === tier ? 'accent' : ''}`}
+            key={tier}
+            type="button"
+            aria-pressed={draft.riskTier === tier}
+            onClick={() => update('riskTier', tier)}
+          >
             {titleCase(tier)}
           </button>
         ))}
@@ -516,6 +539,7 @@ function RiskStep({ draft, update, toggleRisk }: { draft: OnboardingDraft; updat
             className={`choice-button ${draft.role === item.id ? 'active' : ''}`}
             key={item.id}
             type="button"
+            aria-pressed={draft.role === item.id}
             onClick={() => update('role', item.id)}
           >
             <strong>{item.label}</strong>
@@ -531,6 +555,7 @@ function RiskStep({ draft, update, toggleRisk }: { draft: OnboardingDraft; updat
               className={`chip-button ${draft.primaryRiskConcerns.includes(item.id) ? 'active' : ''}`}
               key={item.id}
               type="button"
+              aria-pressed={draft.primaryRiskConcerns.includes(item.id)}
               onClick={() => toggleRisk(item.id)}
             >
               {item.label}
@@ -550,6 +575,7 @@ function EvidenceStep({ draft, update }: { draft: OnboardingDraft; update: Updat
           className={`choice-button ${draft.evidenceMode === item.id ? 'active' : ''}`}
           key={item.id}
           type="button"
+          aria-pressed={draft.evidenceMode === item.id}
           onClick={() => update('evidenceMode', item.id)}
         >
           <strong>{item.label}</strong>
@@ -571,6 +597,7 @@ function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: Upda
             className={`choice-button ${draft.optimizationGoal === item.id ? 'active' : ''}`}
             key={item.id}
             type="button"
+            aria-pressed={draft.optimizationGoal === item.id}
             onClick={() => update('optimizationGoal', item.id)}
           >
             <strong>{item.label}</strong>
@@ -580,17 +607,23 @@ function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: Upda
       </div>
       <div className="onboarding-objective-grid">
         <div className="onboarding-inline-panel">
-          <div className="stat-label">Initial CASS risk weight</div>
+          <div className="stat-label">Release goal weighting</div>
           <div className="mono onboarding-readiness">{selectedGoal.lambda}</div>
           <p className="muted">
-            This seeds the first recommendation. Users can still adjust the risk weight in the workbench.
+            This seeds the first recommendation. Users can still adjust the underlying risk weight in the workbench.
           </p>
         </div>
         <div className="onboarding-inline-panel">
           <div className="stat-label">Provider budget posture</div>
           <div className="segmented-row wrap">
             {budgetRanges.map((item) => (
-              <button className={`btn ${draft.budgetRange === item.id ? 'accent' : ''}`} key={item.id} type="button" onClick={() => update('budgetRange', item.id)}>
+              <button
+                className={`btn ${draft.budgetRange === item.id ? 'accent' : ''}`}
+                key={item.id}
+                type="button"
+                aria-pressed={draft.budgetRange === item.id}
+                onClick={() => update('budgetRange', item.id)}
+              >
                 {item.label}
               </button>
             ))}
@@ -601,7 +634,13 @@ function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: Upda
         <div className="stat-label" style={{ marginBottom: 10 }}>First release-gate target</div>
         <div className="segmented-row wrap">
           {releaseGateTargets.map((item) => (
-            <button className={`btn ${draft.releaseGateTarget === item.id ? 'accent' : ''}`} key={item.id} type="button" onClick={() => update('releaseGateTarget', item.id)}>
+            <button
+              className={`btn ${draft.releaseGateTarget === item.id ? 'accent' : ''}`}
+              key={item.id}
+              type="button"
+              aria-pressed={draft.releaseGateTarget === item.id}
+              onClick={() => update('releaseGateTarget', item.id)}
+            >
               {item.label}
             </button>
           ))}
@@ -624,7 +663,7 @@ function ReviewStep({
     ['Team', draft.companyName],
     ['App', draft.projectName],
     ['Starting data', selectedEvidence.label],
-    ['CASS objective', `${selectedGoal.label} / lambda ${selectedGoal.lambda}`],
+    ['Release goal', `${selectedGoal.label} / weighting ${selectedGoal.lambda}`],
     ['Release gate', releaseGateTargets.find((item) => item.id === draft.releaseGateTarget)?.label ?? 'Not yet'],
     ['Data handling', titleCase(draft.dataMode.replaceAll('_', ' '))]
   ];
@@ -642,7 +681,7 @@ function ReviewStep({
         <strong>First release-report path</strong>
         <p style={{ margin: '6px 0 0' }}>
           {selectedEvidence.next} Then StackCert can compare safety-check combinations, show cost/latency tradeoffs,
-          issue a release evidence report, and give your CI or agent workflow a release-gate response.
+          issue a release report, and give your CI or agent workflow a release-gate response.
         </p>
       </div>
       <div className="notice warn">
@@ -704,7 +743,7 @@ function nextSetupPath(workspaceId: string, projectId: string, focus: string) {
 function pilotDescription(draft: OnboardingDraft) {
   const evidenceMode = evidenceModes.find((item) => item.id === draft.evidenceMode);
   const goal = optimizationGoals.find((item) => item.id === draft.optimizationGoal);
-  return `${draft.projectName.trim()} pilot for comparing safety-check combinations. Starting evidence: ${
+  return `${draft.projectName.trim()} pilot for comparing safety-check combinations. Starting data: ${
     evidenceMode?.label ?? 'Uploaded outputs'
   }. Primary rollout owner: ${draft.role}. Objective: ${goal?.label ?? 'Balanced'}. Data handling: ${draft.dataMode.replaceAll('_', ' ')}.`;
 }

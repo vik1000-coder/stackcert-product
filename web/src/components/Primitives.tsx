@@ -109,7 +109,7 @@ export function LoadingState() {
   return (
     <div className="page">
       <Card>
-        <div className="muted">Loading StackCert evidence...</div>
+        <div className="muted">Loading StackCert...</div>
       </Card>
     </div>
   );

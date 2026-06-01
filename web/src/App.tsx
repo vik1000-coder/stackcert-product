@@ -13,6 +13,7 @@ import { LandingPage } from './pages/LandingPage';
 import { MeasurementsPage } from './pages/MeasurementsPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { OverviewPage } from './pages/OverviewPage';
+import { ProofPage } from './pages/ProofPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { RankingPage } from './pages/RankingPage';
 import { SetupPage } from './pages/SetupPage';
@@ -37,6 +38,7 @@ export function App() {
         <Route path="/blog" element={<BlogIndexPage />} />
         <Route path="/blog/:postSlug" element={<BlogPostPage />} />
         <Route path="/demo" element={<DemoPage />} />
+        <Route path="/proof" element={<ProofPage />} />
         <Route path="/auth/sign-in" element={<AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/app/:workspaceId/:projectId" element={<AppShell lambda={lambda} onLambdaChange={setLambda} />}>

@@ -1,0 +1,17 @@
+{
+  "name": "StackCert",
+  "short_name": "StackCert",
+  "description": "Release reports and deployment gates for LLM app safety-check combinations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#111114",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -14,6 +14,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   python-dependencies:
     name: python dependency audit
@@ -46,4 +48,3 @@ jobs:
           else
             echo "web/package.json not present yet; skipping frontend audit"
           fi
-

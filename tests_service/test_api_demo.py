@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import hashlib
+import hmac
 import os
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1018,6 +1020,126 @@ class DemoApiTest(unittest.TestCase):
         self.assertEqual(changed_gate["decision"], "block")
         self.assertIn("retest_required:model_change", changed_gate["blocking_reasons"])
 
+    def test_signed_release_gate_webhook_authenticates_and_audits(self) -> None:
+        secret = "webhook-secret-for-tests"
+        old_hashes = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES")
+        old_projects = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS")
+        try:
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = f"deploy:{secret}"
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = "deploy=proj_acme_copilot"
+            body = {
+                "event_id": "evt_demo_deploy",
+                "event_source": "unit-test",
+                "event_type": "deployment_candidate",
+                "environment": "production",
+                "required_status": "needs_measurement",
+                "mode": "fail",
+            }
+            raw_body = json.dumps(body, separators=(",", ":")).encode("utf-8")
+            timestamp = str(int(time.time()))
+            signature = hmac.new(secret.encode("utf-8"), timestamp.encode("utf-8") + b"." + raw_body, hashlib.sha256).hexdigest()
+            response = self.client.post(
+                "/api/projects/proj_acme_copilot/release-gates/webhook",
+                content=raw_body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-StackCert-Timestamp": timestamp,
+                    "X-StackCert-Signature": f"sha256={signature}",
+                },
+            )
+        finally:
+            if old_hashes is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = old_hashes
+            if old_projects is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = old_projects
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["webhook"]["authenticated"])
+        self.assertEqual(body["webhook"]["event_id"], "evt_demo_deploy")
+        self.assertIn(body["release_gate"]["decision"], {"pass", "warn"})
+        events = audit.list_events()
+        self.assertTrue(any(event["action"] == "release_gate.webhook_checked" for event in events))
+
+    def test_signed_release_gate_webhook_rejects_bad_signature_and_wrong_project_scope(self) -> None:
+        secret = "webhook-secret-for-tests"
+        old_hashes = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES")
+        old_projects = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS")
+        try:
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = f"deploy:{secret}"
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = "deploy=other_project"
+            raw_body = json.dumps({"environment": "production", "required_status": "needs_measurement"}, separators=(",", ":")).encode("utf-8")
+            timestamp = str(int(time.time()))
+            signature = hmac.new(secret.encode("utf-8"), timestamp.encode("utf-8") + b"." + raw_body, hashlib.sha256).hexdigest()
+            scoped = self.client.post(
+                "/api/projects/proj_acme_copilot/release-gates/webhook",
+                content=raw_body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-StackCert-Timestamp": timestamp,
+                    "X-StackCert-Signature": f"sha256={signature}",
+                },
+            )
+            rejected = self.client.post(
+                "/api/projects/proj_acme_copilot/release-gates/webhook",
+                content=raw_body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-StackCert-Timestamp": timestamp,
+                    "X-StackCert-Signature": "sha256=" + ("0" * 64),
+                },
+            )
+        finally:
+            if old_hashes is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = old_hashes
+            if old_projects is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = old_projects
+
+        self.assertEqual(scoped.status_code, 403)
+        self.assertEqual(rejected.status_code, 401)
+
+    def test_signed_release_gate_webhook_rejects_replay_in_production(self) -> None:
+        secret = "webhook-secret-for-tests"
+        old_hashes = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES")
+        old_projects = os.environ.get("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS")
+        old_environment = settings.environment
+        try:
+            object.__setattr__(settings, "environment", "production")
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = f"deploy:{secret}"
+            os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = "deploy=proj_acme_copilot"
+            raw_body = json.dumps({"environment": "production", "required_status": "needs_measurement"}, separators=(",", ":")).encode("utf-8")
+            timestamp = str(int(time.time()) - 3600)
+            signature = hmac.new(secret.encode("utf-8"), timestamp.encode("utf-8") + b"." + raw_body, hashlib.sha256).hexdigest()
+            response = self.client.post(
+                "/api/projects/proj_acme_copilot/release-gates/webhook",
+                content=raw_body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-StackCert-Timestamp": timestamp,
+                    "X-StackCert-Signature": f"sha256={signature}",
+                },
+            )
+        finally:
+            object.__setattr__(settings, "environment", old_environment)
+            if old_hashes is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_HASHES"] = old_hashes
+            if old_projects is None:
+                os.environ.pop("STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS", None)
+            else:
+                os.environ["STACKCERT_RELEASE_WEBHOOK_SECRET_PROJECTS"] = old_projects
+
+        self.assertEqual(response.status_code, 401)
+
     def test_agent_friendly_certificate_and_integration_endpoints(self) -> None:
         status_response = self.client.get("/api/projects/proj_acme_copilot/certificate-status?lambda_cost=5")
         integrations_response = self.client.get("/api/integrations/agent-platforms")
@@ -1032,6 +1154,8 @@ class DemoApiTest(unittest.TestCase):
         self.assertIn("generic_rest", platform_ids)
         self.assertIn("openai_agents_sdk", platform_ids)
         release_gate_examples = release_gate_examples_response.json()
+        self.assertIn("github_actions", release_gate_examples)
+        self.assertIn("action", release_gate_examples["github_actions"])
         self.assertIn("gitlab_ci", release_gate_examples)
         self.assertIn("circleci", release_gate_examples)
 
@@ -1921,6 +2045,11 @@ class DemoApiTest(unittest.TestCase):
         self.assertEqual(failed["attempts"], 3)
         self.assertEqual(failed["dead_letter_reason"], "timeout")
         self.assertTrue(any(event["type"] == "dead_lettered" for event in failed["events"]))
+        health = self.client.get("/api/workspaces/ws_demo/admin/overview").json()["admin"]["provider_health"]
+        self.assertEqual(health["status"], "attention")
+        self.assertGreaterEqual(health["summary"]["retry_count"], 1)
+        self.assertGreaterEqual(health["summary"]["timeout_failures"], 1)
+        self.assertGreaterEqual(health["summary"]["dead_letter_count"], 1)
 
         retry_response = self.client.post(f"/api/jobs/{job_id}/retry")
         self.assertEqual(retry_response.status_code, 200)
@@ -1969,6 +2098,7 @@ class DemoApiTest(unittest.TestCase):
         self.assertEqual(admin["metrics"]["queued_jobs"], 1)
         self.assertTrue(admin["controls"]["can_run_worker"])
         self.assertEqual(admin["worker"]["queue_depth"], 1)
+        self.assertIn(admin["provider_health"]["status"], {"idle", "healthy"})
 
         run_response = self.client.post(
             "/api/workspaces/ws_demo/admin/workers/run-next",

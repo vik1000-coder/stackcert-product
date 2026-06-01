@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "npm --prefix web ci --workspaces=false --include=optional && npm --prefix web run build",
-    "deploy": "wrangler deploy"
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "^4.94.0"

@@ -58,10 +58,10 @@ describe('Onboarding auth boundary', () => {
     );
 
     expect(await screen.findByText(/Demo session active/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Sign out of the demo before starting a real pilot/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Sign out of the sample walkthrough before starting a real pilot/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Name the app and deployment surface/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Sign out of demo sandbox/i }));
+    await user.click(screen.getByRole('button', { name: /Sign out of sample walkthrough/i }));
 
     await waitFor(() => expect(authMocks.signOut).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();

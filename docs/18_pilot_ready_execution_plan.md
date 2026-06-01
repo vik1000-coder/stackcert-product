@@ -750,10 +750,13 @@ For Cloud Run deploys, keep staging cost caps until explicitly changed:
 
 ## Current Next Move
 
-The next implementation move is the production-operations and integration
-slice: signed generic deployment webhooks, richer provider throttling
-observability, monitoring, backup/restore rehearsal, and auth sender-domain
-setup. Reviewed trace-import commits are now implemented on top of the
-benchmark-suite import path. Keep the existing GCP guardrails in place: Cloud
-Run API max instances `3`, worker job task count `1`, worker parallelism `1`,
-and the `StackCert staging $50` budget.
+The current implementation move is the design-partner deployability slice:
+uploaded-output pilots as the primary first-customer path, signed generic
+release-gate webhooks, provider-health observability, Sentry hooks, hosted
+real-pilot smoke coverage, and the production operations checklist. Reviewed
+trace-import commits are already implemented on top of the benchmark-suite
+import path. Keep the existing GCP guardrails in place: Cloud Run API max
+instances `3`, worker job task count `1`, worker parallelism `1`, and the
+`StackCert staging $50` budget. Do not add arbitrary local-model hosting for v1;
+local or customer-owned models should be represented through uploaded outputs,
+customer-hosted REST endpoints, or later customer-run workers.

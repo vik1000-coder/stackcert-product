@@ -9,7 +9,7 @@ export function PilotReadinessPanel({ readiness, compact = false }: { readiness:
       <div className="pilot-readiness-head">
         <div>
           <div className="stat-label">Pilot path</div>
-          <h2 className="pilot-readiness-title">First useful release report</h2>
+          <h2 className="pilot-readiness-title">First release report</h2>
           <p className="muted pilot-readiness-copy">
             {readiness.summary.project_name} is {readiness.progress.completed}/{readiness.progress.total} steps through setup.
             Next: {next.label.toLowerCase()}.
@@ -33,11 +33,11 @@ export function PilotReadinessPanel({ readiness, compact = false }: { readiness:
           ))}
         </div>
         <div className="pilot-boundary">
-          <Badge tone="warn">Scoped report</Badge>
+          <Badge tone="warn">Scoped release report</Badge>
           <p>{readiness.trust_boundary.plain_language}</p>
           <div className="pilot-boundary-list">
             <span>Retest on model, prompt, policy, tool, retrieval, or traffic changes.</span>
-            <span>Use release gates to check the report status and context before deploy.</span>
+            <span>Use release gates to check report status and release context before deploy.</span>
           </div>
         </div>
       </div>

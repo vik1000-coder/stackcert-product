@@ -65,6 +65,8 @@ class Settings:
         "yes",
         "on",
     }
+    sentry_dsn: str | None = _optional_env("SENTRY_DSN")
+    release_version: str | None = _optional_env("STACKCERT_RELEASE_VERSION")
 
 
 settings = Settings()

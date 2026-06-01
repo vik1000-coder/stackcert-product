@@ -9,12 +9,12 @@ stackcert_release_gate:
   script:
     - >
       python scripts/certificate_gate.py --release-gate
-      --api-url "$STACKCERT_API_URL"
+      --base-url "$STACKCERT_API_URL"
       --project-id "$STACKCERT_PROJECT_ID"
       --token "$STACKCERT_API_TOKEN"
       --environment "${CI_ENVIRONMENT_NAME:-production}"
       --commit-sha "$CI_COMMIT_SHA"
       --deployment-ref "$CI_PIPELINE_URL"
-      --required-status "$STACKCERT_REQUIRED_STATUS"
+      --require "$STACKCERT_REQUIRED_STATUS"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

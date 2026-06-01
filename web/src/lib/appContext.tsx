@@ -21,7 +21,7 @@ export function NoRunState({ title = 'No test run yet' }: { title?: string }) {
         <h1 style={{ marginTop: 0, fontSize: 26 }}>{title}</h1>
         <p className="muted" style={{ lineHeight: 1.55 }}>
           Add an example suite and upload safety-check outputs in setup. StackCert will then rank the combinations,
-          estimate remaining tests, and prepare a release evidence report for this app.
+          estimate remaining tests, and prepare a release report for this app.
         </p>
         <Link className="btn primary" to="../setup">
           Go to app setup

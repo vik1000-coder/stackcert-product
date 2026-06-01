@@ -133,7 +133,7 @@ export function ProjectsPage() {
             <Field label="Description" value={projectDraft.description ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, description: value }))} textarea />
             {demoProjects.length > 0 ? (
               <div className="notice">
-                The demo sandbox is listed separately and cannot be used as the parent for real pilot projects.
+                The sample walkthrough is listed separately and cannot be used as the parent for real pilot projects.
               </div>
             ) : null}
             <button className="btn primary" type="submit" disabled={createProject.isPending || !selectedWorkspaceId}>
@@ -160,8 +160,8 @@ export function ProjectsPage() {
           ))}
           {demoProjects.length > 0 ? (
             <div className="notice">
-              Demo sandbox: {demoProjects.map((project) => project.name).join(', ')}. Open it from the dedicated demo
-              page when you want sample data.
+              Sample walkthrough: {demoProjects.map((project) => project.name).join(', ')}. Open it from the dedicated
+              demo page when you want sample data.
             </div>
           ) : null}
         </div>

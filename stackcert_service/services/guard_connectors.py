@@ -103,6 +103,8 @@ def _connector_from_payload(project_id: str, payload: GuardConnectorCreate) -> d
         "retry_max_attempts": payload.retry_max_attempts,
         "retry_backoff_base_seconds": payload.retry_backoff_base_seconds,
     }
+    if (payload.vendor or "").strip().lower() == "xai" and payload.auth_header_name.lower() == "authorization":
+        config["auth_scheme"] = "bearer"
     if secret_config.has_secret:
         config["secret_metadata"] = {
             "provider": "local_memory" if str(secret_config.secret_ref or "").startswith("memory-vault://") else "env",

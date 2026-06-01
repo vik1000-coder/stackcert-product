@@ -21,7 +21,7 @@ const HOP_BY_HOP_HEADERS = [
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const incomingUrl = new URL(request.url);
-    if (incomingUrl.pathname === "/api" || incomingUrl.pathname.startsWith("/api/")) {
+    if (incomingUrl.pathname === "/openapi.json" || incomingUrl.pathname === "/api" || incomingUrl.pathname.startsWith("/api/")) {
       return proxyApiRequest(request, env, incomingUrl);
     }
     return env.ASSETS.fetch(request);

@@ -12,6 +12,8 @@ const footerLinkedRoutes = [
   { path: '/changelog', heading: /Changelog/i, staticPage: true },
   { path: '/status', heading: /Status/i, staticPage: true },
   { path: '/docs', heading: /Documentation/i, staticPage: true },
+  { path: '/integrations', heading: /Integrations/i, staticPage: true },
+  { path: '/proof', heading: /Same release decision without always calling Grok/i },
   { path: '/methodology-paper', heading: /Methodology Paper/i, staticPage: true },
   { path: '/replication-kit', heading: /Replication Kit/i, staticPage: true },
   { path: '/blog', heading: /Evidence-backed safety decisions/i },
@@ -68,12 +70,16 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Preview StackCert with safe sample data/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/Demo sandbox/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: /Preview the first release-report path with safe sample data/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Sample walkthrough/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/What the walkthrough teaches/i)).toBeInTheDocument();
+    expect(screen.getByText(/Release question/i)).toBeInTheDocument();
+    expect(screen.getByText(/Targeted tests/i)).toBeInTheDocument();
+    expect(screen.getByText(/Retest boundary/i)).toBeInTheDocument();
     expect(screen.getByText(/What you will see/i)).toBeInTheDocument();
     expect(screen.getByText(/Recommendation preview/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Demo data is intentionally isolated/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Continue to demo sandbox/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Continue to sample walkthrough/i })).toHaveAttribute(
       'href',
       '/auth/sign-in?flow=demo&next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview'
     );
@@ -88,7 +94,7 @@ describe('StackCert app', () => {
 
     expect(screen.getByText(/Open the isolated sample demo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('demo@stackcert.dev');
-    expect(screen.getByRole('button', { name: /Open demo sandbox/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open sample walkthrough/i })).toBeInTheDocument();
   });
 
   it('keeps demo and beta auth destinations separated and normalizes stale demo routes', () => {
@@ -112,6 +118,8 @@ describe('StackCert app', () => {
     );
 
     expect(screen.getByText(/Set up a real pilot/i)).toBeInTheDocument();
+    expect(screen.getByText(/What this pilot will produce/i)).toBeInTheDocument();
+    expect(screen.getByText(/private version of the sample walkthrough/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
     expect(screen.getByText(/Draft completeness/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Company or team/i)).toHaveValue('');
@@ -163,5 +171,27 @@ describe('StackCert app', () => {
     );
     expect(screen.getByText(/What this does not prove/i)).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('renders the frontier proof page with concrete Grok comparison data', () => {
+    render(
+      <MemoryRouter initialEntries={['/proof']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /Same release decision without always calling Grok/i })).toBeInTheDocument();
+    expect(screen.getByText(/240-example support-copilot safety task/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/xAI Grok 4\.3 judge/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/StackCert local pair/i)).toBeInTheDocument();
+    expect(screen.getByText(/The best local model still underperforms alone/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Any selected check can veto/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Task-specific slices show when combinations matter/i)).toBeInTheDocument();
+    expect(screen.getByText(/Toxic chat moderation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Benchmark cells used/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Redacted example inputs and outputs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Prompts are summarized to avoid publishing harmful instructions/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/StrongREJECT jailbreak prompts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Run the fixture path or spend provider budget intentionally/i)).toBeInTheDocument();
   });
 });

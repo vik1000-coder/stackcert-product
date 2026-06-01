@@ -15,7 +15,9 @@ worker-backed deterministic, REST, and model-judge evaluation runs, service
 layer RBAC/audit controls, immutable evidence packet snapshots, private
 evidence artifacts, idempotent worker evidence persistence, connector price
 cards/token accounting, managed connector-secret references, lease renewal,
-pilot setup coverage diagnostics, workspace admin operations, worker
+pilot setup coverage diagnostics, a live frontier proof page comparing local
+StackCert combinations against xAI Grok 4.3 on a scoped support-safety task,
+workspace admin operations, worker
 queue/dead-letter UI, MCP and release-gate machine-token auth, and a hosted
 Cloudflare/Supabase/Cloud Run staging demo. The onboarding flow now captures a
 first-class pilot profile so setup can route new users to the right first

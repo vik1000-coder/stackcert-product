@@ -59,20 +59,20 @@ export function CertificatePage({ lambda }: { lambda: number }) {
   if (query.error) return <ErrorState error={query.error} />;
   const cert = query.data!;
   const evidencePreview = [
-    '# StackCert Release Evidence Report',
+    '# StackCert Release Report',
     '',
     `Selected combination: ${cert.certified_label ?? cert.recommended_label}`,
     `Recommended combination: ${cert.recommended_label}`,
     `Generated: ${cert.generated_at}`,
     '',
     'What this supports:',
-    'The selected safety-check combination beat the other combinations tested for this app, example mix, risk weighting, and assumptions.',
+    'The selected safety-check combination beat the other combinations tested for this app, example mix, release goal weighting, and assumptions.',
     '',
     'What this does not prove:',
     'It does not guarantee universal safety, legal compliance, or future behavior after model, prompt, safety option, tool, traffic, or policy changes.',
     '',
     'Reviewer action:',
-    'Use this report as release evidence, then retest if any trigger below changes.'
+    'Use this report in release review, then retest if any trigger below changes.'
   ].join('\n');
 
   return (
@@ -93,14 +93,26 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           <div className="definition-row">
             <div className="definition-term">It supports</div>
             <div className="definition-copy">
-              The selected safety-check combination beat the other combinations for this app, example mix, risk
-              weighting, and release assumptions.
+              The selected safety-check combination beat the other combinations for this app, example mix, release
+              goal weighting, and release assumptions.
             </div>
           </div>
           <div className="definition-row">
             <div className="definition-term">It does not prove</div>
             <div className="definition-copy">
               Universal safety, legal compliance, or future performance after model, prompt, safety option, or policy drift.
+            </div>
+          </div>
+          <div className="definition-row">
+            <div className="definition-term">Targeted tests</div>
+            <div className="definition-copy">
+              Extra checks StackCert runs only when they can change the recommendation or the report boundary.
+            </div>
+          </div>
+          <div className="definition-row">
+            <div className="definition-term">Retest boundary</div>
+            <div className="definition-copy">
+              Model, prompt, policy, tool, retrieval, or traffic changes that require a fresh release report.
             </div>
           </div>
         </div>
@@ -134,10 +146,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
       <Card style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>Readiness to issue</h2>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Readiness to lock</h2>
             <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
-              StackCert checks that the run is complete, outputs cover the current example mix, and the CASS result is
-              within the report scope.
+              StackCert checks that the run is complete, outputs cover the current example mix, and the recommendation
+              is within the report scope.
             </p>
           </div>
           <Badge tone={readinessTone(readiness?.status)} dot>
@@ -160,10 +172,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 <Badge tone={check.status}>{check.status}</Badge>
                 <div style={{ marginTop: 6, fontWeight: 700 }}>{check.label}</div>
               </div>
-              <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>{check.message}</p>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>{displayScopeText(check.message)}</p>
             </div>
           ))}
-          {readinessQuery.isLoading ? <p className="muted" style={{ margin: 0 }}>Checking evidence readiness...</p> : null}
+          {readinessQuery.isLoading ? <p className="muted" style={{ margin: 0 }}>Checking report readiness...</p> : null}
           {readiness?.blockers.length ? (
             <ReadinessList title="Blocking reasons" items={readiness.blockers} tone="bad" />
           ) : null}
@@ -192,7 +204,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
                 style={{ marginTop: 3 }}
               />
               <span>
-                I understand this release report is scoped to the example mix, safety options, risk weighting, and
+                I understand this release report is scoped to the example mix, safety options, release goal weighting, and
                 assumptions shown here. It is not a guarantee of safety or compliance.
               </span>
             </label>
@@ -436,7 +448,7 @@ function explainRetestTrigger(trigger: string) {
     return {
       label: 'Prompt or policy change',
       tone: 'warn',
-      copy: 'The evidence applies to the tested instructions and policy expectations; changed instructions need fresh output coverage.'
+      copy: 'The report applies to the tested instructions and policy expectations; changed instructions need fresh output coverage.'
     };
   }
   if (normalized.includes('traffic') || normalized.includes('benchmark') || normalized.includes('example')) {
@@ -456,13 +468,13 @@ function explainRetestTrigger(trigger: string) {
   return {
     label: 'Scope change',
     tone: 'neutral',
-    copy: 'Treat this as a boundary change and retest before using the report as release evidence.'
+    copy: 'Treat this as a boundary change and retest before using the report in release review.'
   };
 }
 
 function displayReadinessStatus(status?: string) {
   if (status === 'ready') return 'ready';
-  if (status === 'warning') return 'can issue with warnings';
+  if (status === 'warning') return 'can lock with warnings';
   if (status === 'blocked') return 'blocked';
   return 'checking';
 }
@@ -475,8 +487,8 @@ function readinessTone(status?: string) {
 }
 
 function displayArtifactType(value: string) {
-  if (value === 'issued_evidence_json') return 'Issued JSON';
-  if (value === 'issued_evidence_markdown') return 'Issued Markdown';
+  if (value === 'issued_evidence_json') return 'Report JSON';
+  if (value === 'issued_evidence_markdown') return 'Report Markdown';
   return value.replaceAll('_', ' ');
 }
 
@@ -487,7 +499,7 @@ function displayAssumptionLabel(label: string) {
     rho_prior: 'Overlap prior',
     use_feasible_bounds: 'Use feasible bounds',
     residual_treatment: 'Residual handling',
-    certificate_scope: 'Evidence scope'
+    certificate_scope: 'Report scope'
   };
   return labels[label] ?? label.replaceAll('_', ' ');
 }
@@ -500,25 +512,33 @@ function displayAssumptionValue(value: string) {
 function displayEvidenceStatus(status: string) {
   if (status === 'valid') return 'ready for review';
   if (status === 'certified') return 'ready for review';
-  if (status === 'open') return 'needs more evidence';
+  if (status === 'open') return 'needs more test output';
   if (status === 'negative') return 'not recommended';
   return status;
 }
 
 function displayEvidenceId(value: string) {
-  return value.replace(/^cert/i, 'evidence');
+  return value.replace(/^cert/i, 'report');
 }
 
 function displayScopeText(text: string) {
   return text
-    .replaceAll('K=2 serial stack certificates', 'two-check combination evidence')
+    .replaceAll('K=2 serial stack certificates', 'two-check combination report')
     .replaceAll('certificate', 'release report')
     .replaceAll('Certificate', 'Release report')
     .replaceAll('Guardrail model', 'Safety option model')
     .replaceAll('guardrail model', 'safety option model')
+    .replaceAll('CASS found', 'StackCert found')
+    .replaceAll('benchmark suite', 'example suite')
+    .replaceAll('a example', 'an example')
     .replaceAll('benchmark mixture', 'example mix')
+    .replaceAll('targeted measurement actions', 'targeted tests')
+    .replaceAll('Issuer acknowledgement', 'Reviewer acknowledgement')
     .replaceAll('candidate set', 'safety-option set')
     .replaceAll('guard version', 'safety option version')
+    .replaceAll('Traffic mixture', 'Traffic mix')
+    .replaceAll('benchmark weights', 'example weights')
     .replaceAll('guard/model/prompt drift', 'safety option, model, or prompt drift')
+    .replaceAll('recertification', 'retesting')
     .replaceAll('re-certification', 'retesting');
 }

@@ -391,6 +391,11 @@ Current trust-layer status:
   trace-import previews for LangSmith/Langfuse/OpenTelemetry-style JSONL traces.
 - release-gate integration examples now cover GitHub Actions, GitLab CI,
   CircleCI, and a generic webhook payload under `integrations/release-gates/`.
+- Public discovery assets now cover `robots.txt`, `sitemap.xml`, `llms.txt`,
+  `/.well-known/security.txt`, `/.well-known/mcp/server.json`, Open Graph
+  metadata, SoftwareApplication JSON-LD, and a web app manifest so search
+  crawlers, AI agents, security researchers, and MCP registries can orient
+  without crawling the private app shell.
 - first-user pilot readiness now has a project-level API,
   `GET /api/projects/{project_id}/pilot-readiness`, and a setup/overview UI
   panel that turns the launch path into explicit steps: app record, example
@@ -439,32 +444,38 @@ into a five-milestone executable roadmap:
    API, scoped machine tokens, GitHub Action support, MCP hardening, and audit.
    Status: REST API, scoped tokens, script support, reusable GitHub workflow,
    MCP project scoping, audit, smoke coverage, GitLab/Circle examples, and
-   release-context comparisons are implemented.
+   release-context comparisons are implemented. Signed generic webhooks now
+   wrap the same release-gate evaluator for deployment platforms that can send
+   HMAC-signed JSON.
 5. Pilot UX and operational readiness: import/setup polish, evidence readiness
    UI, dead-letter UI, production monitoring, backups, terms, and privacy.
    Status: uploaded-output preview diagnostics, JSONL/CSV templates, setup
    gating, worker queue/dead-letter UI, retry controls, redacted provider
    errors, immutable packet badges, export history, retest explanations, and
-   first-pilot readiness guidance are implemented and locally verified.
+   first-pilot readiness guidance are implemented and locally verified. The
+   admin view now includes provider health derived from usage, retries, timeouts,
+   rate limits, and dead letters. Optional Sentry hooks are available for the
+   API and web app.
    External operations setup still needs production owners for monitoring,
    backups, sender domain, and budget alerts.
 
 The immediate execution queue is now:
 
-1. Add real trace-ingestion commit flows after the current trace-import preview
-   proves useful with design-partner exports.
-2. Add signed generic deployment webhooks and provider-specific adapters for the
-   first customer platform that needs them.
-3. Finish the production operations checklist: Sentry or equivalent, uptime
-   checks, backup/restore rehearsal, auth email templates/sender domain, and
-   explicit budget alerts for GCP, Supabase, and provider spend.
+1. Deploy the first design-partner pilot path as uploaded-output first: one
+   app, representative examples, safety-check outputs, recommendation, release
+   report, and optional release gate.
+2. Configure production operations outside the repo: Sentry projects, uptime
+   checks, Cloud Run alert policies, Supabase backup/restore rehearsal, and
+   Auth sender-domain/email templates.
+3. Add the first customer-specific deployment adapter on top of the signed
+   generic webhook once a design partner names the platform.
 
 ## Current Priority
 
 The next engineering milestone should be:
 
 ```text
-Trace import commit flow + production operations checklist
+Design-partner uploaded-output pilot + production operations checklist
 ```
 
 The staging hosting milestone is complete: Supabase, Cloud Run API, Cloud Run
@@ -473,5 +484,8 @@ can now move a pilot team from uploaded outputs to deterministic, REST, or
 model-judge managed runs with retry-safe evidence writes, managed secret refs,
 lease renewal, cost accounting, release-gate checks, release-context matching,
 persisted budget controls, and operator-facing queue/dead-letter health. The
-highest-value remaining production work is to turn trace previews into reviewed
-import commits and complete monitoring/backup setup.
+highest-value remaining production work is to run the uploaded-output pilot
+with a design partner, complete monitoring/backup/auth operations, and only then
+expand managed provider execution. StackCert does not need to host arbitrary
+customer local models for v1; customer-owned models should appear as uploaded
+outputs, customer-hosted REST endpoints, or later customer-run workers.

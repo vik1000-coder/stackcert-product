@@ -1,0 +1,22 @@
+name: StackCert release gate
+
+on:
+  workflow_dispatch:
+  deployment_status:
+
+jobs:
+  stackcert_release_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: savikk129/multi_agents/stackcert_product/integrations/release-gates/github-action@main
+        with:
+          api-url: ${{ vars.STACKCERT_API_URL }}
+          project-id: ${{ vars.STACKCERT_PROJECT_ID }}
+          token: ${{ secrets.STACKCERT_RELEASE_GATE_TOKEN }}
+          required-status: valid
+          mode: fail
+          environment: production
+          commit-sha: ${{ github.sha }}
+          deployment-ref: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

@@ -1,6 +1,6 @@
 # Current Release Status
 
-Last updated: 2026-05-25 18:44 UTC
+Last updated: 2026-06-01 04:20 UTC
 
 This is the concise status page for the deployed StackCert staging system. Use
 it when checking whether local code, GitHub, Supabase, Cloud Run, and
@@ -9,7 +9,8 @@ Cloudflare agree.
 ## Source And CI
 
 - Repository: `vik1000-coder/stackcert-product`
-- Branch: `main`
+- Branch: `codex/design-partner-deployability-discovery` for the current
+  deployability PR; `main` remains the release base.
 - Release path: pushes to `main` run `ci`, the GitHub Pages fallback deploy,
   and then the Cloudflare Worker deploy after CI succeeds.
 - Latest audit result:
@@ -44,20 +45,19 @@ Password: stackcert-demo
 Cloudflare Workers:
 
 - Worker: `stackcert-staging`
-- Deployment status: verified through both GitHub Actions and direct
-  `wrangler deploy` during this audit. Cloudflare version IDs change on each
-  deploy even when the app bundle is unchanged; use
-  `npx wrangler deployments list --name stackcert-staging` for the latest ID.
+- Deployment status: verified through direct `wrangler deploy` during this
+  audit.
+- Current verified version ID: `d09f2851-2583-4302-967d-c5b4da0e20bb`
 - Behavior: serves `web/dist` static assets and proxies `/api/*` plus
-  `/api/mcp` to Cloud Run.
+  `/api/mcp` and `/openapi.json` to Cloud Run.
 
 Cloud Run API:
 
 - Service: `stackcert-api`
 - Region: `us-central1`
-- Latest ready revision: `stackcert-api-00017-vmj`
+- Latest ready revision: `stackcert-api-00019-cwt`
 - Image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:7f9558b-staging-202606010411-amd64`
 - Traffic: 100% to latest revision
 - Scale guardrails: min instances `0`, max instances `3`, concurrency `40`
 - GCP budget guardrail: `StackCert staging $50`
@@ -102,8 +102,8 @@ Supabase:
 Most recent local verification from this status update:
 
 ```text
-uv run python -m unittest discover tests_service -v
-  -> 110 tests passed
+uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
+  -> 119 tests passed
 
 uv run python -m unittest discover -s tests -p 'test_*.py' -v
   -> 17 tests passed
@@ -112,15 +112,9 @@ npm --prefix web run typecheck
   -> OK
 
 npm --prefix web test -- --run
-  -> 6 tests passed
+  -> 34 tests passed
 
 npm --prefix web run build
-  -> OK
-
-npm run build
-  -> OK
-
-supabase db lint
   -> OK
 
 supabase db push --linked --dry-run
@@ -135,7 +129,13 @@ uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw
 uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev/ --api-url https://stackcert-staging.savikk129.workers.dev/ --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
   -> OK
 
-uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev/ --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
+uv run python scripts/hosted_uploaded_output_pilot_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev/ --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo
+  -> OK
+
+uv run python scripts/release_gate_webhook_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev/ --project-id proj_acme_copilot
+  -> OK
+
+uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app --supabase-url https://cgwiwmfzpektpyquiveg.supabase.co --email demo@stackcert.dev --password stackcert-demo --project-id project-e7840c42-f298-4bd9-bff --region us-central1
   -> OK
 ```
 
@@ -145,23 +145,39 @@ Live auth behavior checked through smoke tests:
 - Supabase demo sign-in succeeds;
 - authenticated `/api/projects`, admin overview, release-gate, and MCP calls
   succeed through Cloudflare.
+- browser QA covers `/demo`, `/integrations`, authenticated demo setup, and
+  mobile viewports without horizontal overflow or missing-auth failures.
 
 ## Remaining Production Work
 
 The app is solid staging/pilot infrastructure, but still needs these before a
 true production launch:
 
-1. Production observability: Sentry or equivalent, uptime checks, alert routing,
-   and Cloud Run log-based alerts.
+1. Finish production environment setup for the design-partner pilot: Sentry
+   DSNs, uptime checks, alert routing, and Cloud Run log-based alerts.
 2. Backup/restore rehearsal for Supabase Postgres and Storage artifacts.
 3. Auth sender-domain setup, email templates, and invite/account lifecycle
    policy.
-4. Signed generic deployment webhooks and first customer-specific deployment
-   adapter.
-5. Provider throttling observability beyond the current retry/dead-letter
-   handling.
+4. First customer-specific deployment adapter on top of the signed generic
+   release-gate webhook.
+5. Provider throttling observation in hosted operations after the new provider
+   health admin view has real managed-run traffic.
+
+Design-partner v1 is intentionally uploaded-output first. StackCert does not
+need to host customer local models for the first deployable workflow; customer
+or local models should appear as uploaded outputs, customer-hosted REST
+endpoints, or a later customer-run worker.
 
 Completed in the current implementation branch:
 
 - Reviewed trace-import commits now turn trace previews into draft benchmark
   suites through `POST /api/projects/{project_id}/trace-imports`.
+- First-pilot clarity now uses “Release report” as the primary artifact name
+  and makes the demo/private-pilot boundary explicit.
+- Signed generic release-gate webhook endpoint:
+  `POST /api/projects/{project_id}/release-gates/webhook`.
+- Provider health admin view derived from jobs, retries, dead letters, and
+  usage events.
+- Optional Sentry hooks for FastAPI and the React app through environment
+  variables.
+- Design-partner pilot checklist: `docs/21_design_partner_pilot_checklist.md`.

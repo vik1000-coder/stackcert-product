@@ -120,6 +120,7 @@ def workspace_overview(workspace_id: str, principal: Principal) -> dict[str, Any
     all_jobs.sort(key=lambda job: str(job.get("created_at") or ""), reverse=True)
     audit_events = audit.list_events(workspace_id=workspace_id, limit=60)
     worker_state = _worker_state(all_jobs)
+    provider_health = _provider_health(all_jobs, provider_totals)
     dead_letters = [job for job in all_jobs if job.get("dead_letter_reason") or job.get("status") == "failed"]
 
     return {
@@ -144,6 +145,7 @@ def workspace_overview(workspace_id: str, principal: Principal) -> dict[str, Any
             "actual_cost_usd": round(actual_cost, 4),
         },
         "worker": worker_state,
+        "provider_health": provider_health,
         "usage": {
             "summary": {
                 "actual_cost_usd": round(actual_cost, 4),
@@ -261,6 +263,114 @@ def _worker_recommendation(queued: list[dict[str, Any]], running: list[dict[str,
     if running:
         return "A worker is active. Watch lease expiry, attempts, and provider errors before retrying."
     return "No runnable jobs. Create an evaluation or measurement plan when new evidence is needed."
+
+
+def _provider_health(all_jobs: list[dict[str, Any]], provider_totals: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    providers: dict[str, dict[str, Any]] = {
+        provider: {
+            "provider": provider,
+            "status": "healthy",
+            "events": int(bucket.get("events") or 0),
+            "request_count": int(bucket.get("request_count") or 0),
+            "actual_cost_usd": round(float(bucket.get("actual_cost_usd") or 0), 4),
+            "retry_count": 0,
+            "rate_limit_failures": 0,
+            "timeout_failures": 0,
+            "failed_jobs": 0,
+            "dead_letter_count": 0,
+            "running_jobs": 0,
+            "latest_error_class": None,
+            "latest_error": None,
+            "latest_event_at": None,
+        }
+        for provider, bucket in provider_totals.items()
+    }
+
+    for job in all_jobs:
+        provider = _job_provider(job)
+        if not provider:
+            continue
+        bucket = providers.setdefault(
+            provider,
+            {
+                "provider": provider,
+                "status": "healthy",
+                "events": 0,
+                "request_count": 0,
+                "actual_cost_usd": 0.0,
+                "retry_count": 0,
+                "rate_limit_failures": 0,
+                "timeout_failures": 0,
+                "failed_jobs": 0,
+                "dead_letter_count": 0,
+                "running_jobs": 0,
+                "latest_error_class": None,
+                "latest_error": None,
+                "latest_event_at": None,
+            },
+        )
+        events = job.get("events") or []
+        bucket["retry_count"] += sum(1 for event in events if str(event.get("type") or "") == "retry_scheduled")
+        if job.get("status") == "running":
+            bucket["running_jobs"] += 1
+        if job.get("status") == "failed":
+            bucket["failed_jobs"] += 1
+        if job.get("dead_letter_reason"):
+            bucket["dead_letter_count"] += 1
+        error_class = str(job.get("error_class") or (job.get("summary") or {}).get("last_error_class") or "")
+        if error_class == "rate_limited":
+            bucket["rate_limit_failures"] += 1
+        if error_class == "timeout":
+            bucket["timeout_failures"] += 1
+        if error_class:
+            bucket["latest_error_class"] = error_class
+            bucket["latest_error"] = _redact_error(str(job.get("error") or (job.get("summary") or {}).get("last_error") or ""))
+            bucket["latest_event_at"] = job.get("updated_at") or job.get("completed_at") or job.get("created_at")
+
+    rows = []
+    for bucket in providers.values():
+        if bucket["dead_letter_count"] or bucket["failed_jobs"]:
+            bucket["status"] = "dead_letter"
+        elif bucket["rate_limit_failures"] or bucket["timeout_failures"] or bucket["retry_count"]:
+            bucket["status"] = "retrying"
+        elif bucket["running_jobs"]:
+            bucket["status"] = "running"
+        else:
+            bucket["status"] = "healthy"
+        rows.append(bucket)
+
+    rows.sort(key=lambda item: (item["status"] != "dead_letter", item["status"] != "retrying", str(item["provider"])))
+    status_value = "idle" if not rows else "attention" if any(row["status"] in {"dead_letter", "retrying"} for row in rows) else "healthy"
+    return {
+        "status": status_value,
+        "providers": rows,
+        "summary": {
+            "providers": len(rows),
+            "retry_count": sum(int(row["retry_count"]) for row in rows),
+            "rate_limit_failures": sum(int(row["rate_limit_failures"]) for row in rows),
+            "timeout_failures": sum(int(row["timeout_failures"]) for row in rows),
+            "dead_letter_count": sum(int(row["dead_letter_count"]) for row in rows),
+            "actual_cost_usd": round(sum(float(row["actual_cost_usd"]) for row in rows), 4),
+        },
+    }
+
+
+def _job_provider(job: dict[str, Any]) -> str | None:
+    summary = job.get("summary") or {}
+    payload = ((job.get("input") or {}).get("payload") or {})
+    adapter_mode = str(summary.get("adapter_mode") or payload.get("adapter_mode") or "")
+    if adapter_mode in {"rest_guard", "model_judge"}:
+        return adapter_mode
+    if job.get("error_class") in {"rate_limited", "timeout", "provider_unavailable"}:
+        return adapter_mode or "provider_runtime"
+    return None
+
+
+def _redact_error(value: str) -> str:
+    for marker in ("Bearer ", "sk-"):
+        if marker in value:
+            return value.split(marker, 1)[0] + marker + "[redacted]"
+    return value[:420]
 
 
 def _connector_missing_secret(connector: dict[str, Any]) -> bool:

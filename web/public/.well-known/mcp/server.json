@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.stackcert/release-evidence",
+  "title": "StackCert Release Evidence",
+  "description": "Authenticated MCP tools and resources for StackCert release-report status, deployment gates, measurement guidance, and scoped release evidence.",
+  "version": "0.1.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://stackcert-staging.savikk129.workers.dev/api/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token from Supabase Auth or a StackCert MCP machine token scoped to mcp:read.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
