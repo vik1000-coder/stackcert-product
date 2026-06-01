@@ -1,0 +1,44 @@
+# StackCert
+
+> StackCert helps teams bring one LLM app, compare safety checks they might ship, and produce a scoped release report for a design-partner pilot.
+
+StackCert is for release evidence around a specific application workflow. It is not a broad model-safety certification system and does not host arbitrary customer local models in v1. The primary pilot path is uploaded-output: customers bring examples and safety-check outputs, StackCert compares options, and reviewers receive a release report plus retest/gate guidance.
+
+## Start Here
+
+- [Product overview](https://stackcert-staging.savikk129.workers.dev/why-stackcert): why teams need combination-level safety-check selection.
+- [How it works](https://stackcert-staging.savikk129.workers.dev/how-it-works): app scope, examples, safety options, test run, recommendation, release report, and retest/gate.
+- [Sample walkthrough](https://stackcert-staging.savikk129.workers.dev/demo): guided Acme support-copilot demo with safe sample data.
+- [Private pilot setup](https://stackcert-staging.savikk129.workers.dev/onboarding): create a pilot for your app, your examples, and your safety options.
+
+## Product Docs
+
+- [Documentation](https://stackcert-staging.savikk129.workers.dev/docs): setup, uploaded-output runs, release reports, and CI/CD handoff.
+- [Integrations](https://stackcert-staging.savikk129.workers.dev/integrations): GitHub Actions, GitLab CI, CircleCI, signed webhooks, REST/OpenAPI, and MCP surfaces.
+- [Status](https://stackcert-staging.savikk129.workers.dev/status): current design-partner readiness and operational boundaries.
+- [Security](https://stackcert-staging.savikk129.workers.dev/security): data minimization, auth, operations, and customer-hosted paths.
+- [Glossary](https://stackcert-staging.savikk129.workers.dev/glossary): product vocabulary for safety checks, overlap, release reports, and CASS.
+
+## Machine-Readable Interfaces
+
+- [OpenAPI schema](https://stackcert-staging.savikk129.workers.dev/openapi.json): FastAPI-generated REST schema.
+- [MCP endpoint](https://stackcert-staging.savikk129.workers.dev/api/mcp): authenticated streamable HTTP MCP endpoint.
+- [MCP manifest](https://stackcert-staging.savikk129.workers.dev/api/mcp/manifest): StackCert MCP tools, resources, and prompts.
+- [MCP server registry metadata](https://stackcert-staging.savikk129.workers.dev/.well-known/mcp/server.json): remote MCP discovery metadata.
+- [Sitemap](https://stackcert-staging.savikk129.workers.dev/sitemap.xml): public crawlable pages.
+- [Security contact](https://stackcert-staging.savikk129.workers.dev/.well-known/security.txt): vulnerability disclosure contact metadata.
+
+## Release-Gate Integrations
+
+- [Reusable GitHub workflow](https://github.com/vik1000-coder/stackcert-product/blob/main/.github/workflows/certificate-gate.yml): workflow-call wrapper around the release gate.
+- [GitHub composite action](https://github.com/vik1000-coder/stackcert-product/blob/main/integrations/release-gates/github-action/action.yml): drop-in action for CI/CD release checks.
+- [GitLab CI example](https://github.com/vik1000-coder/stackcert-product/blob/main/integrations/release-gates/gitlab-ci.yml): release-gate job template.
+- [CircleCI example](https://github.com/vik1000-coder/stackcert-product/blob/main/integrations/release-gates/circleci-config.yml): release-gate job template.
+- [Signed webhook payload](https://github.com/vik1000-coder/stackcert-product/blob/main/integrations/release-gates/generic-webhook-request.json): deployment webhook payload shape.
+
+## Positioning Guardrails
+
+- Call the primary artifact a release report.
+- Describe claims as scoped to the app, examples, safety options, goal weighting, and assumptions.
+- Do not describe StackCert as proving universal AI safety, legal compliance, or future behavior after model, prompt, tool, retrieval, traffic, or policy changes.
+- Treat managed REST and model-judge execution as advanced/beta paths; uploaded outputs are the fastest first-customer path.

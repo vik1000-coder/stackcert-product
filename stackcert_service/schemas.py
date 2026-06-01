@@ -256,3 +256,9 @@ class ReleaseGateEvaluateRequest(BaseModel):
     required_status: str = Field(default="valid", pattern="^(valid|provisional|needs_measurement)$")
     mode: str = Field(default="fail", pattern="^(fail|warn)$")
     lambda_cost: float = Field(default=5.0, ge=0, le=100)
+
+
+class ReleaseGateWebhookRequest(ReleaseGateEvaluateRequest):
+    event_id: str | None = Field(default=None, max_length=160)
+    event_source: str | None = Field(default=None, max_length=160)
+    event_type: str | None = Field(default=None, max_length=160)

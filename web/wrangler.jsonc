@@ -6,7 +6,7 @@
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist",
-    "run_worker_first": ["/api", "/api/*"],
+    "run_worker_first": ["/api", "/api/*", "/openapi.json"],
     "not_found_handling": "single-page-application"
   },
   "vars": {

@@ -137,7 +137,7 @@ function HeroDashboard() {
                 unsafe examples.
               </p>
               <div className="notice" style={{ marginTop: 12 }}>
-                StackCert recommends LG3 + Phi3 and prepares a release evidence report.
+                StackCert recommends LG3 + Phi3 and prepares a release report.
               </div>
             </Card>
           </div>
@@ -239,7 +239,7 @@ function AlternativesSection() {
     ],
     [
       'Add more policy context',
-      'More prompt text can help, but it is not evidence. It often increases token spend and still leaves the actual safety tradeoff unmeasured.'
+      'More prompt text can help, but it is not a release report. It often increases token spend and still leaves the actual safety tradeoff unmeasured.'
     ],
     [
       'Test every combination',
@@ -324,7 +324,7 @@ function EconomicsSection() {
             <h2 className="section-title">Safer decisions without measuring every combination.</h2>
             <p className="hero-copy" style={{ margin: '18px 0 0', maxWidth: 650, fontSize: 17 }}>
               StackCert is not trying to sell a bigger testing bill. It spends testing budget where the answer can
-              change the launch decision, then turns the result into a release evidence report your team can review and
+              change the launch decision, then turns the result into a release report your team can review and
               reuse.
             </p>
           </div>
@@ -351,7 +351,7 @@ function HowSection() {
   const steps = [
     ['01', 'Describe the app', 'Pick the LLM workflow, safety options, examples, and goals that reflect the decision you need to make.'],
     ['02', 'Compare combinations', 'Use uploaded outputs or connectors, then let StackCert target the overlap tests that can change the recommendation.'],
-    ['03', 'Review before release', 'Export a release evidence report: what was tested, the recommended combination, assumptions, limitations, signoffs, costs, and retest triggers.']
+    ['03', 'Review before release', 'Export a release report: what was tested, the recommended combination, assumptions, limitations, signoffs, costs, and retest triggers.']
   ];
   return (
     <section id="how" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '112px 0' }}>
@@ -384,8 +384,8 @@ function ProductSection() {
     ['Example builder', 'Import company examples, draft custom tests, and weight safe/risky cases to match the workflow.'],
     ['Safety option connectors', 'Use uploaded outputs first, then connect REST checks, local adapters, and model judges as the integration matures.'],
     ['Test plan', 'Run targeted worker jobs with leases, retries, usage tracking, and budget caps before spending on more evaluation.'],
-    ['Release evidence report', 'Export a scoped JSON/Markdown report and wire the pass, warn, or block result into GitHub Actions or deployment pipelines.'],
-    ['Agent surface', 'Expose tools, resources, and prompts so agent-platform jobs can read status, costs, and release-review evidence.']
+    ['Release report', 'Export a scoped JSON/Markdown report and wire the pass, warn, or block result into GitHub Actions or deployment pipelines.'],
+    ['Agent surface', 'Expose tools, resources, and prompts so agent-platform jobs can read status, costs, and release-review reports.']
   ];
   return (
     <section id="product" style={{ padding: '112px 0' }}>
@@ -411,7 +411,7 @@ function AudienceSection() {
   const users = [
     ['AI platform lead', 'Needs a repeatable release gate and a way to compare cost, latency, and risk across safety-check combinations.'],
     ['Safety engineer', 'Needs to turn policy failures into app-specific examples and inspect where checks fail together.'],
-    ['Risk or GRC reviewer', 'Needs concise release evidence with scope, assumptions, limitations, and signoff history.']
+    ['Risk or GRC reviewer', 'Needs a concise release report with scope, assumptions, limitations, and signoff history.']
   ];
   return (
     <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '96px 0' }}>
@@ -471,7 +471,7 @@ function PricingSection() {
         <h2 className="section-title">Pay for useful release reports, not a giant test grid.</h2>
         <div className="grid grid-3" style={{ marginTop: 44 }}>
           {[
-            ['Starter', 'Free', 'One app, uploaded outputs, and one active release evidence report.'],
+            ['Starter', 'Free', 'One app, uploaded outputs, and one active release report.'],
             ['Team', '$1,800', 'Production recommendations, drift monitoring, audit log, and support.'],
             ['Enterprise', 'Talk to us', 'VPC/self-hosted, SSO, custom integrations, and private report storage.']
           ].map(([name, price, desc], index) => (
@@ -527,6 +527,7 @@ export function Footer() {
       title: 'Resources',
       links: [
         ['Documentation', '/docs'],
+        ['Integrations', '/integrations'],
         ['Methodology paper', '/methodology-paper'],
         ['Replication kit', '/replication-kit'],
         ['Blog', '/blog'],
@@ -573,7 +574,7 @@ export function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© 2026 StackCert Labs, Inc.</span>
-          <span>App-specific evidence, not a universal guarantee.</span>
+          <span>App-specific release report, not a universal guarantee.</span>
         </div>
       </div>
     </footer>

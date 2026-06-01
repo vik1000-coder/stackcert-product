@@ -322,6 +322,8 @@ export function AdminPage() {
         </Card>
       </div>
 
+      <ProviderHealthPanel providerHealth={admin.provider_health} />
+
       <Card style={{ marginTop: 16 }}>
         <h2 className="admin-section-title">Team apps</h2>
         <div className="table-wrap admin-project-table">
@@ -484,6 +486,73 @@ export function AdminPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export function ProviderHealthPanel({ providerHealth }: { providerHealth: AdminOverview['provider_health'] }) {
+  const tone = providerHealth.status === 'attention' ? 'warn' : providerHealth.status === 'healthy' ? 'ok' : 'neutral';
+  return (
+    <Card style={{ marginTop: 16 }}>
+      <div className="admin-budget-head">
+        <div>
+          <h2 className="admin-section-title">Provider health</h2>
+          <p className="muted admin-budget-copy">
+            Managed REST and model-judge runs stay advanced/beta. StackCert does not host customer models; provider health tracks connected checks and worker execution.
+          </p>
+        </div>
+        <Badge tone={tone}>{providerHealth.status}</Badge>
+      </div>
+      <div className="admin-metric-grid">
+        <MiniMetric label="Providers" value={String(providerHealth.summary.providers)} />
+        <MiniMetric label="Retries" value={String(providerHealth.summary.retry_count)} />
+        <MiniMetric label="Rate limits" value={String(providerHealth.summary.rate_limit_failures)} />
+        <MiniMetric label="Timeouts" value={String(providerHealth.summary.timeout_failures)} />
+        <MiniMetric label="Dead letters" value={String(providerHealth.summary.dead_letter_count)} />
+        <MiniMetric label="Actual spend" value={fmtUsd(providerHealth.summary.actual_cost_usd, 4)} />
+      </div>
+      <div className="table-wrap" style={{ marginTop: 16 }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Status</th>
+              <th className="right">Requests</th>
+              <th className="right">Retries</th>
+              <th className="right">Failures</th>
+              <th>Latest redacted error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {providerHealth.providers.length ? (
+              providerHealth.providers.map((provider) => (
+                <tr key={provider.provider}>
+                  <td>{provider.provider}</td>
+                  <td>
+                    <Badge tone={provider.status === 'dead_letter' ? 'bad' : provider.status === 'retrying' ? 'warn' : 'ok'}>
+                      {provider.status.replaceAll('_', ' ')}
+                    </Badge>
+                  </td>
+                  <td className="mono right">{provider.request_count.toLocaleString()}</td>
+                  <td className="mono right">{provider.retry_count.toLocaleString()}</td>
+                  <td className="mono right">
+                    {(provider.rate_limit_failures + provider.timeout_failures + provider.failed_jobs + provider.dead_letter_count).toLocaleString()}
+                  </td>
+                  <td className="muted">
+                    {provider.latest_error_class ? `${provider.latest_error_class}: ${redactProviderError(provider.latest_error)}` : 'No provider errors recorded.'}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="muted">
+                  No managed provider runs yet. Fast uploaded-output pilots do not require StackCert-hosted models or provider calls.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

@@ -1,4 +1,7 @@
 {
+  "event_id": "deploy-123",
+  "event_source": "generic_deployment_webhook",
+  "event_type": "deployment_candidate",
   "environment": "production",
   "model_id": "customer-support-agent",
   "model_version": "2026-05-25",

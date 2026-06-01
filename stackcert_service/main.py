@@ -3,9 +3,10 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from stackcert_service.config import settings
-from stackcert_service.observability import configure_logging, request_middleware
+from stackcert_service.observability import configure_error_reporting, configure_logging, request_middleware
 from stackcert_service.security import access
 from stackcert_service.security.auth import McpPrincipalDep, Principal, PrincipalDep, ReleaseGatePrincipalDep
 from stackcert_service.schemas import (
@@ -26,6 +27,7 @@ from stackcert_service.schemas import (
     ProjectBudgetPolicyUpdate,
     ProjectOnboardingProfileUpdate,
     ReleaseGateEvaluateRequest,
+    ReleaseGateWebhookRequest,
     TraceImportCommitRequest,
     TraceImportPreviewRequest,
     UploadedOutputRunCreate,
@@ -50,6 +52,7 @@ from stackcert_service.services import pilot_readiness
 from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import release_gates
+from stackcert_service.services import release_webhooks
 from stackcert_service.services import trace_imports
 from stackcert_service.services import usage
 
@@ -69,6 +72,7 @@ app.add_middleware(
 )
 
 configure_logging()
+configure_error_reporting()
 app.middleware("http")(request_middleware)
 
 
@@ -1001,6 +1005,44 @@ def evaluate_release_gate(project_id: str, payload: ReleaseGateEvaluateRequest, 
         },
     )
     return {"release_gate": result}
+
+
+@app.post("/api/projects/{project_id}/release-gates/webhook")
+async def evaluate_release_gate_webhook(project_id: str, request: Request) -> dict[str, object]:
+    body = await request.body()
+    principal = release_webhooks.authenticate_webhook(project_id, request.headers, body)
+    project = _require_release_gate_project_access(project_id, principal)
+    try:
+        payload = ReleaseGateWebhookRequest.model_validate_json(body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.errors()) from exc
+    result = release_gates.evaluate_project_gate(project_id, payload)
+    audit.record_event(
+        "release_gate.webhook_checked",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={
+            "decision": result["decision"],
+            "run_id": result.get("run_id"),
+            "blocking_reasons": result.get("blocking_reasons", []),
+            "mode": payload.mode,
+            "event_id": payload.event_id,
+            "event_source": payload.event_source,
+            "event_type": payload.event_type,
+        },
+    )
+    return {
+        "release_gate": result,
+        "webhook": {
+            "event_id": payload.event_id,
+            "event_source": payload.event_source,
+            "event_type": payload.event_type,
+            "authenticated": True,
+        },
+    }
 
 
 @app.get("/api/runs/{run_id}/certificate.json")

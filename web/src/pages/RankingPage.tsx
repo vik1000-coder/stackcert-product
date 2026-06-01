@@ -51,7 +51,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
           </div>
           <div className="definition-row">
             <div className="definition-term">Confidence</div>
-            <div className="definition-copy">The range StackCert uses to decide whether a recommendation is clear enough for release evidence.</div>
+            <div className="definition-copy">The range StackCert uses to decide whether a recommendation is clear enough for a release report.</div>
           </div>
           <div className="definition-row">
             <div className="definition-term">Change</div>

@@ -17,13 +17,13 @@ jobs:
           name: Check StackCert release evidence
           command: |
             python scripts/certificate_gate.py --release-gate \
-              --api-url "$STACKCERT_API_URL" \
+              --base-url "$STACKCERT_API_URL" \
               --project-id "$STACKCERT_PROJECT_ID" \
               --token "$STACKCERT_API_TOKEN" \
               --environment "${STACKCERT_ENVIRONMENT:-production}" \
               --commit-sha "$CIRCLE_SHA1" \
               --deployment-ref "$CIRCLE_BUILD_URL" \
-              --required-status "$STACKCERT_REQUIRED_STATUS"
+              --require "$STACKCERT_REQUIRED_STATUS"
 
 workflows:
   stackcert_release:

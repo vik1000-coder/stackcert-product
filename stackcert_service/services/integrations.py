@@ -67,20 +67,24 @@ def agent_platforms() -> dict[str, list[dict[str, Any]]]:
 def release_gate_examples(api_url: str = "$STACKCERT_API_URL", project_id: str = "$STACKCERT_PROJECT_ID") -> dict[str, Any]:
     command = (
         "python scripts/certificate_gate.py --release-gate "
-        f"--api-url {api_url} --project-id {project_id} "
-        "--token \"$STACKCERT_API_TOKEN\" --environment production --required-status valid"
+        f"--base-url {api_url} --project-id {project_id} "
+        "--token \"$STACKCERT_API_TOKEN\" --environment production --require valid"
     )
     return {
         "contract": {
             "endpoint": f"{api_url.rstrip('/')}/api/projects/{project_id}/release-gates/evaluate",
+            "signed_webhook_endpoint": f"{api_url.rstrip('/')}/api/projects/{project_id}/release-gates/webhook",
             "method": "POST",
             "auth": "Bearer token scoped to release_gate:read for the target project",
+            "webhook_auth": "HMAC-SHA256 over 'timestamp.raw_body' with X-StackCert-Timestamp and X-StackCert-Signature headers.",
             "fails_closed": True,
             "decision_values": ["pass", "warn", "block"],
         },
         "github_actions": {
             "script": "scripts/certificate_gate.py --release-gate",
             "workflow": ".github/workflows/certificate-gate.yml",
+            "action": "integrations/release-gates/github-action/action.yml",
+            "example": "integrations/release-gates/github-actions.yml",
         },
         "gitlab_ci": {
             "file": "integrations/release-gates/gitlab-ci.yml",
@@ -107,6 +111,9 @@ def release_gate_examples(api_url: str = "$STACKCERT_API_URL", project_id: str =
         "generic_webhook": {
             "file": "integrations/release-gates/generic-webhook-request.json",
             "payload_fields": [
+                "event_id",
+                "event_source",
+                "event_type",
                 "environment",
                 "model_id",
                 "model_version",

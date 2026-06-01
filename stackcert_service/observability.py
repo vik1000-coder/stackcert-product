@@ -10,8 +10,16 @@ from fastapi import Request, Response
 
 from stackcert_service.config import settings
 
+try:  # pragma: no cover - exercised only when the optional package is installed.
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+except ImportError:  # pragma: no cover - local minimal installs can still run.
+    sentry_sdk = None
+    FastApiIntegration = None
+
 
 logger = logging.getLogger("stackcert_service.requests")
+_sentry_configured = False
 
 
 def configure_logging() -> None:
@@ -21,6 +29,21 @@ def configure_logging() -> None:
     )
     logging.getLogger("asyncio").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def configure_error_reporting() -> None:
+    global _sentry_configured
+    if _sentry_configured or not settings.sentry_dsn or sentry_sdk is None:
+        return
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=settings.release_version,
+        integrations=[FastApiIntegration()] if FastApiIntegration else [],
+        traces_sample_rate=0.0,
+        send_default_pii=False,
+    )
+    _sentry_configured = True
 
 
 async def request_middleware(

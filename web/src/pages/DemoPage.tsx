@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
+import { FirstReportJourney } from '../components/FirstReportJourney';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
 import { Footer } from './LandingPage';
 
@@ -8,23 +9,39 @@ const demoSetupPath = '/app/ws_demo/proj_acme_copilot/setup';
 const tourSteps = [
   {
     step: '01',
-    title: 'Start with the release question',
-    body: 'The demo opens on a support-copilot app that needs a shippable safety-check combination, not a generic model score.'
+    title: 'Release question',
+    path: demoOverviewPath,
+    body: 'Start with the practical decision: which safety-check combination should this support copilot ship?'
   },
   {
     step: '02',
-    title: 'Compare candidate stacks',
-    body: 'See how StackCert weighs safety, usefulness, cost, latency, and uncertainty across combinations the team could actually deploy.'
+    title: 'Options compared',
+    path: '/app/ws_demo/proj_acme_copilot/ranking',
+    body: 'See the one-at-a-time shortcut, then compare the combinations the team could actually deploy.'
   },
   {
     step: '03',
-    title: 'Inspect overlap and remaining tests',
-    body: 'Review where checks fail on the same examples, where they cover different risks, and which extra measurements would matter most.'
+    title: 'Overlap',
+    path: '/app/ws_demo/proj_acme_copilot/co-failure',
+    body: 'Inspect where two checks miss the same risky examples or block the same normal examples.'
   },
   {
     step: '04',
-    title: 'Read the release report boundary',
-    body: 'The final report states what was tested, what StackCert recommends, what is out of scope, and when the team should retest.'
+    title: 'Targeted tests',
+    path: '/app/ws_demo/proj_acme_copilot/measurements',
+    body: 'Review the extra tests StackCert would run only when they can change the recommendation.'
+  },
+  {
+    step: '05',
+    title: 'Release report',
+    path: '/app/ws_demo/proj_acme_copilot/certificate',
+    body: 'Read the scoped report boundary: what was tested, what is recommended, and what is out of scope.'
+  },
+  {
+    step: '06',
+    title: 'Retest boundary',
+    path: '/app/ws_demo/proj_acme_copilot/drift',
+    body: 'See the model, prompt, policy, tool, retrieval, and traffic changes that require a fresh report.'
   }
 ];
 
@@ -62,8 +79,8 @@ export function DemoPage() {
         <section className="demo-hero">
           <div className="landing-container demo-hero-grid">
             <div className="demo-access-copy">
-              <Badge tone="neutral">Demo sandbox</Badge>
-              <h1 className="section-title">Preview StackCert with safe sample data.</h1>
+              <Badge tone="neutral">Sample walkthrough</Badge>
+              <h1 className="section-title">Preview the first release-report path with safe sample data.</h1>
               <p className="hero-copy">
                 The demo uses a fictional Acme support copilot so you can see the product before uploading anything.
                 You will review a recommendation, compare safety-check combinations, inspect why overlap matters, and
@@ -76,7 +93,7 @@ export function DemoPage() {
               </div>
               <div className="demo-access-actions">
                 <ButtonLink to={demoAuthPath} variant="primary">
-                  Continue to demo sandbox
+                  Continue to sample walkthrough
                 </ButtonLink>
                 <ButtonLink to="/onboarding">Create a private pilot</ButtonLink>
               </div>
@@ -105,26 +122,36 @@ export function DemoPage() {
           </div>
         </section>
 
+        <section className="demo-section demo-section-muted">
+          <div className="landing-container">
+            <FirstReportJourney
+              title="What the walkthrough teaches"
+              intro="The sample data follows the same path a private pilot uses: scope the app, load examples, compare safety options, run tests, review the recommendation, and lock a release report."
+              compact
+            />
+          </div>
+        </section>
+
         <section className="demo-section">
           <div className="landing-container">
             <div className="demo-section-head">
               <div>
-                <div className="section-eyebrow">What you will see</div>
+                <div className="section-eyebrow">What you will see: Guided demo tour</div>
                 <h2 className="section-title">A guided tour of a real StackCert decision.</h2>
               </div>
               <p>
-                The sandbox is meant to answer one practical question: would this help your team decide which safety
-                checks to ship for a production LLM app?
+                The sample walkthrough is meant to answer one practical question: would this help your team decide
+                which safety checks to ship for a production LLM app?
               </p>
             </div>
 
-            <div className="demo-tour-grid">
+            <div className="demo-guide-list">
               {tourSteps.map((item) => (
-                <Card key={item.step}>
-                  <div className="demo-step-number">{item.step}</div>
+                <Link className="demo-guide-link" key={item.step} to={`/auth/sign-in?flow=demo&next=${encodeURIComponent(item.path)}`}>
+                  <small>{item.step}</small>
                   <h3>{item.title}</h3>
                   <p>{item.body}</p>
-                </Card>
+                </Link>
               ))}
             </div>
           </div>
@@ -147,7 +174,7 @@ export function DemoPage() {
               <h2 className="demo-card-title">Demo data is intentionally isolated.</h2>
               <div className="demo-boundary-list">
                 <BoundaryItem
-                  label="Demo sandbox"
+                  label="Sample walkthrough"
                   body="Uses the prefilled demo account and sample Acme support-copilot data. Treat it as a product tour, not your own evaluation."
                 />
                 <BoundaryItem

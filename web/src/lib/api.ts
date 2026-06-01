@@ -861,6 +861,33 @@ export type AdminOverview = {
     next_retry_at: string | null;
     recommended_action: string;
   };
+  provider_health: {
+    status: 'idle' | 'healthy' | 'attention' | string;
+    providers: Array<{
+      provider: string;
+      status: 'healthy' | 'running' | 'retrying' | 'dead_letter' | string;
+      events: number;
+      request_count: number;
+      actual_cost_usd: number;
+      retry_count: number;
+      rate_limit_failures: number;
+      timeout_failures: number;
+      failed_jobs: number;
+      dead_letter_count: number;
+      running_jobs: number;
+      latest_error_class?: string | null;
+      latest_error?: string | null;
+      latest_event_at?: string | null;
+    }>;
+    summary: {
+      providers: number;
+      retry_count: number;
+      rate_limit_failures: number;
+      timeout_failures: number;
+      dead_letter_count: number;
+      actual_cost_usd: number;
+    };
+  };
   usage: {
     summary: CostSummaryPayload['summary'];
     by_provider: CostSummaryPayload['by_provider'];

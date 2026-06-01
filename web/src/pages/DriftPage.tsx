@@ -15,7 +15,7 @@ export function DriftPage({ lambda }: { lambda: number }) {
     <div className="page">
       <PageHeader
         title="When to retest"
-        subtitle="Release evidence stays useful only while the example mix, safety options, model versions, prompts, tools, and traffic assumptions stay in scope."
+        subtitle="A release report stays useful only while the example mix, safety options, model versions, prompts, tools, and traffic assumptions stay in scope."
         actions={
           <button className="btn primary" disabled={triggerRetest.isPending} onClick={() => triggerRetest.mutate()}>
             {triggerRetest.isPending ? 'Queueing retest...' : 'Trigger retest'}

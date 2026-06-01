@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /auth/
+
+Sitemap: https://stackcert-staging.savikk129.workers.dev/sitemap.xml

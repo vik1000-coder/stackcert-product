@@ -51,19 +51,19 @@ const pages: Record<string, StaticContent> = {
     note: 'This page summarizes product progress for visitors. Engineering-level release details stay in the repository docs and CI history.',
     sections: [
       { heading: 'Current build', body: 'Supabase-backed apps, safety option connectors, example import, queued workers, usage ledger, release reports, signoffs, and deployment gates.' },
-      { heading: 'Latest slice', body: 'First-pilot readiness guidance, provider-grade worker hardening, MCP resources, and release-gate integration endpoints.' },
-      { heading: 'Next', body: 'Provider adapters, persisted budget policies, trace commit flows, billing, and enterprise pipeline integrations.' }
+      { heading: 'Latest slice', body: 'First-pilot readiness guidance, design-partner deployability, provider-health operations, signed release-gate webhooks, and release-report language.' },
+      { heading: 'Next', body: 'Design-partner onboarding, production monitoring, backup rehearsal, auth sender-domain setup, and first customer-specific deployment adapters.' }
     ]
   },
   status: {
     eyebrow: 'Product',
     title: 'Status',
-    summary: 'The local product build is suitable for demos and design-partner pilots, with clear remaining production work.',
+    summary: 'The product target is a design-partner pilot: real app examples, uploaded safety-check outputs, and a scoped release report before broad self-serve launch.',
     note: 'Current status is staging/design-partner ready, not broad public production. The app is deployed, tested, and still under active hardening.',
     sections: [
       { heading: 'API', body: 'FastAPI service with tested app, example-suite, safety-option, worker, cost, release-report, and MCP endpoints.' },
-      { heading: 'Database', body: 'Supabase migrations cover teams, apps, suites, app-specific examples, jobs, usage events, release reports, and signoffs.' },
-      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, deploy-gate workflow, and local runbook are in place.' }
+      { heading: 'Pilot path', body: 'The primary deployable workflow is uploaded outputs: customers bring examples and safety-check results, then StackCert compares options and issues the report.' },
+      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, deploy-gate workflow, Sentry hooks, provider-health admin views, and local runbook are in place or explicitly checklist-driven.' }
     ]
   },
   docs: {
@@ -72,9 +72,20 @@ const pages: Record<string, StaticContent> = {
     summary: 'StackCert documentation is organized around a practical LLM app workflow rather than a generic model-evaluation checklist.',
     note: 'These docs describe the current product path: create a pilot, load examples and outputs, then issue a scoped release report.',
     sections: [
-      { heading: 'Setup', body: 'Create a private pilot project, define an app, import examples, and register safety options.' },
-      { heading: 'Run', body: 'Queue evaluation and targeted test jobs, inspect overlap, and compare candidate combinations.' },
+      { heading: 'Setup', body: 'Create a private pilot project, define an app, import examples, and start with uploaded safety-check outputs for the fastest pilot.' },
+      { heading: 'Run', body: 'Use uploaded outputs first, then optionally queue managed REST or model-judge jobs when the team wants StackCert to execute checks.' },
       { heading: 'Release', body: 'Issue a release report, collect signoffs, and connect the result to CI/CD or LLM app-release tooling with GitHub Actions, GitLab, CircleCI, or webhook templates.' }
+    ]
+  },
+  integrations: {
+    eyebrow: 'Resources',
+    title: 'Integrations',
+    summary: 'StackCert fits into common release workflows through CI gates, signed deployment webhooks, REST/OpenAPI endpoints, and authenticated MCP resources.',
+    note: 'The design-partner default is still uploaded outputs. These integrations let platform teams automate the release-report decision once the first pilot is useful.',
+    sections: [
+      { heading: 'CI/CD gates', body: 'Use the GitHub composite action, reusable GitHub workflow, GitLab CI, or CircleCI examples to pass, warn, or block deployments based on the current release report.' },
+      { heading: 'Deployment webhooks', body: 'Call the signed release-gate webhook from deployment platforms that prefer HMAC authentication over bearer tokens.' },
+      { heading: 'Agent interfaces', body: 'Use the FastAPI OpenAPI schema and remote MCP endpoint so agent platforms can inspect release status, limitations, and retest guidance.' }
     ]
   },
   'methodology-paper': {
@@ -148,12 +159,12 @@ const pages: Record<string, StaticContent> = {
   security: {
     eyebrow: 'Company',
     title: 'Security',
-    summary: 'The product is designed around minimal sensitive data, explicit retention choices, and deployable self-hosted paths.',
+    summary: 'The design-partner pilot is built around minimal sensitive data, uploaded-output workflows, explicit retention choices, and customer-hosted adapter paths.',
     note: 'Security posture is strongest when customers can use redacted data, private artifacts, scoped auth, and explicit retest boundaries.',
     sections: [
-      { heading: 'Data minimization', body: 'Apps can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths.' },
+      { heading: 'Data minimization', body: 'Apps can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths. StackCert does not need to host customer local models for v1.' },
       { heading: 'Access', body: 'Supabase Auth, row-level security, server-side service role usage, and redacted connector secrets are part of the architecture.' },
-      { heading: 'Operations', body: 'CI, dependency checks, migration linting, and Supabase advisors are expected release gates.' }
+      { heading: 'Operations', body: 'CI, dependency checks, migration linting, Supabase advisors, monitoring, backup rehearsal, and deployment-gate checks are expected release gates.' }
     ]
   },
   careers: {
@@ -184,7 +195,7 @@ const pages: Record<string, StaticContent> = {
     summary: 'StackCert should collect only what is needed to create, operate, and audit a scoped release-report workflow.',
     note: 'This is a product posture page, not final legal counsel-approved policy text. It should stay conservative until launch.',
     sections: [
-      { heading: 'Product data', body: 'The preferred production path stores redacted prompts, hashes, metadata, outputs, and release reports rather than raw sensitive conversations.' },
+      { heading: 'Product data', body: 'The preferred design-partner path stores redacted prompts, hashes, metadata, uploaded safety-check outputs, and release reports rather than raw sensitive conversations.' },
       { heading: 'Account data', body: 'Team, project, billing, auth, and activity metadata are used to operate the service.' },
       { heading: 'Retention', body: 'Enterprise customers should be able to configure retention, deletion, and customer-hosted evidence paths.' }
     ]

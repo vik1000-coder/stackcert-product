@@ -69,7 +69,7 @@ def project_pilot_readiness(project_id: str, lambda_cost: float = 5.0) -> dict[s
         ),
         _stage(
             "evidence_run",
-            "Create the first evidence run",
+            "Create the first test run",
             "complete" if completed_run else ("active" if examples and safety_option_count >= 2 else "blocked"),
             "Run deterministic, uploaded-output, REST, or model-judge checks to produce comparable outputs.",
             "Run or upload outputs",
@@ -84,10 +84,10 @@ def project_pilot_readiness(project_id: str, lambda_cost: float = 5.0) -> dict[s
         ),
         _stage(
             "evidence_review",
-            "Review scoped evidence",
+            "Review scoped release report",
             "complete" if evidence_can_issue else ("active" if completed_run else "blocked"),
             "Inspect readiness checks, limitations, and the recommendation before using it in a release decision.",
-            "Open release evidence",
+            "Open release report",
             "certificate",
             {
                 "run_id": (latest_run or {}).get("id"),
@@ -104,7 +104,7 @@ def project_pilot_readiness(project_id: str, lambda_cost: float = 5.0) -> dict[s
             "deployment_gate",
             "Wire a release gate",
             "active" if evidence_can_issue else "blocked",
-            "Use the release-gate endpoint from CI or an agent workflow to verify evidence and context before deployment.",
+            "Use the release-gate endpoint from CI or an agent workflow to verify report status and context before deployment.",
             "Open gate templates",
             "/docs",
             {
@@ -112,7 +112,7 @@ def project_pilot_readiness(project_id: str, lambda_cost: float = 5.0) -> dict[s
                 "requires_machine_token": True,
                 "context_fields": ["model_id", "model_version", "prompt_hash", "policy_hash", "benchmark_suite_id"],
             },
-            blockers=[] if evidence_can_issue else ["Review scoped evidence first; gates should not run on incomplete evidence."],
+            blockers=[] if evidence_can_issue else ["Review the scoped release report first; gates should not run on incomplete reports."],
             counts_as_progress=False,
         ),
     ]
@@ -149,11 +149,11 @@ def project_pilot_readiness(project_id: str, lambda_cost: float = 5.0) -> dict[s
         },
         "trust_boundary": {
             "not_a_guarantee": True,
-            "plain_language": "StackCert evidence can reduce release risk for this app and this test scope; it cannot guarantee broad model safety.",
+            "plain_language": "A StackCert release report can reduce release risk for this app and this test scope; it cannot guarantee broad model safety.",
             "can_claim": [
                 "The configured safety options were compared on the committed app example mix.",
-                "The recommendation reflects measured outputs, overlap checks, risk weighting, and configured costs.",
-                "Release gates can check evidence status and release-context fields before deployment.",
+                "The recommendation reflects measured outputs, overlap checks, release goal weighting, and configured costs.",
+                "Release gates can check report status and release-context fields before deployment.",
             ],
             "cannot_claim": [
                 "That the model is safe in every setting.",

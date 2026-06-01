@@ -1,0 +1,5 @@
+Contact: https://stackcert-staging.savikk129.workers.dev/security
+Policy: https://stackcert-staging.savikk129.workers.dev/security
+Canonical: https://stackcert-staging.savikk129.workers.dev/.well-known/security.txt
+Preferred-Languages: en
+Expires: 2027-06-01T00:00:00Z

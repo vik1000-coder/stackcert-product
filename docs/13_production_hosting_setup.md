@@ -759,6 +759,33 @@ Provider/model calls will probably dominate infrastructure cost, so StackCert's
 own budget checks and cost-estimation workflow matter more than small hosting
 differences.
 
+## Design-Partner Observability
+
+The first deployable customer posture is a design-partner uploaded-output
+pilot. Configure these before real customer artifacts:
+
+- FastAPI: set `SENTRY_DSN` and `STACKCERT_RELEASE_VERSION` on Cloud Run.
+- Web: set `VITE_SENTRY_DSN` and `VITE_STACKCERT_RELEASE_VERSION` at build
+  time.
+- Cloud Run log-based alerts:
+  - API 5xx responses on `stackcert-api`;
+  - worker dead-letter events or failed `stackcert-worker` executions;
+  - repeated provider `rate_limited`, `timeout`, or `provider_unavailable`
+    errors;
+  - release-gate or release-gate webhook errors.
+- Uptime checks:
+  - Cloudflare app root;
+  - same-origin `/api/health`;
+  - authenticated `/api/projects` with the smoke user;
+  - release-gate evaluate call with the demo project.
+- Backup/restore rehearsal:
+  - export Supabase Postgres backup metadata;
+  - restore to a non-production target;
+  - verify a workspace, project, release report, artifact metadata, and audit
+    event can be read;
+  - record the evidence in `docs/21_design_partner_pilot_checklist.md` or the
+    internal launch tracker.
+
 ## Production Usability Checklist
 
 Before real users:

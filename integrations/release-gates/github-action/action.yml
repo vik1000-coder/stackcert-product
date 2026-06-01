@@ -1,0 +1,164 @@
+name: StackCert Release Gate
+description: Gate a deployment on a StackCert release report.
+author: StackCert
+
+inputs:
+  api-url:
+    description: StackCert API base URL.
+    required: true
+  project-id:
+    description: StackCert project id to check.
+    required: true
+  token:
+    description: StackCert release-gate token.
+    required: true
+  required-status:
+    description: Minimum release-report status required.
+    required: false
+    default: valid
+  mode:
+    description: fail blocks the job on a block decision; warn records the decision without failing.
+    required: false
+    default: fail
+  environment:
+    description: Deployment environment to compare against the release report.
+    required: false
+    default: production
+  lambda-cost:
+    description: Release goal weighting used for the report.
+    required: false
+    default: "5"
+  model-id:
+    description: Optional model id expected by this deployment.
+    required: false
+  model-version:
+    description: Optional model version expected by this deployment.
+    required: false
+  benchmark-suite-id:
+    description: Optional benchmark suite id expected by this deployment.
+    required: false
+  benchmark-suite-version:
+    description: Optional benchmark suite version expected by this deployment.
+    required: false
+  run-id:
+    description: Optional explicit release-report run id.
+    required: false
+  deployment-ref:
+    description: Optional deployment URL, image tag, release id, or workflow run URL.
+    required: false
+  commit-sha:
+    description: Optional commit SHA. Defaults to GITHUB_SHA when omitted.
+    required: false
+
+outputs:
+  decision:
+    description: "StackCert release-gate decision: pass, warn, or block."
+    value: ${{ steps.release-gate.outputs.decision }}
+  status:
+    description: Release-report status returned by StackCert.
+    value: ${{ steps.release-gate.outputs.status }}
+  blocking-reasons:
+    description: JSON array of blocking reasons.
+    value: ${{ steps.release-gate.outputs.blocking-reasons }}
+  warnings:
+    description: JSON array of warnings.
+    value: ${{ steps.release-gate.outputs.warnings }}
+
+runs:
+  using: composite
+  steps:
+    - id: release-gate
+      shell: bash
+      env:
+        STACKCERT_API_URL: ${{ inputs.api-url }}
+        STACKCERT_PROJECT_ID: ${{ inputs.project-id }}
+        STACKCERT_TOKEN: ${{ inputs.token }}
+        STACKCERT_REQUIRED_STATUS: ${{ inputs.required-status }}
+        STACKCERT_MODE: ${{ inputs.mode }}
+        STACKCERT_ENVIRONMENT: ${{ inputs.environment }}
+        STACKCERT_LAMBDA_COST: ${{ inputs.lambda-cost }}
+        STACKCERT_MODEL_ID: ${{ inputs.model-id }}
+        STACKCERT_MODEL_VERSION: ${{ inputs.model-version }}
+        STACKCERT_BENCHMARK_SUITE_ID: ${{ inputs.benchmark-suite-id }}
+        STACKCERT_BENCHMARK_SUITE_VERSION: ${{ inputs.benchmark-suite-version }}
+        STACKCERT_RUN_ID: ${{ inputs.run-id }}
+        STACKCERT_DEPLOYMENT_REF: ${{ inputs.deployment-ref }}
+        STACKCERT_COMMIT_SHA: ${{ inputs.commit-sha }}
+      run: |
+        set -euo pipefail
+        python_bin="${PYTHON_BIN:-python3}"
+        if ! command -v "$python_bin" >/dev/null 2>&1; then
+          python_bin="python"
+        fi
+
+        payload="$("$python_bin" - <<'PY'
+        import json
+        import os
+
+        def optional(name: str) -> str | None:
+            value = os.environ.get(name, "").strip()
+            return value or None
+
+        deployment_ref = optional("STACKCERT_DEPLOYMENT_REF")
+        if not deployment_ref and os.environ.get("GITHUB_SERVER_URL") and os.environ.get("GITHUB_REPOSITORY") and os.environ.get("GITHUB_RUN_ID"):
+            deployment_ref = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+
+        payload = {
+            "environment": optional("STACKCERT_ENVIRONMENT"),
+            "model_id": optional("STACKCERT_MODEL_ID"),
+            "model_version": optional("STACKCERT_MODEL_VERSION"),
+            "benchmark_suite_id": optional("STACKCERT_BENCHMARK_SUITE_ID"),
+            "benchmark_suite_version": optional("STACKCERT_BENCHMARK_SUITE_VERSION"),
+            "run_id": optional("STACKCERT_RUN_ID"),
+            "deployment_ref": deployment_ref,
+            "commit_sha": optional("STACKCERT_COMMIT_SHA") or optional("GITHUB_SHA"),
+            "required_status": optional("STACKCERT_REQUIRED_STATUS") or "valid",
+            "mode": optional("STACKCERT_MODE") or "fail",
+            "lambda_cost": float(optional("STACKCERT_LAMBDA_COST") or "5"),
+        }
+        print(json.dumps({key: value for key, value in payload.items() if value is not None}, separators=(",", ":")))
+        PY
+        )"
+
+        api_url="${STACKCERT_API_URL%/}"
+        endpoint="$api_url/api/projects/$STACKCERT_PROJECT_ID/release-gates/evaluate"
+        curl_args=(-fsS -H "Content-Type: application/json" -H "Accept: application/json" --data "$payload")
+        if [[ -n "$STACKCERT_TOKEN" ]]; then
+          curl_args=(-fsS -H "Authorization: Bearer $STACKCERT_TOKEN" -H "Content-Type: application/json" -H "Accept: application/json" --data "$payload")
+        fi
+        response="$(curl "${curl_args[@]}" "$endpoint")"
+
+        parsed="$(STACKCERT_GATE_RESPONSE="$response" "$python_bin" - <<'PY'
+        import json
+        import os
+
+        body = json.loads(os.environ["STACKCERT_GATE_RESPONSE"])
+        gate = body.get("release_gate") or body
+        print(json.dumps({
+            "decision": gate.get("decision", "block"),
+            "status": gate.get("status", "missing"),
+            "blocking_reasons": gate.get("blocking_reasons") or [],
+            "warnings": gate.get("warnings") or [],
+        }, separators=(",", ":")))
+        PY
+        )"
+
+        decision="$(printf '%s' "$parsed" | "$python_bin" -c 'import json,sys; print(json.load(sys.stdin)["decision"])')"
+        status="$(printf '%s' "$parsed" | "$python_bin" -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
+        blocking_reasons="$(printf '%s' "$parsed" | "$python_bin" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["blocking_reasons"]))')"
+        warnings="$(printf '%s' "$parsed" | "$python_bin" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["warnings"]))')"
+
+        {
+          echo "decision=$decision"
+          echo "status=$status"
+          echo "blocking-reasons=$blocking_reasons"
+          echo "warnings=$warnings"
+        } >> "$GITHUB_OUTPUT"
+
+        echo "StackCert release gate decision: $decision"
+        echo "Release-report status: $status"
+        if [[ "$blocking_reasons" != "[]" ]]; then echo "Blocking reasons: $blocking_reasons"; fi
+        if [[ "$warnings" != "[]" ]]; then echo "Warnings: $warnings"; fi
+        if [[ "$decision" == "block" && "$STACKCERT_MODE" == "fail" ]]; then
+          exit 1
+        fi
