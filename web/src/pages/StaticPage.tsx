@@ -36,12 +36,12 @@ const pages: Record<string, StaticContent> = {
   pricing: {
     eyebrow: 'Product',
     title: 'Pricing',
-    summary: 'The product is designed to be economical: teams should pay for useful release reports, not a giant test grid.',
-    note: 'Pricing is still directional for design-partner discovery. The important product principle is that customers should not pay for unnecessary brute-force testing.',
+    summary: 'The sellable v1 is a design-partner pilot: one app, uploaded outputs first, scoped release reports, and release-gate integration once the workflow proves useful.',
+    note: 'Pricing remains design-partner directional until packaging is finalized. The commercial promise is concrete: pay for scoped release evidence and workflow integration, not arbitrary model hosting.',
     sections: [
-      { heading: 'Starter', body: 'Free local/demo use for one application, uploaded outputs, and one active release report.' },
-      { heading: 'Team', body: 'Production recommendations, retest monitoring, usage ledger, signoff workflow, and deploy-gate automation.' },
-      { heading: 'Enterprise', body: 'Self-hosted or VPC deployment, SSO, custom retention, procurement support, and private integration work.' }
+      { heading: 'Design partner', body: 'Fixed-scope pilot for one LLM app: onboarding, example/output import, benchmark coverage review, one release report, and one release-gate integration path.' },
+      { heading: 'Team rollout', body: 'Repeatable reports across several workflows, provider spend controls, retest monitoring, admin/provider health views, and audit-friendly release-gate checks.' },
+      { heading: 'Enterprise', body: 'Self-hosted or VPC deployment, SSO, custom retention, security review, procurement support, and customer-hosted worker or REST connector work.' }
     ]
   },
   changelog: {
@@ -63,7 +63,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'API', body: 'FastAPI service with tested app, example-suite, safety-option, worker, cost, release-report, and MCP endpoints.' },
       { heading: 'Pilot path', body: 'The primary deployable workflow is uploaded outputs: customers bring examples and safety-check results, then StackCert compares options and issues the report.' },
-      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, deploy-gate workflow, Sentry hooks, provider-health admin views, and local runbook are in place or explicitly checklist-driven.' }
+      { heading: 'Operations', body: 'CI workflows, lint/advisor checks, deploy-gate workflow, provider-health admin views, and local runbooks are in place or checklist-driven. Sentry is skipped for this pass; log alerts and uptime checks are the required operating baseline.' }
     ]
   },
   docs: {
@@ -72,9 +72,10 @@ const pages: Record<string, StaticContent> = {
     summary: 'StackCert documentation is organized around a practical LLM app workflow rather than a generic model-evaluation checklist.',
     note: 'These docs describe the current product path: create a pilot, load examples and outputs, then issue a scoped release report.',
     sections: [
-      { heading: 'Setup', body: 'Create a private pilot project, define an app, import examples, and start with uploaded safety-check outputs for the fastest pilot.' },
-      { heading: 'Run', body: 'Use uploaded outputs first, then optionally queue managed REST or model-judge jobs when the team wants StackCert to execute checks.' },
-      { heading: 'Release', body: 'Issue a release report, collect signoffs, and connect the result to CI/CD or LLM app-release tooling with GitHub Actions, GitLab, CircleCI, or webhook templates.' }
+      { heading: 'Setup', body: 'Create a private pilot project, define one app, import examples with stable external IDs, and upload safety-check outputs that reference those IDs.' },
+      { heading: 'Run', body: 'Preview coverage first. Create the uploaded-output run only when every selected safety check covers every suite example. Managed REST/model-judge jobs remain advanced.' },
+      { heading: 'Release', body: 'Issue a release report, collect signoffs, and connect the result to CI/CD or LLM app-release tooling with GitHub Actions, GitLab, CircleCI, or signed webhook templates.' },
+      { heading: 'Operate', body: 'Before real data, complete uptime checks, Cloud Run alerts, Supabase backup/restore rehearsal, Auth email setup, support ownership, and customer data-mode decisions.' }
     ]
   },
   integrations: {
@@ -84,8 +85,21 @@ const pages: Record<string, StaticContent> = {
     note: 'The design-partner default is still uploaded outputs. These integrations let platform teams automate the release-report decision once the first pilot is useful.',
     sections: [
       { heading: 'CI/CD gates', body: 'Use the GitHub composite action, reusable GitHub workflow, GitLab CI, or CircleCI examples to pass, warn, or block deployments based on the current release report.' },
-      { heading: 'Deployment webhooks', body: 'Call the signed release-gate webhook from deployment platforms that prefer HMAC authentication over bearer tokens.' },
-      { heading: 'Agent interfaces', body: 'Use the FastAPI OpenAPI schema and remote MCP endpoint so agent platforms can inspect release status, limitations, and retest guidance.' }
+      { heading: 'Deployment webhooks', body: 'Call POST /api/projects/{project_id}/release-gates/webhook with HMAC-SHA256 headers when a deployment system prefers signed webhooks over bearer tokens.' },
+      { heading: 'Agent interfaces', body: 'Use the FastAPI OpenAPI schema and remote MCP endpoint so agent platforms can inspect release status, limitations, retest guidance, and report scope.' },
+      { heading: 'Notifications', body: 'For v1, use CI outputs or deployment-webhook responses to notify Slack, Teams, PagerDuty, or ticketing systems. Native outbound notification setup should wait for a named design-partner workflow.' }
+    ]
+  },
+  'pilot-readiness': {
+    eyebrow: 'Resources',
+    title: 'Pilot Readiness',
+    summary: 'A concrete preflight for turning the current staging app into a sellable design-partner pilot without pretending it is broad public production.',
+    note: 'This checklist intentionally skips Sentry. The minimum operating bar is log-based alerts, uptime checks, backup/restore evidence, Auth email setup, and a support owner.',
+    sections: [
+      { heading: 'Product scope', body: 'One app, one example suite, uploaded safety-check outputs, a recommendation, overlap review, targeted tests, release report, and release-gate integration.' },
+      { heading: 'Ops evidence', body: 'Run scripts/design_partner_ops_check.py with filled evidence for uptime checks, Cloud Run alerts, Supabase restore rehearsal, Auth email setup, data mode, and support ownership.' },
+      { heading: 'Data boundary', body: 'Prefer redacted snippets, hashes, metadata, and uploaded outputs. Local/customer-owned models are represented by outputs, REST endpoints, or future customer-hosted workers.' },
+      { heading: 'Done means', body: 'A design partner can complete the pilot path without command-line help, and the team can restore data, route alerts, support users, and block unsafe deployments.' }
     ]
   },
   'methodology-paper': {
@@ -164,9 +178,10 @@ const pages: Record<string, StaticContent> = {
     summary: 'The design-partner pilot is built around minimal sensitive data, uploaded-output workflows, explicit retention choices, and customer-hosted adapter paths.',
     note: 'Security posture is strongest when customers can use redacted data, private artifacts, scoped auth, and explicit retest boundaries.',
     sections: [
-      { heading: 'Data minimization', body: 'Apps can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths. StackCert does not need to host customer local models for v1.' },
-      { heading: 'Access', body: 'Supabase Auth, row-level security, server-side service role usage, and redacted connector secrets are part of the architecture.' },
-      { heading: 'Operations', body: 'CI, dependency checks, migration linting, Supabase advisors, monitoring, backup rehearsal, and deployment-gate checks are expected release gates.' }
+      { heading: 'Data minimization', body: 'Apps can use redacted snippets, hashes-only records, uploaded outputs, or customer-hosted data paths. StackCert does not host customer local models for v1.' },
+      { heading: 'Access', body: 'Supabase Auth, row-level security, server-side service role usage, project-scoped tokens, HMAC release webhooks, and redacted connector secrets are part of the architecture.' },
+      { heading: 'Operations', body: 'CI, dependency checks, migration linting, Supabase advisors, Cloud Run log alerts, uptime checks, backup rehearsal, and deployment-gate checks are expected release gates.' },
+      { heading: 'Customer controls', body: 'A design partner should agree on data mode, retention, deletion/export owner, support contact, and release-report scope before real examples are uploaded.' }
     ]
   },
   careers: {
@@ -197,9 +212,34 @@ const pages: Record<string, StaticContent> = {
     summary: 'StackCert should collect only what is needed to create, operate, and audit a scoped release-report workflow.',
     note: 'This is a product posture page, not final legal counsel-approved policy text. It should stay conservative until launch.',
     sections: [
-      { heading: 'Product data', body: 'The preferred design-partner path stores redacted prompts, hashes, metadata, uploaded safety-check outputs, and release reports rather than raw sensitive conversations.' },
-      { heading: 'Account data', body: 'Team, project, billing, auth, and activity metadata are used to operate the service.' },
-      { heading: 'Retention', body: 'Enterprise customers should be able to configure retention, deletion, and customer-hosted evidence paths.' }
+      { heading: 'Product data', body: 'The preferred design-partner path stores redacted prompts, hashes, metadata, uploaded safety-check outputs, release context, and release reports rather than raw sensitive conversations.' },
+      { heading: 'Account data', body: 'Team, project, auth, billing, support, and activity metadata are used to operate the service and audit release-report workflows.' },
+      { heading: 'Retention', body: 'Before a paid pilot, agree on retention, deletion/export owner, and whether examples remain raw, redacted, hashes-only, or customer-hosted.' },
+      { heading: 'Provider data', body: 'Uploaded-output pilots avoid sending customer prompts to managed model providers. Managed REST/model-judge runs require explicit connector setup and budget controls.' }
+    ]
+  },
+  procurement: {
+    eyebrow: 'Company',
+    title: 'Procurement FAQ',
+    summary: 'StackCert should be sold as scoped release evidence for one LLM app workflow, with clear data boundaries and integration points.',
+    note: 'Formal legal terms still need counsel review. This page keeps the buyer conversation aligned with the current product boundary.',
+    sections: [
+      { heading: 'What is purchased', body: 'A design-partner pilot that produces a scoped release report and helps wire the decision into the customer release workflow.' },
+      { heading: 'What is not purchased', body: 'A universal AI safety certification, hosted arbitrary local model infrastructure, or a guarantee that future traffic is safe.' },
+      { heading: 'Data handling', body: 'Customers can start with redacted examples and uploaded outputs, then choose stronger controls such as hashes-only records or customer-hosted evidence paths.' },
+      { heading: 'Operational proof', body: 'Before real customer data, StackCert should provide smoke-test results, backup/restore evidence, alert/uptime check ids, and a named support owner.' }
+    ]
+  },
+  support: {
+    eyebrow: 'Company',
+    title: 'Support',
+    summary: 'Design partners need a clear human support path while StackCert is still a guided pilot product.',
+    note: 'This is the commercial support posture for early pilots, not a public self-serve SLA.',
+    sections: [
+      { heading: 'Pilot owner', body: 'Each design partner should have one StackCert owner for onboarding, file import review, report interpretation, release-gate setup, and incident triage.' },
+      { heading: 'Response target', body: 'Agree on response windows before launch. For early paid pilots, use business-day support plus urgent escalation for blocked production releases.' },
+      { heading: 'Runbook', body: 'Support should be able to inspect project readiness, provider health, job failures, release-report status, and release-gate audit events.' },
+      { heading: 'Rollback', body: 'Every release-gate integration should include an agreed fallback: warn-only mode, manual approval, previous report, or disable gate with audit note.' }
     ]
   },
   terms: {

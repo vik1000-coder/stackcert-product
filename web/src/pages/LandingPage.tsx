@@ -444,6 +444,7 @@ function DocsSection() {
     ['Documentation', '/docs', 'App setup, test plan, and release workflow.'],
     ['Methodology', '/methodology-paper', 'Plain-English method, then CASS details.'],
     ['Frontier proof', '/proof', 'Grok 4.3 vs local StackCert comparison.'],
+    ['Pilot readiness', '/pilot-readiness', 'Ops and data preflight for design partners.'],
     ['Blog', '/blog', 'Product, theory, method, and empirical posts.'],
     ['Security', '/security', 'Data handling, auth, and deployment posture.'],
     ['Replication kit', '/replication-kit', 'Artifacts and commands for review.']
@@ -476,9 +477,9 @@ function PricingSection() {
         <h2 className="section-title">Pay for useful release reports, not a giant test grid.</h2>
         <div className="grid grid-3" style={{ marginTop: 44 }}>
           {[
-            ['Starter', 'Free', 'One app, uploaded outputs, and one active release report.'],
-            ['Team', '$1,800', 'Production recommendations, drift monitoring, audit log, and support.'],
-            ['Enterprise', 'Talk to us', 'VPC/self-hosted, SSO, custom integrations, and private report storage.']
+            ['Starter', 'Free', 'One app, uploaded outputs, and one active release report for evaluation.'],
+            ['Design partner', 'Fixed scope', 'Guided pilot for one app, report review, and one release-gate workflow.'],
+            ['Enterprise', 'Talk to us', 'VPC/self-hosted, SSO, custom retention, and customer-hosted adapters.']
           ].map(([name, price, desc], index) => (
             <Card key={name}>
               <h3 style={{ margin: 0 }}>{name}</h3>
@@ -533,6 +534,7 @@ export function Footer() {
       links: [
         ['Documentation', '/docs'],
         ['Integrations', '/integrations'],
+        ['Pilot readiness', '/pilot-readiness'],
         ['Frontier proof', '/proof'],
         ['Methodology paper', '/methodology-paper'],
         ['Replication kit', '/replication-kit'],
@@ -546,6 +548,8 @@ export function Footer() {
         ['About', '/about'],
         ['Customers', '/customers'],
         ['Security', '/security'],
+        ['Procurement', '/procurement'],
+        ['Support', '/support'],
         ['Careers', '/careers'],
         ['Press', '/press']
       ]

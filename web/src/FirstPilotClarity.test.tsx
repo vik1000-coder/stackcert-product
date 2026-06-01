@@ -166,11 +166,19 @@ describe('first-pilot clarity surfaces', () => {
     expect(screen.getByText(/1\. Import app examples/i)).toBeInTheDocument();
     expect(screen.getByText(/2\. Preview output coverage/i)).toBeInTheDocument();
     expect(screen.getByText(/3\. Review recommendation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pilot file kit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Use matching example and output templates/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/external_id/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Release context for this run/i)).toBeInTheDocument();
+    expect(screen.getByText(/After the uploaded-output run/i)).toBeInTheDocument();
     expect(screen.getByText(/Advanced connectors and workers/i)).toBeInTheDocument();
 
     const pageText = document.body.textContent ?? '';
     expect(pageText.indexOf('Use uploaded outputs for the fastest pilot')).toBeLessThan(
       pageText.indexOf('Advanced connectors and workers')
+    );
+    expect(pageText.indexOf('Bulk custom-test import')).toBeLessThan(
+      pageText.indexOf('Upload safety-check outputs')
     );
   });
 
@@ -191,7 +199,7 @@ describe('first-pilot clarity surfaces', () => {
     expect(screen.getByLabelText(/Display name/i)).toHaveValue('xAI Grok 4.3 Judge');
     expect(screen.getByLabelText(/Vendor/i)).toHaveValue('xAI');
     expect(screen.getByLabelText(/Endpoint URL/i)).toHaveValue('https://api.x.ai/v1/chat/completions');
-    expect(screen.getByLabelText(/Model/i)).toHaveValue('grok-4.3');
+    expect(screen.getByLabelText(/^Model$/i)).toHaveValue('grok-4.3');
     expect(screen.getByLabelText(/Secret env var/i)).toHaveValue('XAI_API_KEY');
     expect(screen.getByLabelText(/Auth secret/i)).toHaveValue('');
   });

@@ -15,8 +15,10 @@ StackCert is for release evidence around a specific application workflow. It is 
 
 - [Documentation](https://stackcert-staging.savikk129.workers.dev/docs): setup, uploaded-output runs, release reports, and CI/CD handoff.
 - [Integrations](https://stackcert-staging.savikk129.workers.dev/integrations): GitHub Actions, GitLab CI, CircleCI, signed webhooks, REST/OpenAPI, and MCP surfaces.
+- [Pilot readiness](https://stackcert-staging.savikk129.workers.dev/pilot-readiness): non-Sentry operations preflight, data modes, backup/restore, and support ownership.
 - [Status](https://stackcert-staging.savikk129.workers.dev/status): current design-partner readiness and operational boundaries.
 - [Security](https://stackcert-staging.savikk129.workers.dev/security): data minimization, auth, operations, and customer-hosted paths.
+- [Procurement FAQ](https://stackcert-staging.savikk129.workers.dev/procurement): what a buyer gets, what StackCert does not claim, and required operational proof.
 - [Glossary](https://stackcert-staging.savikk129.workers.dev/glossary): product vocabulary for safety checks, overlap, release reports, and CASS.
 
 ## Machine-Readable Interfaces

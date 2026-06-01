@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import proofBenchmark from '../data/proofBenchmark.json';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
@@ -302,6 +303,7 @@ export function ProofPage() {
                 </Card>
               </div>
             ) : null}
+            {alwaysGrok && localPair ? <ProofCostSimulator alwaysGrok={alwaysGrok} localPair={localPair} /> : null}
           </div>
         </section>
 
@@ -446,9 +448,89 @@ export function ProofPage() {
             </Card>
           </div>
         </section>
+        <section className="proof-section proof-section-muted">
+          <div className="landing-container proof-two-col">
+            <Card>
+              <div className="section-eyebrow">Honest fallback</div>
+              <h2 className="proof-card-title">If Grok wins, StackCert should say so.</h2>
+              <p className="muted">
+                The cheaper-combo claim is conditional: the local or hybrid option must reach the same scoped release
+                decision as the frontier baseline. When it does not, the right output is a warn/block report that tells
+                the team to admit Grok, narrow the task, collect more examples, or retest after changing safety checks.
+              </p>
+              <div className="proof-sensitivity-list">
+                <div>
+                  <span>Current claim status</span>
+                  <strong>{proof.summary.claim_status.replaceAll('_', ' ')}</strong>
+                  <small>Same-decision lower-cost claim: {proof.summary.same_decision_lower_cost ? 'supported' : 'not supported'}</small>
+                </div>
+              </div>
+            </Card>
+            <Card>
+              <div className="section-eyebrow">Bring your own benchmark</div>
+              <h2 className="proof-card-title">The next proof pack should use the buyer's task.</h2>
+              <p className="muted">
+                A design partner can replace the sample suite with their own app examples and uploaded safety-check
+                outputs, then compare always-frontier, best local single, local combinations, and hybrid candidates
+                against the same release goal weighting used in their pilot.
+              </p>
+              <div className="proof-command-list">
+                <code>{'Import examples -> upload outputs -> preview coverage -> create run -> review recommendation -> issue release report'}</code>
+                <code>RUN_LIVE_PROOF_BENCHMARK=1 XAI_API_KEY=... uv run python scripts/proof_benchmark.py --run-live-grok</code>
+              </div>
+            </Card>
+          </div>
+        </section>
       </main>
       <Footer />
     </div>
+  );
+}
+
+function ProofCostSimulator({ alwaysGrok, localPair }: { alwaysGrok: ProofRow; localPair: ProofRow }) {
+  const [monthlyPrompts, setMonthlyPrompts] = useState(50000);
+  const costPerExample = proof.summary.always_grok_cost_usd / proof.sample.total_examples;
+  const localCostPerExample = proof.summary.stackcert_local_cost_usd / proof.sample.total_examples;
+  const alwaysGrokMonthly = costPerExample * monthlyPrompts;
+  const localMonthly = localCostPerExample * monthlyPrompts;
+  const hybridMonthly = localMonthly + alwaysGrokMonthly * 0.05;
+  const savings = alwaysGrokMonthly > 0 ? 1 - hybridMonthly / alwaysGrokMonthly : 0;
+
+  return (
+    <Card style={{ marginTop: 18 }}>
+      <div className="proof-section-head" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="section-eyebrow">Cost simulator</div>
+          <h2 className="proof-card-title">Scale the benchmark economics to a pilot-sized workflow.</h2>
+        </div>
+        <p>
+          This uses the observed Grok token spend per benchmark example. Local-only spend is provider spend only, so
+          customer-owned local compute is shown as zero external provider cost.
+        </p>
+      </div>
+      <label className="proof-slider">
+        <span>Monthly prompts checked</span>
+        <input
+          type="range"
+          min="1000"
+          max="250000"
+          step="1000"
+          value={monthlyPrompts}
+          onChange={(event) => setMonthlyPrompts(Number(event.currentTarget.value))}
+        />
+        <strong>{monthlyPrompts.toLocaleString()}</strong>
+      </label>
+      <div className="grid grid-4" style={{ marginTop: 16 }}>
+        <ProofMetric label="Always Grok" value={fmtUsd(alwaysGrokMonthly, 2)} />
+        <ProofMetric label="Local pair" value={fmtUsd(localMonthly, 2)} />
+        <ProofMetric label="Hybrid 5% Grok review" value={fmtUsd(hybridMonthly, 2)} />
+        <ProofMetric label="Hybrid savings" value={fmtPercent(savings, 0)} />
+      </div>
+      <p className="muted" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
+        Current release decisions: Grok {alwaysGrok.release_decision}, local pair {localPair.release_decision}. The
+        savings estimate is only buyer-facing when those decisions match for the scoped task.
+      </p>
+    </Card>
   );
 }
 

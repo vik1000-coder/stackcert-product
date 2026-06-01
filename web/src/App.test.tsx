@@ -13,6 +13,7 @@ const footerLinkedRoutes = [
   { path: '/status', heading: /Status/i, staticPage: true },
   { path: '/docs', heading: /Documentation/i, staticPage: true },
   { path: '/integrations', heading: /Integrations/i, staticPage: true },
+  { path: '/pilot-readiness', heading: /Pilot Readiness/i, staticPage: true },
   { path: '/proof', heading: /Same release decision without always calling Grok/i },
   { path: '/methodology-paper', heading: /Methodology Paper/i, staticPage: true },
   { path: '/replication-kit', heading: /Replication Kit/i, staticPage: true },
@@ -21,6 +22,8 @@ const footerLinkedRoutes = [
   { path: '/about', heading: /About StackCert/i, staticPage: true },
   { path: '/customers', heading: /Customers/i, staticPage: true },
   { path: '/security', heading: /Security/i, staticPage: true },
+  { path: '/procurement', heading: /Procurement FAQ/i, staticPage: true },
+  { path: '/support', heading: /Support/i, staticPage: true },
   { path: '/careers', heading: /Careers/i, staticPage: true },
   { path: '/press', heading: /Press/i, staticPage: true },
   { path: '/privacy', heading: /Privacy/i, staticPage: true },
@@ -187,6 +190,9 @@ describe('StackCert app', () => {
     expect(screen.getByText(/The best local model still underperforms alone/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Any selected check can veto/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Task-specific slices show when combinations matter/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cost simulator/i)).toBeInTheDocument();
+    expect(screen.getByText(/If Grok wins, StackCert should say so/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bring your own benchmark/i)).toBeInTheDocument();
     expect(screen.getByText(/Toxic chat moderation/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Benchmark cells used/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Redacted example inputs and outputs/i).length).toBeGreaterThan(0);

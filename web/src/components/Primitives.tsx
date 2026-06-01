@@ -40,8 +40,8 @@ export function ExternalButton({ href, children, variant = 'default' }: { href: 
   );
 }
 
-export function Card({ children, padded = true, style, id }: { children: ReactNode; padded?: boolean; style?: CSSProperties; id?: string }) {
-  return <div id={id} className={`card ${padded ? 'card-pad' : ''}`} style={style}>{children}</div>;
+export function Card({ children, padded = true, style, id, className }: { children: ReactNode; padded?: boolean; style?: CSSProperties; id?: string; className?: string }) {
+  return <div id={id} className={`card ${padded ? 'card-pad' : ''} ${className ?? ''}`.trim()} style={style}>{children}</div>;
 }
 
 export function Stat({
