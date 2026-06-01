@@ -175,6 +175,8 @@ def connector_auth_headers(guard_id: str, connector: dict[str, Any]) -> dict[str
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Guard {guard_id} requires a backend secret; set {default_secret_env_name(guard_id)} or the configured secret env var in the worker environment.",
         )
+    if _should_prefix_bearer(header_name, config, secret):
+        secret = f"Bearer {secret.strip()}"
     return {header_name: secret}
 
 
@@ -241,6 +243,15 @@ def _candidate_env_names(guard_id: str, config: dict[str, Any]) -> list[str]:
         if env_name and env_name not in deduped:
             deduped.append(env_name)
     return deduped
+
+
+def _should_prefix_bearer(header_name: str, config: dict[str, Any], secret: str) -> bool:
+    if header_name.lower() != "authorization":
+        return False
+    if str(config.get("auth_scheme") or "").strip().lower() != "bearer":
+        return False
+    normalized = secret.strip().lower()
+    return bool(normalized) and not normalized.startswith(("bearer ", "basic ", "token "))
 
 
 def _memory_secret_ref(project_id: str, guard_id: str) -> str:

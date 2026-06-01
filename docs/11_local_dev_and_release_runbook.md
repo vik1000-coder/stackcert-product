@@ -29,6 +29,27 @@ Open `http://127.0.0.1:5173`. Without Supabase environment variables, the app
 uses local demo mode. With `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, the
 sign-in route uses Supabase Auth and forwards the access token to the API.
 
+## Frontier Proof Benchmark
+
+The public `/proof` page is generated from a sanitized aggregate fixture. To
+rebuild it without spending provider budget, use the existing local and Grok
+output artifacts:
+
+```bash
+uv run python scripts/proof_benchmark.py
+```
+
+To rerun the live xAI slice, set `RUN_LIVE_PROOF_BENCHMARK=1` and provide
+`XAI_API_KEY` or a local key file. The runner supports RTF notes such as
+`~/Downloads/send.rtf`, redacts secrets from errors, writes per-example provider
+rows only under ignored `artifacts/`, and commits only the aggregate fixture.
+
+```bash
+RUN_LIVE_PROOF_BENCHMARK=1 uv run python scripts/proof_benchmark.py \
+  --xai-key-file ~/Downloads/send.rtf \
+  --run-live-grok
+```
+
 ## Supabase
 
 ```bash

@@ -96,6 +96,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Core idea', body: 'Combinations should be evaluated by joint behavior, not just one-at-a-time safety-check scores.' },
       { heading: 'Targeted tests', body: 'StackCert tests overlaps that can change the recommendation instead of measuring every expensive path.' },
+      { heading: 'Frontier proof', body: 'The proof page runs this idea on a 240-example support-safety task against xAI Grok 4.3 and local candidate checks.' },
       { heading: 'CASS details', body: 'The underlying method is CASS: Correlation-Aware Stack Selection, scoped to the example mix, candidate combinations, goal score, and assumptions.' }
     ]
   },
@@ -106,6 +107,7 @@ const pages: Record<string, StaticContent> = {
     note: 'The replication kit is meant to make the demo inspectable before a buyer trusts StackCert with their own app data.',
     sections: [
       { heading: 'Artifacts', body: 'Demo JSONL examples, safety-check outputs, example weights, and generated release reports.' },
+      { heading: 'Frontier proof', body: 'A generated aggregate fixture shows the 240-example Grok 4.3 comparison without committing raw provider secrets or raw prompts.' },
       { heading: 'Commands', body: 'Unit tests, API smoke tests, worker runner, Supabase reset/lint/advisor checks, and web verification.' },
       { heading: 'Goal', body: 'Make the demo reproducible before a customer trusts StackCert with their own agent workflows.' }
     ]

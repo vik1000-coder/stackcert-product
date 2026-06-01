@@ -26,6 +26,9 @@ export function LandingPage() {
             <Link to="/blog" style={{ textDecoration: 'none' }}>
               Blog
             </Link>
+            <Link to="/proof" style={{ textDecoration: 'none' }}>
+              Proof
+            </Link>
             <Link to="/docs" style={{ textDecoration: 'none' }}>
               Docs
             </Link>
@@ -58,6 +61,7 @@ export function LandingPage() {
                 Start a pilot
               </ButtonLink>
               <ButtonLink to="/demo">View support-copilot demo</ButtonLink>
+              <ButtonLink to="/proof">See frontier proof</ButtonLink>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 12.5 }}>
               <span>App-specific tests</span>
@@ -439,6 +443,7 @@ function DocsSection() {
   const links = [
     ['Documentation', '/docs', 'App setup, test plan, and release workflow.'],
     ['Methodology', '/methodology-paper', 'Plain-English method, then CASS details.'],
+    ['Frontier proof', '/proof', 'Grok 4.3 vs local StackCert comparison.'],
     ['Blog', '/blog', 'Product, theory, method, and empirical posts.'],
     ['Security', '/security', 'Data handling, auth, and deployment posture.'],
     ['Replication kit', '/replication-kit', 'Artifacts and commands for review.']
@@ -528,6 +533,7 @@ export function Footer() {
       links: [
         ['Documentation', '/docs'],
         ['Integrations', '/integrations'],
+        ['Frontier proof', '/proof'],
         ['Methodology paper', '/methodology-paper'],
         ['Replication kit', '/replication-kit'],
         ['Blog', '/blog'],

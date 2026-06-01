@@ -13,6 +13,7 @@ const footerLinkedRoutes = [
   { path: '/status', heading: /Status/i, staticPage: true },
   { path: '/docs', heading: /Documentation/i, staticPage: true },
   { path: '/integrations', heading: /Integrations/i, staticPage: true },
+  { path: '/proof', heading: /Same release decision without always calling Grok/i },
   { path: '/methodology-paper', heading: /Methodology Paper/i, staticPage: true },
   { path: '/replication-kit', heading: /Replication Kit/i, staticPage: true },
   { path: '/blog', heading: /Evidence-backed safety decisions/i },
@@ -170,5 +171,27 @@ describe('StackCert app', () => {
     );
     expect(screen.getByText(/What this does not prove/i)).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('renders the frontier proof page with concrete Grok comparison data', () => {
+    render(
+      <MemoryRouter initialEntries={['/proof']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /Same release decision without always calling Grok/i })).toBeInTheDocument();
+    expect(screen.getByText(/240-example support-copilot safety task/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/xAI Grok 4\.3 judge/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/StackCert local pair/i)).toBeInTheDocument();
+    expect(screen.getByText(/The best local model still underperforms alone/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Any selected check can veto/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Task-specific slices show when combinations matter/i)).toBeInTheDocument();
+    expect(screen.getByText(/Toxic chat moderation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Benchmark cells used/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Redacted example inputs and outputs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Prompts are summarized to avoid publishing harmful instructions/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/StrongREJECT jailbreak prompts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Run the fixture path or spend provider budget intentionally/i)).toBeInTheDocument();
   });
 });

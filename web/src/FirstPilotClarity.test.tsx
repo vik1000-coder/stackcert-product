@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SetupPage } from './pages/SetupPage';
@@ -171,5 +172,27 @@ describe('first-pilot clarity surfaces', () => {
     expect(pageText.indexOf('Use uploaded outputs for the fastest pilot')).toBeLessThan(
       pageText.indexOf('Advanced connectors and workers')
     );
+  });
+
+  it('fills the xAI Grok 4.3 model-judge preset without exposing a secret', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/app/ws_pilot/proj_pilot/setup']}>
+        <QueryClientProvider client={queryClient}>
+          <SetupPage />
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    await user.click(await screen.findByRole('button', { name: /Use xAI Grok 4\.3 judge preset/i }));
+
+    expect(screen.getByLabelText(/Option key/i)).toHaveValue('grok_4_3_judge');
+    expect(screen.getByLabelText(/Display name/i)).toHaveValue('xAI Grok 4.3 Judge');
+    expect(screen.getByLabelText(/Vendor/i)).toHaveValue('xAI');
+    expect(screen.getByLabelText(/Endpoint URL/i)).toHaveValue('https://api.x.ai/v1/chat/completions');
+    expect(screen.getByLabelText(/Model/i)).toHaveValue('grok-4.3');
+    expect(screen.getByLabelText(/Secret env var/i)).toHaveValue('XAI_API_KEY');
+    expect(screen.getByLabelText(/Auth secret/i)).toHaveValue('');
   });
 });

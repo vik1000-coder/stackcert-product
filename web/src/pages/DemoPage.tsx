@@ -96,6 +96,7 @@ export function DemoPage() {
                   Continue to sample walkthrough
                 </ButtonLink>
                 <ButtonLink to="/onboarding">Create a private pilot</ButtonLink>
+                <ButtonLink to="/proof">See frontier proof</ButtonLink>
               </div>
             </div>
 
