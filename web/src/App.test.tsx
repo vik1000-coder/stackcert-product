@@ -138,7 +138,7 @@ describe('StackCert app', () => {
 
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
     if (staticPage) {
-      expect(screen.getByText(/Current state/i)).toBeInTheDocument();
+      expect(screen.getByText(/Current pilot posture/i)).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Ready to try the workflow/i })).toBeInTheDocument();
     }
     const footer = screen.getByRole('contentinfo');

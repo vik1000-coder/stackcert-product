@@ -1,21 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, type ProjectInput, type WorkspaceInput } from '../lib/api';
 import { Badge, Card, ErrorState, LoadingState, PageHeader } from '../components/Primitives';
 
 const initialWorkspace: WorkspaceInput = {
-  name: 'Design Partner Lab',
-  slug: 'design-partner-lab',
+  name: '',
+  slug: '',
   plan: 'team'
 };
 
 const initialProject: Omit<ProjectInput, 'workspace_id'> = {
-  name: 'Support Agent Pilot',
-  slug: 'support-agent-pilot',
+  name: '',
+  slug: '',
   environment: 'production',
   risk_tier: 'high',
   data_mode: 'redacted_snippets',
-  description: 'Customer-facing support agent pilot.'
+  description: ''
 };
 
 export function ProjectsPage() {
@@ -46,6 +47,8 @@ export function ProjectsPage() {
   );
   const demoProjects = useMemo(() => (projects.data?.projects ?? []).filter((project) => project.workspace_id === 'ws_demo'), [projects.data]);
   const betaProjects = useMemo(() => (projects.data?.projects ?? []).filter((project) => project.workspace_id !== 'ws_demo'), [projects.data]);
+  const canCreateWorkspace = workspaceDraft.name.trim().length >= 2;
+  const canCreateProject = Boolean(selectedWorkspaceId) && projectDraft.name.trim().length >= 2;
 
   useEffect(() => {
     if (workspaceOptions.length === 0) {
@@ -59,13 +62,23 @@ export function ProjectsPage() {
 
   function submitWorkspace(event: FormEvent) {
     event.preventDefault();
-    createWorkspace.mutate(workspaceDraft);
+    createWorkspace.mutate({
+      ...workspaceDraft,
+      name: workspaceDraft.name.trim(),
+      slug: workspaceDraft.slug?.trim() || undefined
+    });
   }
 
   function submitProject(event: FormEvent) {
     event.preventDefault();
     if (!selectedWorkspaceId) return;
-    createProject.mutate({ workspace_id: selectedWorkspaceId, ...projectDraft });
+    createProject.mutate({
+      workspace_id: selectedWorkspaceId,
+      ...projectDraft,
+      name: projectDraft.name.trim(),
+      slug: projectDraft.slug?.trim() || undefined,
+      description: projectDraft.description?.trim() || undefined
+    });
   }
 
   if (workspaces.isLoading || projects.isLoading) return <LoadingState />;
@@ -81,8 +94,8 @@ export function ProjectsPage() {
         <Card>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Create team</h2>
           <form onSubmit={submitWorkspace} style={{ display: 'grid', gap: 12 }}>
-            <Field label="Team name" value={workspaceDraft.name} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, name: value }))} />
-            <Field label="Slug" value={workspaceDraft.slug ?? ''} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, slug: value || undefined }))} />
+            <Field label="Team name" placeholder="e.g. Platform Safety Team" value={workspaceDraft.name} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, name: value }))} />
+            <Field label="Slug" placeholder="optional; generated from name if blank" value={workspaceDraft.slug ?? ''} onChange={(value) => setWorkspaceDraft((draft) => ({ ...draft, slug: value || undefined }))} />
             <label>
               <span className="stat-label">Plan</span>
               <select className="btn setup-input" style={{ marginTop: 6 }} value={workspaceDraft.plan} onChange={(event) => setWorkspaceDraft((draft) => ({ ...draft, plan: event.currentTarget.value as WorkspaceInput['plan'] }))}>
@@ -91,7 +104,8 @@ export function ProjectsPage() {
                 <option value="enterprise">enterprise</option>
               </select>
             </label>
-            <button className="btn primary" type="submit" disabled={createWorkspace.isPending}>
+            {!canCreateWorkspace ? <p className="muted" style={{ margin: 0 }}>Enter a team name to create a private pilot workspace.</p> : null}
+            <button className="btn primary" type="submit" disabled={createWorkspace.isPending || !canCreateWorkspace}>
               {createWorkspace.isPending ? 'Creating...' : 'Create team'}
             </button>
             {createWorkspace.isSuccess ? <div className="notice">Team created: {createWorkspace.data.workspace.name}</div> : null}
@@ -109,8 +123,8 @@ export function ProjectsPage() {
                 ))}
               </select>
             </label>
-            <Field label="Project name" value={projectDraft.name} onChange={(value) => setProjectDraft((draft) => ({ ...draft, name: value }))} />
-            <Field label="Slug" value={projectDraft.slug ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, slug: value || undefined }))} />
+            <Field label="Project name" placeholder="e.g. customer support agent" value={projectDraft.name} onChange={(value) => setProjectDraft((draft) => ({ ...draft, name: value }))} />
+            <Field label="Slug" placeholder="optional; generated from name if blank" value={projectDraft.slug ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, slug: value || undefined }))} />
             <div className="setup-grid-two">
               <label>
                 <span className="stat-label">Risk tier</span>
@@ -130,13 +144,18 @@ export function ProjectsPage() {
                 </select>
               </label>
             </div>
-            <Field label="Description" value={projectDraft.description ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, description: value }))} textarea />
+            <Field label="Description" placeholder="What workflow is this release report for?" value={projectDraft.description ?? ''} onChange={(value) => setProjectDraft((draft) => ({ ...draft, description: value }))} textarea />
             {demoProjects.length > 0 ? (
               <div className="notice">
                 The sample walkthrough is listed separately and cannot be used as the parent for real pilot projects.
               </div>
             ) : null}
-            <button className="btn primary" type="submit" disabled={createProject.isPending || !selectedWorkspaceId}>
+            {!canCreateProject ? (
+              <p className="muted" style={{ margin: 0 }}>
+                Select a private team and enter the app or workflow name before creating a project.
+              </p>
+            ) : null}
+            <button className="btn primary" type="submit" disabled={createProject.isPending || !canCreateProject}>
               {createProject.isPending ? 'Creating...' : 'Create project'}
             </button>
             {createProject.isSuccess ? <div className="notice">Project created: {createProject.data.project.name}</div> : null}
@@ -156,6 +175,9 @@ export function ProjectsPage() {
               <Badge tone={project.risk_tier}>{project.risk_tier}</Badge>
               <span className="muted">{project.environment}</span>
               <span className="muted">{project.setup_status ?? 'ready_for_setup'}</span>
+              <Link className="btn" to={`/app/${project.workspace_id}/${project.id}/setup`}>
+                Open setup
+              </Link>
             </div>
           ))}
           {demoProjects.length > 0 ? (
@@ -172,11 +194,13 @@ export function ProjectsPage() {
 
 function Field({
   label,
+  placeholder,
   value,
   onChange,
   textarea = false
 }: {
   label: string;
+  placeholder?: string;
   value: string;
   onChange: (value: string) => void;
   textarea?: boolean;
@@ -185,9 +209,9 @@ function Field({
     <label style={{ display: 'grid', gap: 6 }}>
       <span className="stat-label">{label}</span>
       {textarea ? (
-        <textarea className="btn setup-input" style={{ minHeight: 76, alignItems: 'flex-start', justifyContent: 'flex-start', resize: 'vertical' }} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+        <textarea className="btn setup-input" placeholder={placeholder} style={{ minHeight: 76, alignItems: 'flex-start', justifyContent: 'flex-start', resize: 'vertical' }} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
       ) : (
-        <input className="btn setup-input" value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+        <input className="btn setup-input" placeholder={placeholder} value={value} onChange={(event) => onChange(event.currentTarget.value)} />
       )}
     </label>
   );

@@ -1109,6 +1109,13 @@ def get_drift(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0
 @app.post("/api/projects/{project_id}/recertify")
 def recertify(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
     project = _require_project_access(project_id, principal, required="project_maintainer")
+    if project_id == demo_project.project()["id"]:
+        scoped_id = f"demo_{demo_project.run_summary(lambda_cost)['id']}"
+        message = "Demo retest job queued. Workers will execute this asynchronously."
+    else:
+        latest_run = next(iter(pilot_runs.list_project_runs(project_id)), None)
+        scoped_id = str(latest_run["id"]) if latest_run else project_id
+        message = "Retest job queued. Workers will execute this asynchronously."
     audit.record_event(
         "retest.queued",
         principal,
@@ -1119,9 +1126,9 @@ def recertify(project_id: str, principal: PrincipalDep, lambda_cost: float = 5.0
     )
     return {
         "project_id": project_id,
-        "job_id": f"job_recert_{demo_project.run_summary(lambda_cost)['id']}",
+        "job_id": f"job_recert_{scoped_id}",
         "status": "queued",
-        "message": "Demo recertification job queued. Production workers will execute this asynchronously.",
+        "message": message,
     }
 
 

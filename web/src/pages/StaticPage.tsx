@@ -86,7 +86,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'CI/CD gates', body: 'Use the GitHub composite action, reusable GitHub workflow, GitLab CI, or CircleCI examples to pass, warn, or block deployments based on the current release report.' },
       { heading: 'Deployment webhooks', body: 'Call POST /api/projects/{project_id}/release-gates/webhook with HMAC-SHA256 headers when a deployment system prefers signed webhooks over bearer tokens.' },
-      { heading: 'Agent interfaces', body: 'Use the FastAPI OpenAPI schema and remote MCP endpoint so agent platforms can inspect release status, limitations, retest guidance, and report scope.' },
+      { heading: 'Agent interfaces', body: 'Use the FastAPI OpenAPI schema and remote MCP endpoint so agent platforms can inspect release status, limitations, retest guidance, report scope, and release-gate decisions before acting.' },
       { heading: 'Notifications', body: 'For v1, use CI outputs or deployment-webhook responses to notify Slack, Teams, PagerDuty, or ticketing systems. Native outbound notification setup should wait for a named design-partner workflow.' }
     ]
   },
@@ -97,7 +97,7 @@ const pages: Record<string, StaticContent> = {
     note: 'This checklist intentionally skips Sentry. The minimum operating bar is log-based alerts, uptime checks, backup/restore evidence, Auth email setup, and a support owner.',
     sections: [
       { heading: 'Product scope', body: 'One app, one example suite, uploaded safety-check outputs, a recommendation, overlap review, targeted tests, release report, and release-gate integration.' },
-      { heading: 'Ops evidence', body: 'Run scripts/design_partner_ops_check.py with filled evidence for uptime checks, Cloud Run alerts, Supabase restore rehearsal, Auth email setup, data mode, and support ownership.' },
+      { heading: 'Ops evidence', body: 'Confirm uptime checks, Cloud Run alerts, Supabase restore rehearsal, Auth email setup, data mode, and support ownership before bringing real customer examples into the pilot.' },
       { heading: 'Data boundary', body: 'Prefer redacted snippets, hashes, metadata, and uploaded outputs. Local/customer-owned models are represented by outputs, REST endpoints, or future customer-hosted workers.' },
       { heading: 'Done means', body: 'A design partner can complete the pilot path without command-line help, and the team can restore data, route alerts, support users, and block unsafe deployments.' }
     ]
@@ -122,7 +122,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Artifacts', body: 'Demo JSONL examples, safety-check outputs, example weights, and generated release reports.' },
       { heading: 'Frontier proof', body: 'A generated aggregate fixture shows the 240-example Grok 4.3 comparison without committing raw provider secrets or raw prompts.' },
-      { heading: 'Commands', body: 'Unit tests, API smoke tests, worker runner, Supabase reset/lint/advisor checks, and web verification.' },
+      { heading: 'Verification', body: 'Unit tests, API smoke tests, worker-run checks, database checks, and web verification keep the demo inspectable without requiring buyers to operate the engineering toolchain.' },
       { heading: 'Goal', body: 'Make the demo reproducible before a customer trusts StackCert with their own agent workflows.' }
     ]
   },
@@ -338,7 +338,7 @@ export function StaticPage() {
             ))}
           </div>
           <div className="static-note">
-            <Badge tone="neutral">Current state</Badge>
+            <Badge tone="neutral">Current pilot posture</Badge>
             <p>{page.note ?? 'This page summarizes the current StackCert product direction and should stay aligned with the deployed app.'}</p>
           </div>
           <div className="static-cta">

@@ -169,6 +169,8 @@ describe('first-pilot clarity surfaces', () => {
     expect(screen.getByText(/Pilot file kit/i)).toBeInTheDocument();
     expect(screen.getByText(/Use matching example and output templates/i)).toBeInTheDocument();
     expect(screen.getAllByText(/external_id/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ID matching example/i)).toBeInTheDocument();
+    expect(screen.getByText(/outputs\.csv: example_id,guard_id,binary_pass,block_probability/i)).toBeInTheDocument();
     expect(screen.getByText(/Release context for this run/i)).toBeInTheDocument();
     expect(screen.getByText(/After the uploaded-output run/i)).toBeInTheDocument();
     expect(screen.getByText(/Advanced connectors and workers/i)).toBeInTheDocument();

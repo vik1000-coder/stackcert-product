@@ -8,7 +8,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 type SortKey = 'full_welfare' | 'first_order_welfare' | 'movement' | 'estimated_latency_ms' | 'estimated_cost_usd_per_1k';
 
 export function RankingPage({ lambda }: { lambda: number }) {
-  const { activeRunId, runsLoading } = useStackCertApp();
+  const { activeRunId, projectName, runsLoading } = useStackCertApp();
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState<SortKey>('full_welfare');
   const query = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
@@ -29,7 +29,7 @@ export function RankingPage({ lambda }: { lambda: number }) {
     <div className="page">
       <PageHeader
         title="Options compared"
-        subtitle="Compare the safety-check combinations Acme could ship, including the one-at-a-time shortcut, final app score, confidence range, latency, and cost."
+        subtitle={`Compare the safety-check combinations ${projectName} could ship, including the one-at-a-time shortcut, final app score, confidence range, latency, and cost.`}
         actions={<ExternalButton href={api.rankingCsvUrl(activeRunId, lambda)}>Export options CSV</ExternalButton>}
       />
       <Explainer title="How to read this table" tone="accent" style={{ marginBottom: 16 }}>

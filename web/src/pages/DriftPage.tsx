@@ -74,8 +74,8 @@ export function DriftPage({ lambda }: { lambda: number }) {
       </div>
       <Card>
         <p className="muted" style={{ margin: 0 }}>
-          Future integrations should create retest signals from LangSmith/Langfuse traces, deployment webhooks, safety
-          option version changes, prompt diffs, model releases, and incident reports.
+          Agent-ready integrations can turn MCP resources, deployment webhooks, release-gate decisions, safety-option
+          version changes, prompt diffs, model releases, and incident reports into retest signals for human review.
         </p>
       </Card>
     </div>

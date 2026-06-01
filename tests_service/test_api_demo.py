@@ -218,6 +218,52 @@ class DemoApiTest(unittest.TestCase):
         self.assertGreaterEqual(len(guards.json()["guards"]), 4)
         self.assertTrue(any(stack["size"] == 2 for stack in stacks.json()["stacks"]))
 
+    def test_private_project_recertify_returns_private_job_scope(self) -> None:
+        workspace = self.client.post("/api/workspaces", json={"name": "Retest Lab", "plan": "team"}).json()["workspace"]
+        project = self.client.post(
+            f"/api/workspaces/{workspace['id']}/projects",
+            json={
+                "name": "Private Agent",
+                "environment": "production",
+                "risk_tier": "high",
+                "data_mode": "redacted_snippets",
+            },
+        ).json()["project"]
+
+        response = self.client.post(f"/api/projects/{project['id']}/recertify?lambda_cost=5")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["project_id"], project["id"])
+        self.assertEqual(body["job_id"], f"job_recert_{project['id']}")
+        self.assertNotIn("real_main_2000", body["job_id"])
+        self.assertEqual(body["message"], "Retest job queued. Workers will execute this asynchronously.")
+
+    def test_demo_project_recertify_is_explicitly_demo_scoped(self) -> None:
+        response = self.client.post("/api/projects/proj_acme_copilot/recertify?lambda_cost=5")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["project_id"], "proj_acme_copilot")
+        self.assertTrue(body["job_id"].startswith("job_recert_demo_"))
+        self.assertIn("Demo retest job queued", body["message"])
+
+    def test_cors_preflight_allows_vite_fallback_ports(self) -> None:
+        for origin in [
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://127.0.0.1:5175",
+        ]:
+            response = self.client.options(
+                "/api/health",
+                headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+
     def test_workspace_project_setup_records(self) -> None:
         workspace_response = self.client.post(
             "/api/workspaces",

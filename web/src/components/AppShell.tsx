@@ -6,17 +6,22 @@ import type { StackCertAppContext } from '../lib/appContext';
 import { supabase } from '../lib/supabase';
 import { LoadingState, LogoMark } from './Primitives';
 
-const routes = [
+const primaryRoutes = [
   { to: 'overview', label: 'Recommendation' },
   { to: 'ranking', label: 'Options compared' },
   { to: 'co-failure', label: 'Overlap analysis' },
   { to: 'measurements', label: 'Test plan and cost' },
   { to: 'certificate', label: 'Release report' },
   { to: 'drift', label: 'When to retest' },
-  { to: 'setup', label: 'App setup' },
+  { to: 'setup', label: 'App setup' }
+];
+
+const secondaryRoutes = [
   { to: 'projects', label: 'Apps' },
   { to: 'admin', label: 'Admin' }
 ];
+
+const routes = [...primaryRoutes, ...secondaryRoutes];
 
 export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaChange: (value: number) => void }) {
   const navigate = useNavigate();
@@ -41,7 +46,7 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
     enabled: authReady && hasSession && projectId !== 'proj_acme_copilot',
     retry: false
   });
-  const projectName = project.data?.project?.name ?? 'Acme Copilot';
+  const projectName = project.data?.project?.name ?? (projectId === 'proj_acme_copilot' ? 'Acme Copilot' : 'Private pilot');
   const projectStatus = project.data?.project?.setup_status ?? 'demo_seeded';
   const runParam = searchParams.get('run') || undefined;
   const activeRun = runs.data?.runs.find((run) => run.id === runParam) ?? runs.data?.runs[0];
@@ -49,6 +54,8 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
   const context: StackCertAppContext = {
     workspaceId,
     projectId,
+    projectName,
+    projectStatus,
     activeRunId,
     runsLoading: runs.isLoading,
     runs: runs.data?.runs ?? []
@@ -139,15 +146,10 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
           </div>
         </div>
         <nav className="nav-list" aria-label="StackCert app navigation">
-          {routes.map((route, index) => (
-            <NavLink key={route.to} to={route.to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <span className="nav-glyph" />
-              <span>{route.label}</span>
-              <span className="mono" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--sc-dim)' }}>
-                {index + 1}
-              </span>
-            </NavLink>
-          ))}
+          <div className="stat-label" style={{ padding: '4px 8px' }}>Release workflow</div>
+          {primaryRoutes.map((route) => renderNavRoute(route, routes.findIndex((item) => item.to === route.to)))}
+          <div className="stat-label" style={{ padding: '10px 8px 4px' }}>Management</div>
+          {secondaryRoutes.map((route) => renderNavRoute(route, routes.findIndex((item) => item.to === route.to)))}
         </nav>
         <div style={{ marginTop: 'auto' }}>
           <div className="stat-label">Risk profile</div>
@@ -162,14 +164,17 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
       </aside>
       <main className="app-main">
         <div className="topbar">
-          <div className="search-box">
-            <span>Search examples, options, reports</span>
+          <div className="search-box" aria-label="Current project context">
+            <span>{projectStatus === 'demo_seeded' ? 'Sample walkthrough' : activeRun ? 'Current run' : 'Project setup'}</span>
             <span className="mono" style={{ marginLeft: 'auto', color: 'var(--sc-dim)' }}>
-              ⌘K
+              {activeRun?.id ?? projectName}
             </span>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 240 }}>
-            <span className="stat-label">Release goal weighting</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 280 }}>
+            <span style={{ display: 'grid', gap: 2 }}>
+              <span className="stat-label">Release goal weighting</span>
+              <span className="muted" style={{ fontSize: 11 }}>Higher favors safety; lower favors cost and latency.</span>
+            </span>
             <input
               aria-label="Release goal weighting"
               type="range"
@@ -193,5 +198,17 @@ export function AppShell({ lambda, onLambdaChange }: { lambda: number; onLambdaC
         <Outlet context={context} />
       </main>
     </div>
+  );
+}
+
+function renderNavRoute(route: { to: string; label: string }, index: number) {
+  return (
+    <NavLink key={route.to} to={route.to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+      <span className="nav-glyph" />
+      <span>{route.label}</span>
+      <span className="mono" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--sc-dim)' }}>
+        {index + 1}
+      </span>
+    </NavLink>
   );
 }

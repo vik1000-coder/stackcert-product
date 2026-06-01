@@ -77,7 +77,7 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
                 onChange={(event) => setBudgetCap(event.currentTarget.value)}
               />
             </label>
-            <button className="btn primary" disabled={selectedActions.length === 0 || queuePlan.isPending} onClick={() => queuePlan.mutate()}>
+            <button className="btn primary" disabled={actions.length === 0 || selectedActions.length === 0 || queuePlan.isPending} onClick={() => queuePlan.mutate()}>
               {queuePlan.isPending ? 'Queueing...' : 'Queue selected tests'}
             </button>
             <button className="btn" disabled={runNextWorker.isPending} onClick={() => runNextWorker.mutate()}>
@@ -127,6 +127,16 @@ export function MeasurementsPage({ lambda }: { lambda: number }) {
             </tr>
           </thead>
           <tbody>
+            {actions.length === 0 ? (
+              <tr>
+                <td colSpan={8}>
+                  <div className="notice" style={{ margin: 0 }}>
+                    No additional targeted tests are recommended for this run. Review the recommendation and release
+                    report; add more examples or safety-check outputs if the decision still feels under-scoped.
+                  </div>
+                </td>
+              </tr>
+            ) : null}
             {actions.map((action) => {
               const checked = effectiveSelected.has(action.id);
               return (

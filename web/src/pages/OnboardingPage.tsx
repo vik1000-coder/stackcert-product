@@ -207,6 +207,7 @@ export function OnboardingPage() {
   const selectedGoal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
   const readiness = useMemo(() => setupReadiness(draft), [draft]);
   const canContinue = canContinueStep(stepIndex, draft);
+  const disabledHint = canContinue ? '' : continueDisabledHint(stepIndex, draft);
   const isDemoSession = authState === 'demo';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -376,6 +377,7 @@ export function OnboardingPage() {
                         : 'Continue'}
                   </button>
                 </div>
+                {disabledHint ? <p className="muted" style={{ margin: '8px 0 0' }}>{disabledHint}</p> : null}
                 {status === 'error' ? <p className="form-error">{error}</p> : null}
               </div>
 
@@ -466,7 +468,7 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
         <label>
           Company or team
           <input
-            placeholder="e.g. Acme Support"
+            placeholder="e.g. Platform Safety Team"
             value={draft.companyName}
             onChange={(event) => update('companyName', event.currentTarget.value)}
           />
@@ -731,6 +733,14 @@ function canContinueStep(stepIndex: number, draft: OnboardingDraft) {
   if (stepIndex === 2) return Boolean(draft.evidenceMode);
   if (stepIndex === 3) return Boolean(draft.optimizationGoal) && Boolean(draft.budgetRange);
   return true;
+}
+
+function continueDisabledHint(stepIndex: number, draft: OnboardingDraft) {
+  if (stepIndex === 0) return 'Add both a team name and an app or workflow name to continue.';
+  if (stepIndex === 1 && draft.primaryRiskConcerns.length === 0) return 'Choose at least one primary risk concern so the first pilot has a review target.';
+  if (stepIndex === 2) return 'Choose the starting data StackCert should use first.';
+  if (stepIndex === 3) return 'Choose a release goal and budget posture for the first recommendation.';
+  return 'Complete the required fields to continue.';
 }
 
 function nextSetupPath(workspaceId: string, projectId: string, focus: string) {

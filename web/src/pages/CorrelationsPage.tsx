@@ -70,9 +70,7 @@ export function CorrelationsPage({ lambda }: { lambda: number }) {
               <Metric label="Disagreement" value={fmtPercent(selectedPair.disagreement_rate)} />
               <Metric label="Examples" value={String(selectedPair.n_examples)} />
               <div className={`notice ${side === 'adversarial' ? 'bad' : ''}`}>
-                {selectedPair.metric >= 0.5
-                  ? 'These two checks often make the same decision on this example group, so the combination may be redundant.'
-                  : 'These two checks disagree more often on this example group, which can make the combination less redundant.'}
+                {overlapExplanation(selectedPair, side)}
               </div>
             </div>
           ) : null}
@@ -123,4 +121,24 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function displayMetricLabel(label: string) {
   return label.replace('co-miss', 'shared miss').replace('false-block', 'false block');
+}
+
+function overlapExplanation(
+  pair: { metric: number; disagreement_rate: number; n_examples: number },
+  side: 'adversarial' | 'benign'
+) {
+  const smallSample = pair.n_examples < 10
+    ? `Only ${pair.n_examples} example${pair.n_examples === 1 ? '' : 's'} are in this cell, so treat this as directional until you add more coverage. `
+    : '';
+  const mistakeName = side === 'adversarial' ? 'unsafe misses' : 'false blocks';
+  if (pair.metric >= 0.5) {
+    return `${smallSample}These two checks often share the same ${mistakeName}, so the combination may be redundant for this example group.`;
+  }
+  if (pair.disagreement_rate >= 0.5) {
+    return `${smallSample}These two checks often disagree here, which can make the combination less redundant. Review the examples before treating that disagreement as useful.`;
+  }
+  if (pair.metric === 0 && pair.disagreement_rate === 0) {
+    return `${smallSample}No shared ${mistakeName} or disagreement showed up in this cell. That can mean the pair is clean here, or that this group needs more examples.`;
+  }
+  return `${smallSample}Overlap and disagreement are both limited for this group. This pair is not the main driver of the recommendation.`;
 }

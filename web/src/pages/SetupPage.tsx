@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type CustomBehaviorInput, type GuardConnectorInput, type ProjectOnboardingProfile, type TraceImportSource, type UploadedOutputPreview } from '../lib/api';
 import { useStackCertApp } from '../lib/appContext';
@@ -129,7 +129,7 @@ const sampleOutputCsv = [
 ].join('\n');
 
 export function SetupPage() {
-  const { projectId, activeRunId } = useStackCertApp();
+  const { projectId, projectName, activeRunId } = useStackCertApp();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [behavior, setBehavior] = useState<CustomBehaviorInput>(initialBehavior);
@@ -140,15 +140,7 @@ export function SetupPage() {
   const [suiteVersion, setSuiteVersion] = useState('v1');
   const [sourceName, setSourceName] = useState('Manual setup import');
   const [sourceUri, setSourceUri] = useState('');
-  const [releaseContext, setReleaseContext] = useState({
-    model_id: 'support-copilot',
-    model_version: 'pilot-v1',
-    prompt_hash: 'prompt-policy-v1',
-    policy_hash: 'support-safety-policy-v1',
-    tool_config_hash: 'support-tools-v1',
-    retrieval_config_hash: 'support-kb-v1',
-    traffic_profile_hash: 'pilot-example-mix-v1'
-  });
+  const [releaseContext, setReleaseContext] = useState(() => initialReleaseContext(projectId, projectName));
   const [traceContent, setTraceContent] = useState(sampleTraceContent);
   const [traceSource, setTraceSource] = useState<TraceImportSource>('langsmith');
   const [traceDefaultSide, setTraceDefaultSide] = useState<'adversarial' | 'benign'>('benign');
@@ -252,6 +244,15 @@ export function SetupPage() {
       queryClient.invalidateQueries({ queryKey: ['pilot-readiness', projectId] });
     }
   });
+
+  useEffect(() => {
+    if (projectId === 'proj_acme_copilot') return;
+    const nextModelId = slugifyContextValue(projectName);
+    setReleaseContext((current) => {
+      if (!['private-pilot', 'pilot-app'].includes(current.model_id) || nextModelId === current.model_id) return current;
+      return { ...current, model_id: nextModelId };
+    });
+  }, [projectId, projectName]);
   const createUploadedRun = useMutation({
     mutationFn: () =>
       api.createUploadedOutputRun(projectId, {
@@ -385,6 +386,14 @@ export function SetupPage() {
             <span className="mono"> external_id</span> values, and uploaded outputs reference those same values as
             <span className="mono"> example_id</span>. That is the contract a real pilot file must follow.
           </p>
+          <div className="notice" style={{ marginTop: 12 }}>
+            <strong>ID matching example</strong>
+            <pre className="mono" style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', fontSize: 12 }}>
+{`examples.jsonl: {"external_id":"unauthorized_refund_001","prompt":"Refund order 123..."}
+outputs.csv: example_id,guard_id,binary_pass,block_probability
+outputs.csv: unauthorized_refund_001,refund_policy_guard,false,0.94`}
+            </pre>
+          </div>
         </div>
         <div className="setup-button-row">
           <button
@@ -435,7 +444,7 @@ export function SetupPage() {
                   <strong>{suite.name}</strong>
                   <p className="muted" style={{ margin: '6px 0 0' }}>{examples.toLocaleString()} examples across {suite.cells.length} weighted example groups.</p>
                 </div>
-                <Badge tone={suite.status}>{suite.status}</Badge>
+                <Badge tone={suite.status}>{displaySuiteStatus(suite.status)}</Badge>
               </div>
               <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                 {suite.cells.slice(0, 5).map((cell) => (
@@ -481,6 +490,10 @@ export function SetupPage() {
             Save REST, customer-hosted, or model-judge connectors, then use workers to produce outputs under budget
             and retry controls. Uploaded-output pilots can skip this beta path at first.
           </p>
+          <div className="notice" style={{ marginTop: 12 }}>
+            Advanced controls are optional for the first pilot. Use them when you want StackCert workers to call
+            safety checks directly instead of uploading outputs you already produced.
+          </div>
         </div>
       </div>
       <Card id="safety-options" style={{ marginTop: 16, order: 61 }}>
@@ -1321,6 +1334,44 @@ function setupFocusLabel(value: string) {
 function setupFocusHref(value: string) {
   if (value.startsWith('setup#')) return `#${value.split('#')[1]}`;
   return '#import-examples';
+}
+
+function initialReleaseContext(projectId: string, projectName?: string) {
+  if (projectId === 'proj_acme_copilot') {
+    return {
+      model_id: 'support-copilot',
+      model_version: 'pilot-v1',
+      prompt_hash: 'prompt-policy-v1',
+      policy_hash: 'support-safety-policy-v1',
+      tool_config_hash: 'support-tools-v1',
+      retrieval_config_hash: 'support-kb-v1',
+      traffic_profile_hash: 'pilot-example-mix-v1'
+    };
+  }
+  return {
+    model_id: slugifyContextValue(projectName),
+    model_version: 'pilot-v1',
+    prompt_hash: '',
+    policy_hash: '',
+    tool_config_hash: '',
+    retrieval_config_hash: '',
+    traffic_profile_hash: ''
+  };
+}
+
+function slugifyContextValue(value?: string) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'pilot-app';
+}
+
+function displaySuiteStatus(value: string) {
+  if (value === 'draft') return 'usable for pilot run';
+  if (value === 'active') return 'active';
+  if (value === 'archived') return 'archived';
+  return value.replaceAll('_', ' ');
 }
 
 function formatPercent(value: number) {

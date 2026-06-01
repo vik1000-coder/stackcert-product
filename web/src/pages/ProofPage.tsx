@@ -194,6 +194,29 @@ export function ProofPage() {
 
         <section className="proof-section proof-section-muted">
           <div className="landing-container">
+            <div className="grid grid-2">
+              <Card>
+                <div className="stat-label">Claim boundary</div>
+                <h2 className="proof-card-title">The savings claim is conditional.</h2>
+                <p className="muted">
+                  The provider-savings number only matters when the lower-cost option reaches the same release
+                  decision as the Grok baseline for this specific task, example mix, and goal weighting.
+                </p>
+              </Card>
+              <Card>
+                <div className="stat-label">Honest fallback</div>
+                <h2 className="proof-card-title">Use Grok when it changes the decision.</h2>
+                <p className="muted">
+                  If the cheaper option disagrees, StackCert should admit the frontier model, narrow the release scope,
+                  or retest instead of claiming savings.
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        <section className="proof-section proof-section-muted">
+          <div className="landing-container">
             <div className="proof-section-head">
               <div>
                 <div className="section-eyebrow">Task scope</div>
@@ -440,11 +463,10 @@ export function ProofPage() {
             <Card>
               <div className="section-eyebrow">Replication</div>
               <h2 className="proof-card-title">Run the fixture path or spend provider budget intentionally.</h2>
-              <div className="proof-command-list">
-                {proof.replication_commands.map((command) => (
-                  <code key={command}>{command}</code>
-                ))}
-              </div>
+              <ul className="proof-list">
+                <li>Inspect the saved fixture to verify the evidence path without new provider spend.</li>
+                <li>Run a fresh live benchmark only when the team has approved provider budget and credential handling.</li>
+              </ul>
             </Card>
           </div>
         </section>
@@ -474,10 +496,10 @@ export function ProofPage() {
                 outputs, then compare always-frontier, best local single, local combinations, and hybrid candidates
                 against the same release goal weighting used in their pilot.
               </p>
-              <div className="proof-command-list">
-                <code>{'Import examples -> upload outputs -> preview coverage -> create run -> review recommendation -> issue release report'}</code>
-                <code>RUN_LIVE_PROOF_BENCHMARK=1 XAI_API_KEY=... uv run python scripts/proof_benchmark.py --run-live-grok</code>
-              </div>
+              <ul className="proof-list">
+                <li>Import examples, upload outputs, preview coverage, create the run, review the recommendation, then issue the report.</li>
+                <li>Use live frontier comparisons only as an explicit, budgeted design-partner step.</li>
+              </ul>
             </Card>
           </div>
         </section>

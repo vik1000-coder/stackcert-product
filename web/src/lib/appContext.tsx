@@ -5,6 +5,8 @@ import { Card } from '../components/Primitives';
 export type StackCertAppContext = {
   workspaceId: string;
   projectId: string;
+  projectName: string;
+  projectStatus: string;
   activeRunId?: string;
   runsLoading: boolean;
   runs: RunSummary[];

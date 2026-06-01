@@ -98,7 +98,7 @@ function HeroDashboard() {
         <div style={{ borderRight: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--sc-line)', borderRadius: 7, padding: 8 }}>
             <LogoMark size={18} />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Acme</span>
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Sample app</span>
           </div>
           <div style={{ marginTop: 14, display: 'grid', gap: 2 }}>
             {['Recommendation', 'Options', 'Overlap', 'Test plan', 'Evidence', 'Retest'].map((item, index) => (
@@ -447,7 +447,7 @@ function DocsSection() {
     ['Pilot readiness', '/pilot-readiness', 'Ops and data preflight for design partners.'],
     ['Blog', '/blog', 'Product, theory, method, and empirical posts.'],
     ['Security', '/security', 'Data handling, auth, and deployment posture.'],
-    ['Replication kit', '/replication-kit', 'Artifacts and commands for review.']
+    ['Replication kit', '/replication-kit', 'Artifacts and verification notes.']
   ];
   return (
     <section id="docs" style={{ padding: '96px 0' }}>

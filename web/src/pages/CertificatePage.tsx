@@ -138,7 +138,7 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             {Object.entries(cert.assumptions).map(([key, value]) => (
-              <Fact key={key} label={displayAssumptionLabel(key)} value={displayAssumptionValue(String(value))} />
+              <AssumptionFact key={key} label={displayAssumptionLabel(key)} value={value} />
             ))}
           </div>
         </Card>
@@ -210,10 +210,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             </label>
             <button
               className="btn primary"
-              disabled={!acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
+              disabled={Boolean(issued) || !acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
               onClick={() => issueCertificate.mutate()}
             >
-              {issueCertificate.isPending ? 'Issuing...' : 'Issue release report'}
+              {issued ? 'Release report issued' : issueCertificate.isPending ? 'Issuing...' : 'Issue release report'}
             </button>
             {issueCertificate.isError ? (
               <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue release report.'}</div>
@@ -399,6 +399,25 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function AssumptionFact({ label, value }: { label: string; value: unknown }) {
+  if (isRecord(value)) {
+    return (
+      <div style={{ display: 'grid', gap: 8, fontSize: 13 }}>
+        <span className="muted">{label}</span>
+        <div className="definition-list" style={{ padding: 10, border: '1px solid var(--sc-line)', borderRadius: 8 }}>
+          {Object.entries(value).map(([key, nestedValue]) => (
+            <div key={key} className="definition-row">
+              <div className="definition-term">{displayAssumptionLabel(key)}</div>
+              <div className="definition-copy mono">{displayAssumptionValue(nestedValue)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return <Fact label={label} value={displayAssumptionValue(value)} />;
+}
+
 function ReadinessList({
   title,
   items,
@@ -504,9 +523,23 @@ function displayAssumptionLabel(label: string) {
   return labels[label] ?? label.replaceAll('_', ' ');
 }
 
-function displayAssumptionValue(value: string) {
+function displayAssumptionValue(value: unknown): string {
   if (value === 'finite benchmark mixture') return 'finite example mix';
-  return value;
+  if (value === null || value === undefined) return 'not set';
+  if (Array.isArray(value)) return value.map(displayAssumptionValue).join(', ');
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') return value;
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${displayAssumptionLabel(key)}: ${displayAssumptionValue(nestedValue)}`)
+      .join('; ');
+  }
+  return String(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function displayEvidenceStatus(status: string) {
