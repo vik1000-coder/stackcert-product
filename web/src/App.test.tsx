@@ -6,12 +6,15 @@ import { App } from './App';
 import { authDestination } from './lib/authFlow';
 
 const footerLinkedRoutes = [
+  { path: '/why', heading: /Why StackCert/i, staticPage: true },
   { path: '/why-stackcert', heading: /Why StackCert/i, staticPage: true },
   { path: '/how-it-works', heading: /How It Works/i, staticPage: true },
+  { path: '/product', heading: /Product/i, staticPage: true },
   { path: '/pricing', heading: /Pricing/i, staticPage: true },
   { path: '/changelog', heading: /Changelog/i, staticPage: true },
   { path: '/status', heading: /Status/i, staticPage: true },
   { path: '/docs', heading: /Documentation/i, staticPage: true },
+  { path: '/sample-report', heading: /Sample Release Report/i, staticPage: true },
   { path: '/integrations', heading: /Integrations/i, staticPage: true },
   { path: '/pilot-readiness', heading: /Pilot Readiness/i, staticPage: true },
   { path: '/proof', heading: /Same release decision without always calling Grok/i },
@@ -21,6 +24,9 @@ const footerLinkedRoutes = [
   { path: '/glossary', heading: /Glossary/i, staticPage: true },
   { path: '/about', heading: /About StackCert/i, staticPage: true },
   { path: '/customers', heading: /Customers/i, staticPage: true },
+  { path: '/ai-platform-teams', heading: /AI Platform Teams/i, staticPage: true },
+  { path: '/safety-engineering-teams', heading: /Safety Engineering Teams/i, staticPage: true },
+  { path: '/risk-compliance-teams', heading: /Risk and Compliance Teams/i, staticPage: true },
   { path: '/security', heading: /Security/i, staticPage: true },
   { path: '/procurement', heading: /Procurement FAQ/i, staticPage: true },
   { path: '/support', heading: /Support/i, staticPage: true },
@@ -41,14 +47,17 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Choose the right.*safety checks.*for your LLM app/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Know which.*LLM safety checks.*to ship before release/i })).toBeInTheDocument();
     expect(screen.getByText(/An LLM app has many safety options/i)).toBeInTheDocument();
     expect(screen.getByText(/Choosing the combination is the hard part/i)).toBeInTheDocument();
     expect(screen.getByText(/What teams often do instead/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /View support-copilot demo/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Run a sample pilot/i })).toHaveAttribute(
       'href',
       '/demo'
     );
+    expect(screen.getByRole('link', { name: /View sample report/i })).toHaveAttribute('href', '/sample-report');
+    expect(screen.getByText(/\$8k-\$15k/i)).toBeInTheDocument();
+    expect(screen.getByText(/100-1,000 examples/i)).toBeInTheDocument();
   });
 
   it('renders pilot sign-in by default instead of prefilled demo credentials', async () => {
@@ -124,6 +133,8 @@ describe('StackCert app', () => {
     expect(screen.getByText(/What this pilot will produce/i)).toBeInTheDocument();
     expect(screen.getByText(/private version of the sample walkthrough/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
+    expect(screen.getByText(/What this affects/i)).toBeInTheDocument();
+    expect(screen.getByText(/Example scope for this category/i)).toBeInTheDocument();
     expect(screen.getByText(/Draft completeness/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Company or team/i)).toHaveValue('');
     expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');

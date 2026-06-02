@@ -738,9 +738,30 @@ tr:last-child td {
   text-decoration: none;
 }
 
+.audience-link-card {
+  display: block;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-surface);
+  box-shadow: var(--sc-shadow-1);
+  color: var(--sc-ink);
+  padding: 18px;
+  text-decoration: none;
+}
+
 .resource-link-card span {
   color: var(--sc-ink-3);
   line-height: 1.5;
+}
+
+.pricing-feature-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 18px;
+  padding-left: 18px;
+  color: var(--sc-ink-2);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .footer-grid {
@@ -1571,6 +1592,26 @@ tr:last-child td {
 .onboarding-step-body {
   display: grid;
   gap: 18px;
+}
+
+.onboarding-step-impact {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface-2);
+  padding: 13px 14px;
+}
+
+.onboarding-step-impact strong {
+  font-size: 12px;
+  color: var(--sc-ink);
+}
+
+.onboarding-step-impact span {
+  color: var(--sc-ink-3);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .onboarding-choice-grid {
@@ -2443,6 +2484,20 @@ tr:last-child td {
   align-items: center;
 }
 
+.setup-pilot-kit > * {
+  min-width: 0;
+}
+
+.setup-pilot-kit pre,
+.notice pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.setup-pilot-kit .mono {
+  overflow-wrap: anywhere;
+}
+
 .setup-first-task span {
   color: var(--sc-ink-3);
   font-size: 12.5px;
@@ -2920,6 +2975,11 @@ tr:last-child td {
 }
 
 @media (max-width: 700px) {
+  .landing-nav nav,
+  .marketing-nav-links {
+    display: none !important;
+  }
+
   .proof-hero {
     padding: 64px 0 46px;
   }

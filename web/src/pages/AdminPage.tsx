@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader, Stat } from '../components/Primitives';
-import { api, type AdminOverview, type BudgetPolicy, type BudgetState, type ProjectBudgetOverview, type StackCertJob } from '../lib/api';
+import { api, type AdminOverview, type BudgetPolicy, type BudgetState, type ProjectBudgetOverview, type RetentionPolicy, type StackCertJob } from '../lib/api';
 import { useStackCertApp } from '../lib/appContext';
 import { fmtUsd } from '../lib/format';
 
@@ -14,6 +14,7 @@ export function AdminPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [workspaceBudgetDraft, setWorkspaceBudgetDraft] = useState<WorkspaceBudgetDraft>(emptyWorkspaceBudgetDraft());
   const [projectBudgetDraft, setProjectBudgetDraft] = useState<ProjectBudgetDraft>(emptyProjectBudgetDraft());
+  const [retentionDays, setRetentionDays] = useState('30');
   const query = useQuery({
     queryKey: ['admin-overview', workspaceId],
     queryFn: () => api.adminOverview(workspaceId),
@@ -28,6 +29,15 @@ export function AdminPage() {
   );
   const workspacePolicyKey = `${workspaceId}:${admin?.budget.policy.updated_at ?? admin?.budget.policy.source ?? 'pending'}`;
   const selectedProjectPolicyKey = `${selectedProject?.project.id ?? 'none'}:${selectedProject?.budget.project.policy.updated_at ?? selectedProject?.budget.project.policy.source ?? 'pending'}`;
+  const workspaceRetention = useQuery({
+    queryKey: ['workspace-retention-policy', workspaceId],
+    queryFn: () => api.workspaceRetentionPolicy(workspaceId)
+  });
+  const projectRetention = useQuery({
+    queryKey: ['project-retention-policy', selectedProject?.project.id],
+    queryFn: () => api.projectRetentionPolicy(selectedProject!.project.id),
+    enabled: Boolean(selectedProject?.project.id)
+  });
 
   const refreshAdmin = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-overview', workspaceId] });
@@ -59,6 +69,45 @@ export function AdminPage() {
     mutationFn: () => {
       if (!selectedProject) throw new Error('Select an app before saving project budget controls.');
       return api.updateProjectBudgetPolicy(selectedProject.project.id, projectDraftToPayload(projectBudgetDraft));
+    },
+    onSuccess: refreshAdmin
+  });
+  const updateWorkspaceRetention = useMutation({
+    mutationFn: () =>
+      api.updateWorkspaceRetentionPolicy(workspaceId, {
+        raw_examples_retention_days: clampNumber(retentionDays, 0, 3650),
+        delete_provider_responses: true,
+        export_before_delete: true
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspace-retention-policy', workspaceId] });
+      refreshAdmin();
+    }
+  });
+  const updateProjectRetention = useMutation({
+    mutationFn: () => {
+      if (!selectedProject) throw new Error('Select an app before saving retention controls.');
+      return api.updateProjectRetentionPolicy(selectedProject.project.id, {
+        raw_examples_retention_days: clampNumber(retentionDays, 0, 3650),
+        delete_provider_responses: true,
+        export_before_delete: true
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-retention-policy', selectedProject?.project.id] });
+      refreshAdmin();
+    }
+  });
+  const dryRunRetention = useMutation({
+    mutationFn: () => {
+      if (!selectedProject) throw new Error('Select an app before previewing retention.');
+      return api.dryRunProjectRetention(selectedProject.project.id);
+    }
+  });
+  const applyRetention = useMutation({
+    mutationFn: () => {
+      if (!selectedProject) throw new Error('Select an app before applying retention.');
+      return api.applyProjectRetention(selectedProject.project.id);
     },
     onSuccess: refreshAdmin
   });
@@ -252,6 +301,63 @@ export function AdminPage() {
             )}
           </form>
         </div>
+      </Card>
+
+      <Card style={{ marginTop: 16 }}>
+        <div className="admin-budget-subhead">
+          <div>
+            <h2 className="admin-section-title">Retention and deletion</h2>
+            <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>
+              Hosted pilots should keep raw examples briefly, retain aggregates for reports, and delete provider responses unless the buyer approves longer storage.
+            </p>
+          </div>
+          <label className="btn" style={{ gap: 8 }}>
+            <span>Raw days</span>
+            <input
+              aria-label="Raw example retention days"
+              className="mono admin-inline-input"
+              inputMode="numeric"
+              value={retentionDays}
+              onChange={(event) => setRetentionDays(event.currentTarget.value)}
+            />
+          </label>
+        </div>
+        <div className="grid grid-2" style={{ marginTop: 14 }}>
+          <RetentionSummary title="Workspace default" policy={workspaceRetention.data?.retention_policy} loading={workspaceRetention.isLoading} />
+          <RetentionSummary title="Selected app override" policy={projectRetention.data?.retention_policy} loading={projectRetention.isLoading} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          <button className="btn" disabled={updateWorkspaceRetention.isPending} onClick={() => updateWorkspaceRetention.mutate()}>
+            Save workspace retention
+          </button>
+          <button className="btn primary" disabled={!selectedProject || updateProjectRetention.isPending} onClick={() => updateProjectRetention.mutate()}>
+            Save app retention
+          </button>
+          <button className="btn" disabled={!selectedProject || dryRunRetention.isPending} onClick={() => dryRunRetention.mutate()}>
+            Preview deletion
+          </button>
+          <button className="btn primary" disabled={!selectedProject || applyRetention.isPending} onClick={() => applyRetention.mutate()}>
+            Apply deletion policy
+          </button>
+        </div>
+        {dryRunRetention.data || applyRetention.data ? (
+          <div className="notice" style={{ marginTop: 12 }}>
+            <strong>{applyRetention.data ? 'Retention applied' : 'Retention preview'}</strong>
+            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+              {(applyRetention.data?.retention_execution.actions ?? dryRunRetention.data?.retention_execution.actions ?? []).map((action) => (
+                <div key={action.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span>{action.label}</span>
+                  <span className="mono">{action.action} · {action.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {updateWorkspaceRetention.isError || updateProjectRetention.isError ? (
+          <div className="form-error" style={{ marginTop: 10 }}>
+            {errorText(updateWorkspaceRetention.error ?? updateProjectRetention.error, 'Could not save retention policy.')}
+          </div>
+        ) : null}
       </Card>
 
       <div className="grid admin-status-grid" style={{ marginTop: 16 }}>
@@ -622,6 +728,25 @@ function BudgetProjectSummary({ budget }: { budget: ProjectBudgetOverview }) {
         <AdminDefinition term="Provider spend">
           {budget.effective.provider_spend_disabled ? 'Paused' : 'Enabled'}
         </AdminDefinition>
+      </dl>
+    </div>
+  );
+}
+
+function RetentionSummary({ title, policy, loading }: { title: string; policy?: RetentionPolicy; loading: boolean }) {
+  if (loading) return <p className="muted" style={{ margin: 0 }}>Loading {title.toLowerCase()}...</p>;
+  if (!policy) return <p className="muted" style={{ margin: 0 }}>No retention policy has been saved yet.</p>;
+  return (
+    <div className="notice">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <strong>{title}</strong>
+        <Badge tone="neutral">{policy.raw_examples_retention_days ?? 'unset'} raw days</Badge>
+      </div>
+      <dl className="definition-list" style={{ marginTop: 10 }}>
+        <AdminDefinition term="Aggregates">{policy.keep_aggregate_metrics ? 'kept' : 'deleted'}</AdminDefinition>
+        <AdminDefinition term="Redacted snippets">{policy.keep_redacted_snippets ? 'kept' : 'deleted'}</AdminDefinition>
+        <AdminDefinition term="Provider responses">{policy.delete_provider_responses ? 'deleted' : 'retained'}</AdminDefinition>
+        <AdminDefinition term="Export first">{policy.export_before_delete ? 'yes' : 'no'}</AdminDefinition>
       </dl>
     </div>
   );

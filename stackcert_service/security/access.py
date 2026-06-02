@@ -34,6 +34,27 @@ ROLE_GROUPS: dict[str, frozenset[str]] = {
     "viewer": frozenset(ROLE_RANK),
 }
 
+BUYER_ROLE_LABELS: dict[str, str] = {
+    "owner": "Admin",
+    "admin": "Admin",
+    "platform": "Editor",
+    "security": "Editor",
+    "risk_reviewer": "Reviewer",
+    "viewer": "Viewer",
+}
+
+CAPABILITY_GROUPS: dict[str, str] = {
+    "configure_project": "project_maintainer",
+    "configure_connectors": "project_maintainer",
+    "create_runs": "project_maintainer",
+    "issue_report": "evidence_issuer",
+    "signoff_report": "evidence_reviewer",
+    "manage_retention": "workspace_admin",
+    "manage_secrets": "workspace_admin",
+    "view": "viewer",
+    "export_report": "viewer",
+}
+
 
 @dataclass(frozen=True)
 class AccessGrant:
@@ -84,6 +105,16 @@ def require_scope(principal: Principal, scope: str) -> Principal:
             detail=f"Requires {scope} scope",
         )
     return principal
+
+
+def permissions_for_role(role: str | None) -> dict[str, Any]:
+    normalized = normalize_role(role)
+    capabilities = {name: role_in_group(normalized, group) for name, group in CAPABILITY_GROUPS.items()}
+    return {
+        "role": normalized,
+        "role_label": BUYER_ROLE_LABELS.get(normalized, "Viewer"),
+        "capabilities": capabilities,
+    }
 
 
 def require_any_scope(principal: Principal, scopes: Iterable[str]) -> Principal:

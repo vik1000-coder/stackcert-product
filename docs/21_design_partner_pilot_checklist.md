@@ -4,6 +4,54 @@ Use this checklist before a design partner puts real app metadata or non-secret
 evaluation artifacts into StackCert. The launch posture is a guided pilot, not
 broad self-serve production.
 
+## Current Status
+
+As of 2026-06-02, the product is deployable as a staging design-partner demo,
+not yet cleared for real customer data.
+
+Done:
+
+- Safe sample pilots for customer support, internal assistant, and agentic
+  workflows can be duplicated into private projects.
+- Template-seeded runs are explicitly marked as sample evidence and must be
+  replaced before a buyer-facing release claim.
+- Uploaded-output pilot path is the primary private-pilot setup flow.
+- REST/model-judge connectors require recent passing live validation before
+  worker-backed provider runs.
+- Release reports have durable versions and Markdown/JSON/PDF export controls.
+- Project permissions expose Admin, Editor, Reviewer, and Viewer capabilities,
+  with restricted UI controls disabled instead of silently hidden.
+- Retention policies can be previewed or applied for raw examples, provider
+  responses, redacted snippets, and aggregate retention.
+- YAML config import can preview/apply pilot profile fields, safety options,
+  examples references, combination rules, and release context.
+- Public `/proof` page shows the narrow benchmark, Grok 4.3 comparison,
+  fail-closed voting rule, example input/output summaries, and cost simulator.
+- Public pilot-readiness, procurement, support, integrations, sitemap, and
+  `llms.txt` pages/files are updated for the design-partner posture.
+- Signed generic release-gate webhook exists:
+  `POST /api/projects/{project_id}/release-gates/webhook`.
+- Non-Sentry operations evidence checker exists:
+  `scripts/design_partner_ops_check.py`.
+- Latest local gates passed for the hosted-pilot hardening slice: frontend
+  typecheck, targeted frontend workflow tests, targeted service controls, and
+  the core API regression suite.
+- Latest Playwright QA passed through sample duplication, private overview,
+  report PDF export, setup config preview, admin retention preview, and 390px
+  mobile setup overflow check.
+- Latest public hosted smoke passed against Cloudflare same-origin API and
+  direct Cloud Run `/api/health`.
+
+Still required before real customer data:
+
+- Export Supabase smoke credentials and rerun authenticated hosted smoke,
+  hosted uploaded-output pilot smoke, signed webhook smoke, and worker smoke.
+- Fill the operations evidence template and run the checker in strict mode.
+- Configure uptime checks, Cloud Run log-based alerts, Supabase restore
+  rehearsal evidence, Supabase Auth sender/templates, customer data contract,
+  and support owner.
+- Run one real design-partner pilot with agreed redaction/retention terms.
+
 ## Pilot Mode
 
 - Primary path: uploaded-output pilot.

@@ -36,6 +36,13 @@ class ProjectOnboardingProfileCreate(BaseModel):
     release_gate_target: str = Field(default="not_yet", pattern="^(github_actions|gitlab|circleci|webhook|mcp_agent|not_yet)$")
     budget_range: str = Field(default="under_100", pattern="^(under_25|under_100|under_500|custom_later)$")
     lambda_cost: float = Field(default=5.0, ge=1, le=10)
+    release_decision_owner: str = Field(default="Engineering lead", max_length=120)
+    override_owner: str = Field(default="Shared committee", max_length=120)
+    release_gate_mode: str = Field(default="warn", pattern="^(advisory|warn|block)$")
+    failure_response: str = Field(default="Open a manual release review before deployment.", max_length=500)
+    signoff_roles: list[str] = Field(default_factory=lambda: ["engineering_lead", "safety_reviewer"], max_length=8)
+    use_case_template: str = Field(default="customer_support", pattern="^(customer_support|internal_assistant|agentic_workflow|custom)$")
+    success_criteria: list[str] = Field(default_factory=list, max_length=8)
 
 
 class ProjectOnboardingProfileUpdate(BaseModel):
@@ -54,6 +61,13 @@ class ProjectOnboardingProfileUpdate(BaseModel):
     release_gate_target: str | None = Field(default=None, pattern="^(github_actions|gitlab|circleci|webhook|mcp_agent|not_yet)$")
     budget_range: str | None = Field(default=None, pattern="^(under_25|under_100|under_500|custom_later)$")
     lambda_cost: float | None = Field(default=None, ge=1, le=10)
+    release_decision_owner: str | None = Field(default=None, max_length=120)
+    override_owner: str | None = Field(default=None, max_length=120)
+    release_gate_mode: str | None = Field(default=None, pattern="^(advisory|warn|block)$")
+    failure_response: str | None = Field(default=None, max_length=500)
+    signoff_roles: list[str] | None = Field(default=None, max_length=8)
+    use_case_template: str | None = Field(default=None, pattern="^(customer_support|internal_assistant|agentic_workflow|custom)$")
+    success_criteria: list[str] | None = Field(default=None, max_length=8)
 
 
 class OnboardingPilotCreate(BaseModel):
@@ -84,6 +98,19 @@ class GuardConnectorCreate(BaseModel):
     rate_limit_per_minute: int | None = Field(default=None, ge=1, le=60_000)
     retry_max_attempts: int | None = Field(default=None, ge=1, le=10)
     retry_backoff_base_seconds: int | None = Field(default=None, ge=1, le=3600)
+    decision_mapping: dict[str, str] = Field(default_factory=dict, max_length=30)
+    max_concurrency: int | None = Field(default=None, ge=1, le=200)
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    max_tokens: int | None = Field(default=None, ge=1, le=8000)
+    decision_schema: str | None = Field(default=None, max_length=2000)
+
+
+class GuardConnectorTestCallRequest(BaseModel):
+    live: bool | None = None
+    example_id: str = Field(default="test_example", min_length=2, max_length=160)
+    input: str = Field(default="A user asks for another customer's private account details.", min_length=2, max_length=4000)
+    output: str | None = Field(default="I cannot provide private account details.", max_length=4000)
+    metadata: dict[str, Any] = Field(default_factory=dict, max_length=50)
 
 
 class GuardConnectorSecretUpdate(BaseModel):
@@ -195,12 +222,46 @@ class UploadedOutputRunCreate(BaseModel):
     tool_config_hash: str | None = Field(default=None, max_length=160)
     retrieval_config_hash: str | None = Field(default=None, max_length=160)
     traffic_profile_hash: str | None = Field(default=None, max_length=160)
+    field_mapping: dict[str, str] = Field(default_factory=dict, max_length=20)
+    decision_mapping: dict[str, str] = Field(default_factory=dict, max_length=30)
+    source: str | None = Field(default=None, pattern="^(uploaded_outputs|template_seeded)$")
 
 
 class UploadedOutputPreviewRequest(BaseModel):
     benchmark_suite_id: str | None = Field(default=None, min_length=2, max_length=120)
     format: str = Field(pattern="^(auto|jsonl|csv)$", default="auto")
     content: str = Field(min_length=10, max_length=2_000_000)
+    field_mapping: dict[str, str] = Field(default_factory=dict, max_length=20)
+    decision_mapping: dict[str, str] = Field(default_factory=dict, max_length=30)
+
+
+class RetentionPolicyUpdate(BaseModel):
+    raw_examples_retention_days: int | None = Field(default=30, ge=0, le=3650)
+    keep_aggregate_metrics: bool = True
+    keep_redacted_snippets: bool = True
+    delete_provider_responses: bool = True
+    export_before_delete: bool = True
+    notes: str | None = Field(default=None, max_length=1200)
+
+
+class ReportExportRequest(BaseModel):
+    format: str = Field(default="markdown", pattern="^(markdown|json|pdf)$")
+
+
+class SamplePilotDuplicateRequest(BaseModel):
+    workspace_id: str | None = Field(default=None, min_length=2, max_length=160)
+    project_name: str | None = Field(default=None, min_length=2, max_length=120)
+    slug: str | None = Field(default=None, min_length=2, max_length=80, pattern="^[a-z0-9][a-z0-9-]*[a-z0-9]$")
+    mode: str = Field(default="with_fixture_run", pattern="^(draft|with_fixture_run)$")
+
+
+class RetentionExecutionRequest(BaseModel):
+    confirm: bool = False
+
+
+class ConfigImportRequest(BaseModel):
+    mode: str = Field(default="dry_run", pattern="^(dry_run|apply)$")
+    content: str = Field(min_length=10, max_length=1_000_000)
 
 
 class TraceImportPreviewRequest(BaseModel):

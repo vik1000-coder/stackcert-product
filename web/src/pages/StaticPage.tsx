@@ -11,6 +11,17 @@ type StaticContent = {
 };
 
 const pages: Record<string, StaticContent> = {
+  why: {
+    eyebrow: 'Product',
+    title: 'Why StackCert',
+    summary: 'StackCert helps teams decide which LLM safety checks to ship before a release, using the examples, costs, latency, and risks that matter for one real app workflow.',
+    note: 'The sellable wedge is deliberately narrow: one workflow, scoped evidence, explicit limitations, and a report that can travel through release review.',
+    sections: [
+      { heading: 'Release decisions are combinational', body: 'Rules, classifiers, model judges, fallback models, and policy context interact. One-at-a-time scores miss shared failures, disagreement, cost, and user friction.' },
+      { heading: 'The buyer artifact is the report', body: 'The output is not an abstract benchmark. It is a scoped release report showing the recommended combination, options compared, residual risk, and retest triggers.' },
+      { heading: 'Start with customer evidence', body: 'The fastest pilot path uses uploaded examples and uploaded safety-check outputs, then adds REST checks, model judges, and release gates only where the workflow needs them.' }
+    ]
+  },
   'why-stackcert': {
     eyebrow: 'Product',
     title: 'Why StackCert',
@@ -33,15 +44,40 @@ const pages: Record<string, StaticContent> = {
       { heading: 'Review before release', body: 'Export a release report, collect signoffs, and use API, CLI, GitHub Actions, or MCP resources to block or warn on deployments.' }
     ]
   },
+  product: {
+    eyebrow: 'Product',
+    title: 'Product',
+    summary: 'The product is a first-pilot workflow for turning app examples and safety-check outputs into a defensible recommendation and release report.',
+    note: 'This is not a broad AI governance suite yet. It is a practical release-evidence tool for teams choosing among safety-check combinations.',
+    sections: [
+      { heading: 'First pilot setup', body: 'Create one private app, choose the deployment surface, name the review owner, select risk concerns, and load examples with stable external IDs.' },
+      { heading: 'Evaluation workbench', body: 'Compare candidate combinations, inspect why the obvious pick changed or held, review overlap and disagreement, and estimate cost and latency before more testing.' },
+      { heading: 'Release workflow', body: 'Issue Markdown, JSON, and private artifacts; collect reviewer signoff; expose pass, warn, or block decisions through CI/CD, webhooks, OpenAPI, and MCP resources.' }
+    ]
+  },
   pricing: {
     eyebrow: 'Product',
     title: 'Pricing',
-    summary: 'The sellable v1 is a design-partner pilot: one app, uploaded outputs first, scoped release reports, and release-gate integration once the workflow proves useful.',
-    note: 'Pricing remains design-partner directional until packaging is finalized. The commercial promise is concrete: pay for scoped release evidence and workflow integration, not arbitrary model hosting.',
+    summary: 'The sellable v1 is a design-partner pilot: one LLM workflow, 100 to 1,000 examples, 3 to 10 safety checks, one frontier baseline where appropriate, one release report, and one review call.',
+    note: 'Provider calls are handled as customer-paid costs or explicit evaluation credits. The buyer should know which workflows, examples, runs, reports, users, and overages are included before the pilot starts.',
     sections: [
-      { heading: 'Design partner', body: 'Fixed-scope pilot for one LLM app: onboarding, example/output import, benchmark coverage review, one release report, and one release-gate integration path.' },
-      { heading: 'Team rollout', body: 'Repeatable reports across several workflows, provider spend controls, retest monitoring, admin/provider health views, and audit-friendly release-gate checks.' },
-      { heading: 'Enterprise', body: 'Self-hosted or VPC deployment, SSO, custom retention, security review, procurement support, and customer-hosted worker or REST connector work.' }
+      { heading: 'Design Partner Pilot', body: '$8,000 to $15,000 for a guided 2-4 week pilot: one workflow, example/output import, safety-check comparison, release report, methodology review, and integration guidance.' },
+      { heading: 'Team', body: '$499 to $1,500/month after a successful pilot: several workflows, a small team, uploaded outputs, REST connectors, model-judge configuration, reports, and basic audit history.' },
+      { heading: 'Enterprise', body: 'Contracted workflows, SSO, custom retention, VPC or self-hosted paths, customer-hosted evidence, security review, procurement packet, and priority support.' }
+    ]
+  },
+  'sample-report': {
+    eyebrow: 'Resources',
+    title: 'Sample Release Report',
+    summary: 'A complete StackCert report should make the release decision understandable to platform, safety, risk, and executive reviewers without a live walkthrough.',
+    note: 'The sample report is candid by design. It should show recommendation, assumptions, limitations, retest triggers, and signoff boundaries, not just a green status.',
+    sections: [
+      { heading: 'Executive summary', body: 'State the selected safety-check combination, what release it supports, the pass/warn/block posture, expected cost and latency, and the top remaining risks.' },
+      { heading: 'Scope and dataset', body: 'Name the app, model, prompt or policy version, tools, retrieval boundary, example counts, risk categories, safe/risky balance, and any small-N warnings.' },
+      { heading: 'Options compared', body: 'List rules, classifiers, model judges, stronger models, context changes, fallbacks, and combinations, including the obvious one-at-a-time pick.' },
+      { heading: 'Recommendation', body: 'Explain why the selected combination wins, why the obvious pick did or did not hold, and which overlaps or disagreements changed the answer.' },
+      { heading: 'Limitations', body: 'Call out untested prompts, tools, policy changes, traffic shifts, provider assumptions, redaction boundaries, and places where StackCert cannot make a broad safety claim.' },
+      { heading: 'Retest and approval', body: 'List triggers for a fresh report, record reviewer signoff or override, and expose release-gate signals for CI/CD, webhooks, MCP resources, and agent workflow review.' }
     ]
   },
   changelog: {
@@ -170,6 +206,39 @@ const pages: Record<string, StaticContent> = {
       { heading: 'Best fit', body: 'Teams with multiple safety options, multiple combinations, and enough deployment risk to need reviewable evidence.' },
       { heading: 'Design partners', body: 'Ideal early customers can provide real app examples, existing safety-check outputs, and a concrete release gate.' },
       { heading: 'Outcome', body: 'A repeatable release report that can travel between platform, safety, risk, and executive review.' }
+    ]
+  },
+  'ai-platform-teams': {
+    eyebrow: 'Customers',
+    title: 'AI Platform Teams',
+    summary: 'For platform teams, StackCert turns safety-check choice into a repeatable release gate with cost, latency, and retest signals.',
+    note: 'The strongest platform pilot starts with one app that already has candidate checks and a release path where pass, warn, or block decisions matter.',
+    sections: [
+      { heading: 'What you get', body: 'A recommendation dashboard, options compared, targeted test plan, release-gate response, and report artifacts that can be wired into CI/CD or agent deployment workflows.' },
+      { heading: 'What you provide', body: 'Workflow scope, current safety options, example IDs, uploaded outputs or endpoints, budget and latency constraints, and a fallback plan for blocked releases.' },
+      { heading: 'Why it matters', body: 'The platform team can avoid blanket expensive model calls while still showing reviewers why a safety-check combination is acceptable for a release.' }
+    ]
+  },
+  'safety-engineering-teams': {
+    eyebrow: 'Customers',
+    title: 'Safety Engineering Teams',
+    summary: 'For safety teams, StackCert makes shared misses, disagreement, small-N cells, and residual risk visible before launch.',
+    note: 'Safety language should stay scoped: StackCert helps decide among tested combinations; it does not certify universal model behavior.',
+    sections: [
+      { heading: 'What you get', body: 'Risk-category example mix, overlap analysis, disagreement notes, targeted tests, limitations, and retest triggers tied to model, prompt, tool, policy, or traffic changes.' },
+      { heading: 'What you provide', body: 'Risk concerns, representative safe and risky examples, labeling guidance, reviewer availability, and acceptance criteria for the release report.' },
+      { heading: 'Why it matters', body: 'A combination can look strong in marginal scores and still miss the same unsafe examples. StackCert focuses review on those decision-changing overlaps.' }
+    ]
+  },
+  'risk-compliance-teams': {
+    eyebrow: 'Customers',
+    title: 'Risk and Compliance Teams',
+    summary: 'For risk and compliance teams, StackCert produces reviewable release evidence with assumptions, limitations, approvals, and audit-friendly artifacts.',
+    note: 'Before paid pilots, legal/privacy/security pages still need counsel and vendor-review completion, but the product boundary is explicit.',
+    sections: [
+      { heading: 'What you get', body: 'Executive summary, scope, dataset summary, options compared, recommendation, limitations, approvals, private artifacts, and release-gate audit signals.' },
+      { heading: 'What you provide', body: 'Review criteria, required signoff roles, data handling expectations, retention constraints, and escalation rules for warn or block outcomes.' },
+      { heading: 'Why it matters', body: 'The report makes the release decision inspectable across teams without claiming broad safety, legal compliance, or future behavior outside the tested scope.' }
     ]
   },
   security: {

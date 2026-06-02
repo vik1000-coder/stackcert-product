@@ -20,6 +20,7 @@ from stackcert_service.schemas import (
     EvaluationJobCreate,
     GuardConnectorCreate,
     GuardConnectorSecretUpdate,
+    GuardConnectorTestCallRequest,
     MeasurementPlanCreate,
     McpRpcRequest,
     OnboardingPilotCreate,
@@ -28,6 +29,11 @@ from stackcert_service.schemas import (
     ProjectOnboardingProfileUpdate,
     ReleaseGateEvaluateRequest,
     ReleaseGateWebhookRequest,
+    ReportExportRequest,
+    ConfigImportRequest,
+    RetentionExecutionRequest,
+    RetentionPolicyUpdate,
+    SamplePilotDuplicateRequest,
     TraceImportCommitRequest,
     TraceImportPreviewRequest,
     UploadedOutputRunCreate,
@@ -42,6 +48,7 @@ from stackcert_service.services import artifacts
 from stackcert_service.services import budget_controls
 from stackcert_service.services import certificates
 from stackcert_service.services import custom_behaviors
+from stackcert_service.services import config_imports
 from stackcert_service.services import demo_project
 from stackcert_service.services import guard_connectors
 from stackcert_service.services import integrations
@@ -53,6 +60,10 @@ from stackcert_service.services import pilot_runs
 from stackcert_service.services import projects
 from stackcert_service.services import release_gates
 from stackcert_service.services import release_webhooks
+from stackcert_service.services import report_exports
+from stackcert_service.services import report_versions
+from stackcert_service.services import retention
+from stackcert_service.services import sample_pilots
 from stackcert_service.services import trace_imports
 from stackcert_service.services import usage
 
@@ -101,7 +112,20 @@ def _require_project_access(
     access.require_app_principal(principal)
     project = projects.get_project(project_id)
     role = projects.project_membership_role(project_id, principal) if project else None
-    access.grant_from_project(principal, project, membership_role=role, required=required)
+    try:
+        access.grant_from_project(principal, project, membership_role=role, required=required)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN and project:
+            audit.record_event(
+                "permission.denied",
+                principal,
+                workspace_id=str(project.get("workspace_id")),
+                project_id=project_id,
+                target_type="project",
+                target_id=project_id,
+                metadata={"required": required, "role": role or principal.role},
+            )
+        raise
     return project
 
 
@@ -252,9 +276,46 @@ def create_onboarding_pilot(payload: OnboardingPilotCreate, principal: Principal
     return result
 
 
+@app.get("/api/sample-pilots")
+def list_sample_pilots(principal: PrincipalDep) -> dict[str, object]:
+    access.require_app_principal(principal)
+    return {"sample_pilots": sample_pilots.list_templates()}
+
+
+@app.post("/api/sample-pilots/{template_id}/duplicate")
+def duplicate_sample_pilot(template_id: str, payload: SamplePilotDuplicateRequest, principal: PrincipalDep) -> dict[str, object]:
+    access.require_app_principal(principal)
+    if payload.workspace_id:
+        _require_workspace_access(payload.workspace_id, principal, required="project_maintainer")
+    result = sample_pilots.duplicate_template(template_id, payload, principal=principal)
+    project = result["project"]
+    workspace = result["workspace"]
+    audit.record_event(
+        "sample_pilot.duplicated",
+        principal,
+        workspace_id=str(workspace["id"]),
+        project_id=str(project["id"]),
+        target_type="project",
+        target_id=str(project["id"]),
+        metadata={"template_id": template_id, "mode": payload.mode, "template_seeded": result["template_seeded"]},
+    )
+    return result
+
+
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: str, principal: PrincipalDep) -> dict[str, object]:
     return {"project": _require_project_access(project_id, principal)}
+
+
+@app.get("/api/projects/{project_id}/permissions")
+def get_project_permissions(project_id: str, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal)
+    role = projects.project_membership_role(project_id, principal)
+    return {
+        "project_id": project_id,
+        "workspace_id": str(project["workspace_id"]),
+        "permissions": access.permissions_for_role(role or principal.role),
+    }
 
 
 @app.get("/api/projects/{project_id}/onboarding-profile")
@@ -408,9 +469,35 @@ def create_guard_connector(project_id: str, payload: GuardConnectorCreate, princ
     return {"connector": connector}
 
 
+@app.post("/api/projects/{project_id}/guard-connectors/{guard_id}/test-call")
+def test_guard_connector(project_id: str, guard_id: str, payload: GuardConnectorTestCallRequest, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    result = guard_connectors.test_connector(project_id, guard_id, payload)
+    audit.record_event(
+        "guard_connector.tested",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="guard_connector",
+        target_id=guard_id,
+        metadata={"status": result["status"], "adapter_type": result["adapter_type"], "live": result.get("live")},
+    )
+    if result.get("live"):
+        audit.record_event(
+            "guard_connector.live_tested",
+            principal,
+            workspace_id=str(project["workspace_id"]),
+            project_id=project_id,
+            target_type="guard_connector",
+            target_id=guard_id,
+            metadata={"status": result["status"], "last_test": result.get("last_test")},
+        )
+    return {"test_call": result}
+
+
 @app.get("/api/projects/{project_id}/guard-connectors/{guard_id}/secret")
 def get_guard_connector_secret(project_id: str, guard_id: str, principal: PrincipalDep) -> dict[str, object]:
-    _require_project_access(project_id, principal, required="project_maintainer")
+    _require_project_access(project_id, principal, required="workspace_admin")
     return {"secret": guard_connectors.connector_secret_state(project_id, guard_id)}
 
 
@@ -421,7 +508,7 @@ def upsert_guard_connector_secret(
     payload: GuardConnectorSecretUpdate,
     principal: PrincipalDep,
 ) -> dict[str, object]:
-    project = _require_project_access(project_id, principal, required="project_maintainer")
+    project = _require_project_access(project_id, principal, required="workspace_admin")
     connector = guard_connectors.upsert_connector_secret(
         project_id,
         guard_id,
@@ -451,7 +538,7 @@ def rotate_guard_connector_secret(
     payload: GuardConnectorSecretUpdate,
     principal: PrincipalDep,
 ) -> dict[str, object]:
-    project = _require_project_access(project_id, principal, required="project_maintainer")
+    project = _require_project_access(project_id, principal, required="workspace_admin")
     connector = guard_connectors.upsert_connector_secret(
         project_id,
         guard_id,
@@ -477,7 +564,7 @@ def rotate_guard_connector_secret(
 
 @app.post("/api/projects/{project_id}/guard-connectors/{guard_id}/secret/disable")
 def disable_guard_connector_secret(project_id: str, guard_id: str, principal: PrincipalDep) -> dict[str, object]:
-    project = _require_project_access(project_id, principal, required="project_maintainer")
+    project = _require_project_access(project_id, principal, required="workspace_admin")
     connector = guard_connectors.disable_connector_secret(project_id, guard_id, actor_id=principal.user_id)
     secret = guard_connectors.connector_secret_state(project_id, guard_id)
     audit.record_event(
@@ -538,6 +625,30 @@ def update_workspace_budget_policy(workspace_id: str, payload: WorkspaceBudgetPo
     return {"budget": budget_controls.workspace_budget_overview(workspace_id)}
 
 
+@app.get("/api/workspaces/{workspace_id}/retention-policy")
+def get_workspace_retention_policy(workspace_id: str, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    return {"retention_policy": retention.workspace_policy(workspace_id)}
+
+
+@app.patch("/api/workspaces/{workspace_id}/retention-policy")
+def update_workspace_retention_policy(workspace_id: str, payload: RetentionPolicyUpdate, principal: PrincipalDep) -> dict[str, object]:
+    _require_workspace_access(workspace_id, principal, required="workspace_admin")
+    policy = retention.update_workspace_policy(workspace_id, payload.model_dump(exclude_unset=True), actor_id=principal.user_id)
+    audit.record_event(
+        "retention_policy.workspace.updated",
+        principal,
+        workspace_id=workspace_id,
+        target_type="workspace",
+        target_id=workspace_id,
+        metadata={
+            "raw_examples_retention_days": policy.get("raw_examples_retention_days"),
+            "delete_provider_responses": policy.get("delete_provider_responses"),
+        },
+    )
+    return {"retention_policy": policy}
+
+
 @app.post("/api/workspaces/{workspace_id}/admin/workers/run-next")
 def run_workspace_admin_worker(workspace_id: str, payload: AdminWorkerRunRequest, principal: PrincipalDep) -> dict[str, object]:
     _require_workspace_access(workspace_id, principal, required="workspace_admin")
@@ -590,6 +701,78 @@ def update_project_budget_policy(project_id: str, payload: ProjectBudgetPolicyUp
         },
     )
     return {"budget": budget_controls.project_budget_overview(project_id)}
+
+
+@app.get("/api/projects/{project_id}/retention-policy")
+def get_project_retention_policy(project_id: str, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal)
+    return {"retention_policy": retention.project_policy(project_id, workspace_id=str(project["workspace_id"]))}
+
+
+@app.patch("/api/projects/{project_id}/retention-policy")
+def update_project_retention_policy(project_id: str, payload: RetentionPolicyUpdate, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="workspace_admin")
+    policy = retention.update_project_policy(project_id, payload.model_dump(exclude_unset=True), workspace_id=str(project["workspace_id"]), actor_id=principal.user_id)
+    audit.record_event(
+        "retention_policy.project.updated",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={
+            "raw_examples_retention_days": policy.get("raw_examples_retention_days"),
+            "delete_provider_responses": policy.get("delete_provider_responses"),
+        },
+    )
+    return {"retention_policy": policy}
+
+
+@app.post("/api/projects/{project_id}/retention-policy/dry-run")
+def dry_run_project_retention(project_id: str, payload: RetentionExecutionRequest, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="workspace_admin")
+    plan = retention.dry_run_project(project_id, workspace_id=str(project["workspace_id"]))
+    return {"retention_execution": plan}
+
+
+@app.post("/api/projects/{project_id}/retention-policy/apply")
+def apply_project_retention(project_id: str, payload: RetentionExecutionRequest, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="workspace_admin")
+    if not payload.confirm:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Retention apply requires confirm=true")
+    result = retention.apply_project(project_id, workspace_id=str(project["workspace_id"]), actor_id=principal.user_id)
+    audit.record_event(
+        "retention_policy.project.applied",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata=result["summary"],
+    )
+    return {"retention_execution": result}
+
+
+@app.get("/api/projects/{project_id}/audit-events")
+def list_project_audit_events(project_id: str, principal: PrincipalDep, limit: int = 100) -> dict[str, object]:
+    _require_project_access(project_id, principal)
+    return {"audit_events": audit.list_events(project_id=project_id, limit=limit)}
+
+
+@app.post("/api/projects/{project_id}/config/import")
+def import_project_config(project_id: str, payload: ConfigImportRequest, principal: PrincipalDep) -> dict[str, object]:
+    project = _require_project_access(project_id, principal, required="project_maintainer")
+    result = config_imports.import_config(project_id, payload)
+    audit.record_event(
+        "project.config_imported" if payload.mode == "apply" else "project.config_import_previewed",
+        principal,
+        workspace_id=str(project["workspace_id"]),
+        project_id=project_id,
+        target_type="project",
+        target_id=project_id,
+        metadata={"mode": payload.mode, "status": result["status"], "changes": result["changes"]},
+    )
+    return {"config_import": result}
 
 
 @app.post("/api/projects/{project_id}/evaluation-jobs")
@@ -790,6 +973,36 @@ def get_measurements(run_id: str, principal: PrincipalDep, lambda_cost: float = 
     return _not_found("Run not found")
 
 
+@app.get("/api/runs/{run_id}/examples")
+def get_run_examples(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        return _demo_run_examples(lambda_cost)
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.run_examples(run_id, lambda_cost)
+    return _not_found("Run not found")
+
+
+@app.get("/api/runs/{run_id}/failures")
+def get_run_failures(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        return _demo_run_failures(lambda_cost)
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.run_failures(run_id, lambda_cost)
+    return _not_found("Run not found")
+
+
+@app.get("/api/runs/{run_id}/stability")
+def get_run_stability(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    if run_id == settings.demo_run_id:
+        return _demo_run_stability(lambda_cost)
+    if pilot_runs.has_run(run_id):
+        return pilot_runs.run_stability(run_id, lambda_cost)
+    return _not_found("Run not found")
+
+
 @app.get("/api/runs/{run_id}/costs")
 def get_run_costs(run_id: str, principal: PrincipalDep) -> dict[str, object]:
     _require_run_access(run_id, principal)
@@ -915,6 +1128,66 @@ def get_run_issued_certificate(run_id: str, principal: PrincipalDep, lambda_cost
     run = _require_run_access(run_id, principal, lambda_cost=lambda_cost)
     certificate = certificates.get_certificate_for_run(run_id, workspace_id=str(run["workspace_id"]))
     return {"certificate": certificate}
+
+
+@app.get("/api/runs/{run_id}/report-versions")
+def list_run_report_versions(run_id: str, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    run = _require_run_access(run_id, principal, lambda_cost=lambda_cost)
+    versions = report_versions.list_for_run(run_id, lambda_cost=lambda_cost)
+    audit.record_event(
+        "report_version.listed",
+        principal,
+        workspace_id=str(run["workspace_id"]),
+        project_id=str(run["project_id"]),
+        target_type="run",
+        target_id=run_id,
+        metadata={"versions": len(versions)},
+    )
+    return {"report_versions": versions}
+
+
+@app.get("/api/reports/{report_version_id}")
+def get_report_version(report_version_id: str, principal: PrincipalDep) -> dict[str, object]:
+    version = report_versions.get_version(report_version_id)
+    if not version:
+        raise _not_found("Report version not found")
+    _require_run_access(str(version["run_id"]), principal)
+    return {"report": version}
+
+
+@app.post("/api/reports/{report_id}/export")
+def export_report(report_id: str, payload: ReportExportRequest, principal: PrincipalDep, lambda_cost: float = 5.0) -> dict[str, object]:
+    access.require_app_principal(principal)
+    exported = report_exports.export_report(report_id, payload.format, lambda_cost=lambda_cost, created_by=principal.user_id)
+    target_run_id = str(exported["summary"].get("run_id") or report_id)
+    run = _run_for_access(target_run_id, lambda_cost)
+    if run:
+        _require_run_access(target_run_id, principal, lambda_cost=lambda_cost)
+        workspace_id = str(run["workspace_id"])
+        project_id = str(run["project_id"])
+    else:
+        certificate = _require_certificate_access(report_id, principal)
+        workspace_id = str(projects.get_project(str(certificate["project_id"]))["workspace_id"])
+        project_id = str(certificate["project_id"])
+    audit.record_event(
+        "report_version.created",
+        principal,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        target_type="report",
+        target_id=str(exported.get("report_version_id") or report_id),
+        metadata={"version": exported["version"], "content_hash": exported.get("content_hash")},
+    )
+    audit.record_event(
+        "report.exported",
+        principal,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        target_type="report",
+        target_id=report_id,
+        metadata={"format": payload.format, "version": exported["version"]},
+    )
+    return {"export": exported}
 
 
 @app.get("/api/certificates/{certificate_id}")
@@ -1094,6 +1367,103 @@ def get_certificate_markdown(run_id: str, principal: PrincipalDep, lambda_cost: 
             headers={"Content-Disposition": f'attachment; filename="{run_id}_certificate.md"'},
         )
     raise _not_found("Run not found")
+
+
+def _demo_run_examples(lambda_cost: float) -> dict[str, object]:
+    engine, _, certificate = demo_project.demo_bundle(lambda_cost)
+    recommended_ids = tuple(certificate.recommended_architecture.guard_ids)
+    outputs_by_example: dict[str, list[object]] = {}
+    for output in engine.outputs:
+        outputs_by_example.setdefault(output.example_id, []).append(output)
+    examples = []
+    for example in engine.examples[:120]:
+        cell = engine.cell_by_id[example.cell_id]
+        outputs = sorted(outputs_by_example.get(example.example_id, []), key=lambda row: row.guard_id)
+        final_decision = "block" if any(output.guard_id in recommended_ids and not output.binary_pass for output in outputs) else "pass"
+        expected_decision = "block" if cell.side == "adversarial" else "pass"
+        examples.append(
+            {
+                "example_id": example.example_id,
+                "input": example.prompt_redacted or example.prompt_hash,
+                "output": example.metadata.get("output"),
+                "expected_decision": expected_decision,
+                "risk_category": cell.policy_category or cell.source,
+                "risk_category_label": str(cell.policy_category or cell.source).replace("_", " ").title(),
+                "severity": example.metadata.get("severity") or "medium",
+                "weight": float(engine.cell_weights.get(cell.cell_id, cell.weight)),
+                "source": cell.source,
+                "metadata": example.metadata,
+                "checks": [
+                    {
+                        "guard_id": output.guard_id,
+                        "guard_label": guard_connectors.guard_label(output.guard_id) if hasattr(guard_connectors, "guard_label") else output.guard_id,
+                        "decision": "pass" if output.binary_pass else "block",
+                        "confidence": round(max(output.pass_probability, output.block_probability), 4),
+                        "reason": output.output_metadata.get("reason") or output.error,
+                        "latency_ms": output.output_metadata.get("latency_ms"),
+                        "cost": output.output_metadata.get("cost"),
+                        "error": output.error,
+                    }
+                    for output in outputs
+                ],
+                "final_decision": final_decision,
+                "final_reason": "Any-check veto triggered." if final_decision == "block" else "All selected safety checks passed.",
+                "affected_recommendation": False,
+                "recommendation_failure": final_decision != expected_decision,
+            }
+        )
+    return {
+        "run": demo_project.run_summary(lambda_cost),
+        "combination_rule": "any-check veto",
+        "recommended_guard_ids": list(recommended_ids),
+        "examples": examples,
+        "summary": {
+            "examples": len(examples),
+            "failures": sum(1 for row in examples if row["recommendation_failure"]),
+            "affected_recommendation": 0,
+        },
+    }
+
+
+def _demo_run_failures(lambda_cost: float) -> dict[str, object]:
+    payload = _demo_run_examples(lambda_cost)
+    examples = payload["examples"]
+    clusters = [
+        {"id": "missed_unsafe", "title": "Missed unsafe examples", "count": len([row for row in examples if row["expected_decision"] == "block" and row["final_decision"] == "pass"]), "severity": "high", "examples": [row for row in examples if row["expected_decision"] == "block" and row["final_decision"] == "pass"][:8]},
+        {"id": "overblocked_benign", "title": "Over-blocked benign examples", "count": len([row for row in examples if row["expected_decision"] == "pass" and row["final_decision"] == "block"]), "severity": "medium", "examples": [row for row in examples if row["expected_decision"] == "pass" and row["final_decision"] == "block"][:8]},
+        {"id": "check_disagreements", "title": "Safety-check disagreements", "count": len([row for row in examples if len({check["decision"] for check in row["checks"]}) > 1]), "severity": "medium", "examples": [row for row in examples if len({check["decision"] for check in row["checks"]}) > 1][:8]},
+    ]
+    return {"run": payload["run"], "clusters": clusters, "summary": {"cluster_count": len(clusters), "total_flagged_examples": sum(row["count"] for row in clusters)}}
+
+
+def _demo_run_stability(lambda_cost: float) -> dict[str, object]:
+    engine, _, certificate = demo_project.demo_bundle(lambda_cost)
+    certified_count = sum(1 for comparison in certificate.comparisons if comparison.certified)
+    comparison_count = max(1, len(certificate.comparisons))
+    stability_pct = round(100 * (0.45 + 0.55 * certified_count / comparison_count), 1)
+    side_counts = {}
+    for example in engine.examples:
+        side = engine.cell_by_id[example.cell_id].side
+        side_counts[side] = side_counts.get(side, 0) + 1
+    return {
+        "run": demo_project.run_summary(lambda_cost),
+        "recommended": demo_project.ranking(lambda_cost)["recommended"],
+        "stability_pct": stability_pct,
+        "checks": {
+            "bootstrap_resampling": "heuristic_ready",
+            "weight_sensitivity": "stable",
+            "class_imbalance_sensitivity": "stable",
+            "recommendation_stability": stability_pct,
+        },
+        "guardrails": [],
+        "summary": {
+            "examples": len(engine.examples),
+            "benign_examples": side_counts.get("benign", 0),
+            "unsafe_examples": side_counts.get("adversarial", 0),
+            "certified_comparisons": certified_count,
+            "comparison_count": len(certificate.comparisons),
+        },
+    }
 
 
 @app.get("/api/projects/{project_id}/drift")

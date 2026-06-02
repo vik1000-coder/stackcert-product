@@ -12,6 +12,9 @@ export function OverviewPage({ lambda }: { lambda: number }) {
   const readiness = useQuery({ queryKey: ['pilot-readiness', projectId, lambda], queryFn: () => api.pilotReadiness(projectId, lambda) });
   const overview = useQuery({ queryKey: ['overview', activeRunId, lambda], queryFn: () => api.overview(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const ranking = useQuery({ queryKey: ['ranking', activeRunId, lambda], queryFn: () => api.ranking(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const runExamples = useQuery({ queryKey: ['run-examples', activeRunId, lambda], queryFn: () => api.runExamples(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const runFailures = useQuery({ queryKey: ['run-failures', activeRunId, lambda], queryFn: () => api.runFailures(activeRunId!, lambda), enabled: Boolean(activeRunId) });
+  const runStability = useQuery({ queryKey: ['run-stability', activeRunId, lambda], queryFn: () => api.runStability(activeRunId!, lambda), enabled: Boolean(activeRunId) });
 
   if (runsLoading && !activeRunId) return <LoadingState />;
   if (!activeRunId) {
@@ -44,6 +47,8 @@ export function OverviewPage({ lambda }: { lambda: number }) {
   const subtitle = appDescription.toLowerCase().startsWith(projectName.toLowerCase())
     ? appDescription
     : `${projectName}: ${appDescription}`;
+  const releaseDecision = releaseDecisionSummary(data.certificate.status, data.stats.certified_comparison_count, data.stats.comparison_count);
+  const confidence = confidenceSummary(data.stats.certified_comparison_count, data.stats.comparison_count);
 
   return (
     <div className="page">
@@ -59,6 +64,15 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           </>
         }
       />
+      {data.run.source === 'template_seeded' ? (
+        <Explainer title="Template evidence" tone="warn" style={{ marginBottom: 16 }}>
+          <p>
+            This duplicated sample run uses StackCert fixture examples and outputs. It is useful for learning the
+            workflow, but replace it with your private examples and safety-check outputs before using a release report
+            for a buyer decision.
+          </p>
+        </Explainer>
+      ) : null}
       {projectId === 'proj_acme_copilot' ? (
         <FirstReportJourney
           title="Demo guide: follow the first release-report path"
@@ -87,6 +101,39 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           avoided <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> of estimated testing spend.
         </p>
       </Explainer>
+      <div className="grid grid-4" style={{ marginBottom: 16 }}>
+        <Card>
+          <div className="stat-label">Release posture</div>
+          <div style={{ marginTop: 10 }}>
+            <Badge tone={releaseDecision.tone} dot>
+              {releaseDecision.label}
+            </Badge>
+          </div>
+          <p className="muted" style={{ margin: '12px 0 0', lineHeight: 1.5 }}>{releaseDecision.body}</p>
+        </Card>
+        <Card>
+          <div className="stat-label">Why not the obvious pick</div>
+          <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
+            {recommendationChanged
+              ? `${data.marginal_stack.label} looked best one check at a time, but shared failures changed the launch decision.`
+              : `${data.marginal_stack.label} stayed ahead after the available overlap checks, so the recommendation is not relying on marginal scores alone.`}
+          </p>
+        </Card>
+        <Card>
+          <div className="stat-label">Confidence</div>
+          <div style={{ marginTop: 10 }}>
+            <Badge tone={confidence.tone}>{confidence.label}</Badge>
+          </div>
+          <p className="muted" style={{ margin: '12px 0 0', lineHeight: 1.5 }}>{confidence.body}</p>
+        </Card>
+        <Card>
+          <div className="stat-label">Remaining risk</div>
+          <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
+            Untested prompts, tools, retrieval, policy changes, and traffic shifts remain outside this report until a
+            retest updates the evidence.
+          </p>
+        </Card>
+      </div>
       {readiness.data ? <PilotReadinessPanel readiness={readiness.data.readiness} compact /> : null}
       <div className="grid grid-4">
         <Stat label="App fit score" value={fmtNumber(data.stats.welfare)} tone="ok" description="Higher is better: more normal requests pass and fewer unsafe requests slip through." />
@@ -144,6 +191,61 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           <p className="muted">Exports are app-specific release reports, not broad safety guarantees.</p>
         </Card>
       </div>
+      <div className="grid grid-3" style={{ marginTop: 16 }}>
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Recommendation stability</h2>
+          {runStability.data ? (
+            <>
+              <div className="stat-value">{fmtNumber(runStability.data.stability_pct)}%</div>
+              <p className="muted" style={{ lineHeight: 1.5 }}>
+                Heuristic stability check across recommendation confidence, class balance, and underrepresented risk slices.
+              </p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {runStability.data.guardrails.length ? runStability.data.guardrails.slice(0, 3).map((item) => (
+                  <div key={item.code} className="notice">{item.message}</div>
+                )) : <Badge tone="ok">no blocking guardrails</Badge>}
+              </div>
+            </>
+          ) : <p className="muted">Loading stability checks...</p>}
+        </Card>
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Failure clusters</h2>
+          {runFailures.data ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {runFailures.data.clusters.slice(0, 4).map((cluster) => (
+                <div key={cluster.id} style={{ borderTop: '1px solid var(--sc-line)', paddingTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <strong>{cluster.title}</strong>
+                    <Badge tone={cluster.count ? cluster.severity : 'neutral'}>{cluster.count}</Badge>
+                  </div>
+                  <p className="muted" style={{ margin: '6px 0 0' }}>
+                    {cluster.count ? `${cluster.examples[0]?.risk_category_label ?? 'Examples'} need review.` : 'No examples in this cluster.'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : <p className="muted">Loading failure clusters...</p>}
+        </Card>
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Example drilldown</h2>
+          {runExamples.data ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div className="notice">
+                {runExamples.data.summary.failures} failures and {runExamples.data.summary.affected_recommendation} recommendation-affecting examples across {runExamples.data.summary.examples} reviewed examples.
+              </div>
+              {runExamples.data.examples.slice(0, 3).map((example) => (
+                <div key={example.example_id} style={{ borderTop: '1px solid var(--sc-line)', paddingTop: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Badge tone={example.recommendation_failure ? 'warn' : 'ok'}>{example.final_decision}</Badge>
+                    <span className="mono muted">{example.example_id}</span>
+                  </div>
+                  <p className="muted" style={{ margin: '6px 0 0', lineHeight: 1.45 }}>{truncate(example.input, 150)}</p>
+                </div>
+              ))}
+            </div>
+          ) : <p className="muted">Loading examples...</p>}
+        </Card>
+      </div>
       <Card>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Activity</h2>
         <div style={{ display: 'grid', gap: 10 }}>
@@ -162,6 +264,62 @@ export function OverviewPage({ lambda }: { lambda: number }) {
       </div>
     </div>
   );
+}
+
+function truncate(value: string, max: number) {
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value;
+}
+
+function releaseDecisionSummary(status: string, certified: number, total: number) {
+  if (status === 'negative') {
+    return {
+      label: 'block',
+      tone: 'bad',
+      body: 'The current run does not support shipping this combination. Review blockers and add evidence before release.'
+    };
+  }
+  if (certified < total) {
+    return {
+      label: 'warn',
+      tone: 'warn',
+      body: 'The recommendation is useful for review, but some comparisons remain unresolved. Treat the gate as warn-only unless reviewers accept the boundary.'
+    };
+  }
+  return {
+    label: 'pass for scoped review',
+    tone: 'ok',
+    body: 'The tested comparisons support a release review for this exact app scope, assumptions, and release goal.'
+  };
+}
+
+function confidenceSummary(certified: number, total: number) {
+  if (total <= 0 || certified <= 0) {
+    return {
+      label: 'needs evidence',
+      tone: 'warn',
+      body: 'Run or upload more safety-check outputs before relying on this recommendation.'
+    };
+  }
+  const fraction = certified / total;
+  if (fraction >= 0.9) {
+    return {
+      label: 'high within scope',
+      tone: 'ok',
+      body: 'Most decision-relevant comparisons are no longer ambiguous for the current example mix.'
+    };
+  }
+  if (fraction >= 0.5) {
+    return {
+      label: 'moderate',
+      tone: 'warn',
+      body: 'The result is reviewable, but targeted tests can still tighten the report boundary.'
+    };
+  }
+  return {
+    label: 'low',
+    tone: 'bad',
+    body: 'The current evidence is thin. Add targeted tests before treating this as a release gate.'
+  };
 }
 
 function displayActivityKind(kind: string) {

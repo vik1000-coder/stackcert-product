@@ -33,6 +33,12 @@ type OnboardingDraft = {
   primaryRiskConcerns: string[];
   releaseGateTarget: OnboardingReleaseGateTarget;
   budgetRange: OnboardingBudgetRange;
+  releaseDecisionOwner: string;
+  overrideOwner: string;
+  releaseGateMode: 'advisory' | 'warn' | 'block';
+  failureResponse: string;
+  signoffRoles: string;
+  successCriteria: string;
 };
 
 const initialDraft: OnboardingDraft = {
@@ -47,7 +53,13 @@ const initialDraft: OnboardingDraft = {
   optimizationGoal: 'balanced',
   primaryRiskConcerns: [],
   releaseGateTarget: 'not_yet',
-  budgetRange: 'under_100'
+  budgetRange: 'under_100',
+  releaseDecisionOwner: 'Engineering lead',
+  overrideOwner: 'Shared committee',
+  releaseGateMode: 'warn',
+  failureResponse: 'Open a manual release review before deployment.',
+  signoffRoles: 'engineering_lead, safety_reviewer',
+  successCriteria: 'Export the first release report; identify retest triggers; agree on pass/warn/block owner.'
 };
 
 const steps = [
@@ -145,6 +157,15 @@ const budgetRanges: Array<{ id: OnboardingBudgetRange; label: string }> = [
   { id: 'under_500', label: 'Under $500' },
   { id: 'custom_later', label: 'Set later' }
 ];
+
+const appCategoryExamples: Record<OnboardingAppCategory, string> = {
+  customer_support: 'Example: refund-policy assistant that answers customers, escalates edge cases, and must not leak account or internal policy data.',
+  internal_agent: 'Example: employee operations assistant with HR, finance, or IT tools where unauthorized actions and sensitive data are the main concerns.',
+  research_copilot: 'Example: analyst assistant that summarizes evidence, cites sources, and must avoid fabricated claims or unsafe domain guidance.',
+  code_assistant: 'Example: coding copilot that can inspect repositories, suggest changes, or call tools, where secret leakage and unsafe tool use matter.',
+  workflow_automation: 'Example: agentic workflow that reads tickets, calls APIs, and takes actions where approval boundaries and rollback behavior must be reviewed.',
+  other: 'Example: one named LLM workflow with a clear release decision, known users, stable inputs, and reviewable safety-check outputs.'
+};
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -462,6 +483,7 @@ function DemoSessionBoundary({
 }
 
 function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDraft }) {
+  const categoryExample = appCategoryExamples[draft.appCategory] ?? appCategoryExamples.other;
   return (
     <div className="onboarding-step-body">
       <div className="form-grid">
@@ -501,6 +523,14 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
           </select>
         </label>
       </div>
+      <StepImpact
+        title="What this affects"
+        body="This names the exact workflow the report can support. Keep the first pilot narrow enough that reviewers recognize the model, prompt or policy version, tool surface, and release decision."
+      />
+      <div className="onboarding-inline-panel">
+        <div className="stat-label">Example scope for this category</div>
+        <p>{categoryExample}</p>
+      </div>
       <div className="choice-grid onboarding-choice-grid">
         {deploymentStages.map((item) => (
           <button
@@ -535,6 +565,10 @@ function ScopeStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDr
 function RiskStep({ draft, update, toggleRisk }: { draft: OnboardingDraft; update: UpdateDraft; toggleRisk: (riskId: string) => void }) {
   return (
     <div className="onboarding-step-body">
+      <StepImpact
+        title="What this affects"
+        body="These choices set the review lane: who interprets failures, which risk categories appear in the first dataset, and which limitations should be called out before release."
+      />
       <div className="choice-grid onboarding-choice-grid four">
         {roles.map((item) => (
           <button
@@ -565,26 +599,58 @@ function RiskStep({ draft, update, toggleRisk }: { draft: OnboardingDraft; updat
           ))}
         </div>
       </div>
+      <div className="setup-grid-two">
+        <label>
+          Release decision owner
+          <input
+            placeholder="Engineering lead"
+            value={draft.releaseDecisionOwner}
+            onChange={(event) => update('releaseDecisionOwner', event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          Override owner
+          <input
+            placeholder="Safety review committee"
+            value={draft.overrideOwner}
+            onChange={(event) => update('overrideOwner', event.currentTarget.value)}
+          />
+        </label>
+      </div>
+      <label>
+        Failure response
+        <textarea
+          value={draft.failureResponse}
+          onChange={(event) => update('failureResponse', event.currentTarget.value)}
+          style={{ minHeight: 84 }}
+        />
+      </label>
     </div>
   );
 }
 
 function EvidenceStep({ draft, update }: { draft: OnboardingDraft; update: UpdateDraft }) {
   return (
-    <div className="choice-grid onboarding-choice-grid evidence">
-      {evidenceModes.map((item) => (
-        <button
-          className={`choice-button ${draft.evidenceMode === item.id ? 'active' : ''}`}
-          key={item.id}
-          type="button"
-          aria-pressed={draft.evidenceMode === item.id}
-          onClick={() => update('evidenceMode', item.id)}
-        >
-          <strong>{item.label}</strong>
-          <span>{item.detail}</span>
-          <em>{item.next}</em>
-        </button>
-      ))}
+    <div className="onboarding-step-body">
+      <StepImpact
+        title="What this affects"
+        body="Uploaded outputs remain the fastest first-pilot lane. Connectors, model judges, and trace transforms are useful after the team has stable examples and understands how outputs map back to example IDs."
+      />
+      <div className="choice-grid onboarding-choice-grid evidence">
+        {evidenceModes.map((item) => (
+          <button
+            className={`choice-button ${draft.evidenceMode === item.id ? 'active' : ''}`}
+            key={item.id}
+            type="button"
+            aria-pressed={draft.evidenceMode === item.id}
+            onClick={() => update('evidenceMode', item.id)}
+          >
+            <strong>{item.label}</strong>
+            <span>{item.detail}</span>
+            <em>{item.next}</em>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -593,6 +659,10 @@ function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: Upda
   const selectedGoal = optimizationGoals.find((item) => item.id === draft.optimizationGoal) ?? optimizationGoals[0];
   return (
     <div className="onboarding-step-body">
+      <StepImpact
+        title="What this affects"
+        body="This seeds the first ranking and release-gate posture. Higher weighting is more safety-sensitive; lower weighting is more cost, latency, or user-friction sensitive."
+      />
       <div className="choice-grid onboarding-choice-grid">
         {optimizationGoals.map((item) => (
           <button
@@ -647,6 +717,43 @@ function ObjectiveStep({ draft, update }: { draft: OnboardingDraft; update: Upda
             </button>
           ))}
         </div>
+        <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
+          First gates should usually start in warn-only mode until the release report is reviewed. Agent or MCP targets
+          can read the report, retest triggers, and pass/warn/block decision before acting.
+        </p>
+      </div>
+      <div>
+        <div className="stat-label" style={{ marginBottom: 10 }}>Release gate mode</div>
+        <div className="segmented-row wrap">
+          {(['advisory', 'warn', 'block'] as const).map((mode) => (
+            <button
+              className={`btn ${draft.releaseGateMode === mode ? 'accent' : ''}`}
+              key={mode}
+              type="button"
+              aria-pressed={draft.releaseGateMode === mode}
+              onClick={() => update('releaseGateMode', mode)}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setup-grid-two">
+        <label>
+          Required signoff roles
+          <input
+            value={draft.signoffRoles}
+            onChange={(event) => update('signoffRoles', event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          First-pilot success criteria
+          <textarea
+            value={draft.successCriteria}
+            onChange={(event) => update('successCriteria', event.currentTarget.value)}
+            style={{ minHeight: 76 }}
+          />
+        </label>
       </div>
     </div>
   );
@@ -667,6 +774,8 @@ function ReviewStep({
     ['Starting data', selectedEvidence.label],
     ['Release goal', `${selectedGoal.label} / weighting ${selectedGoal.lambda}`],
     ['Release gate', releaseGateTargets.find((item) => item.id === draft.releaseGateTarget)?.label ?? 'Not yet'],
+    ['Gate mode', draft.releaseGateMode],
+    ['Decision owner', draft.releaseDecisionOwner],
     ['Data handling', titleCase(draft.dataMode.replaceAll('_', ' '))]
   ];
   return (
@@ -686,11 +795,28 @@ function ReviewStep({
           issue a release report, and give your CI or agent workflow a release-gate response.
         </p>
       </div>
+      <div className="notice">
+        <strong>Buyer responsibilities</strong>
+        <p style={{ margin: '6px 0 0' }}>
+          Bring a workflow description, stable example IDs, current safety-check outputs or endpoints, release
+          criteria, reviewer availability, and cost or latency constraints. StackCert provides templates, evaluation,
+          the report, and release-gate guidance.
+        </p>
+      </div>
       <div className="notice warn">
         A StackCert release report reduces release risk for the committed app scope. It is not a guarantee that the
         model is safe everywhere or that untested prompts, tools, policies, retrieval changes, or traffic shifts are
         covered.
       </div>
+    </div>
+  );
+}
+
+function StepImpact({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="onboarding-step-impact">
+      <strong>{title}</strong>
+      <span>{body}</span>
     </div>
   );
 }
@@ -708,7 +834,14 @@ function profileFromDraft(draft: OnboardingDraft): ProjectOnboardingProfileInput
     primary_risk_concerns: draft.primaryRiskConcerns,
     release_gate_target: draft.releaseGateTarget,
     budget_range: draft.budgetRange,
-    lambda_cost: goal.lambda
+    lambda_cost: goal.lambda,
+    release_decision_owner: draft.releaseDecisionOwner.trim() || 'Engineering lead',
+    override_owner: draft.overrideOwner.trim() || 'Shared committee',
+    release_gate_mode: draft.releaseGateMode,
+    failure_response: draft.failureResponse.trim() || 'Open a manual release review before deployment.',
+    signoff_roles: splitList(draft.signoffRoles),
+    use_case_template: useCaseTemplate(draft.appCategory),
+    success_criteria: splitList(draft.successCriteria)
   };
 }
 
@@ -725,6 +858,20 @@ function setupReadiness(draft: OnboardingDraft) {
     scopeReady && risksReady && evidenceReady && objectiveReady
   ];
   return Math.round((items.filter(Boolean).length / items.length) * 100);
+}
+
+function splitList(value: string) {
+  return value
+    .split(/[,\n;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function useCaseTemplate(category: OnboardingAppCategory): ProjectOnboardingProfileInput['use_case_template'] {
+  if (category === 'internal_agent') return 'internal_assistant';
+  if (category === 'workflow_automation') return 'agentic_workflow';
+  return category === 'customer_support' ? 'customer_support' : 'custom';
 }
 
 function canContinueStep(stepIndex: number, draft: OnboardingDraft) {

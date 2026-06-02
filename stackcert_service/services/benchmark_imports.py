@@ -16,15 +16,23 @@ from stackcert_service.db.supabase import SupabasePersistenceError, configured_s
 from stackcert_service.schemas import BenchmarkImportCommitRequest, BenchmarkImportPreviewRequest
 
 
-REQUIRED_FIELDS = {"name", "prompt", "side", "policy_category", "expected_safe_behavior", "unsafe_behavior"}
+LEGACY_REQUIRED_FIELDS = {"name", "prompt", "side", "policy_category", "expected_safe_behavior", "unsafe_behavior"}
+BUYER_REQUIRED_FIELDS = {"external_id", "prompt", "expected_decision", "policy_category"}
 VALID_SIDES = {"adversarial", "benign"}
 VALID_SEVERITIES = {"low", "medium", "high", "critical"}
-SCHEMA_VERSION = "stackcert.examples.v1"
+PASS_DECISIONS = {"pass", "allow", "benign", "safe", "ok"}
+UNSAFE_DECISIONS = {"block", "warn", "escalate", "unsafe", "deny", "fail"}
+SCHEMA_VERSION = "stackcert.examples.v2"
 FIELD_ALIASES = {
     "name": ("name", "title", "label", "example_name"),
     "prompt": ("prompt", "input", "user_input", "question", "query"),
+    "output": ("output", "assistant_output", "response", "completion"),
+    "expected_decision": ("expected_decision", "expected_label", "decision"),
     "side": ("side", "risk_side", "example_side"),
     "policy_category": ("policy_category", "category", "policy", "risk_category", "topic"),
+    "weight": ("weight", "importance", "sample_weight"),
+    "metadata": ("metadata", "meta"),
+    "source": ("source", "dataset_source"),
     "severity": ("severity", "risk_severity"),
     "expected_safe_behavior": ("expected_safe_behavior", "expected", "expected_behavior", "safe_behavior"),
     "unsafe_behavior": ("unsafe_behavior", "unsafe", "bad_behavior", "failure_mode"),
@@ -80,13 +88,14 @@ def _validated_rows(payload: BenchmarkImportPreviewRequest) -> tuple[str, int, l
     issues: list[dict[str, Any]] = []
     normalized: list[dict[str, Any]] = []
     seen_prompts: set[str] = set()
+    seen_external_ids: set[str] = set()
 
     for index, raw_row in enumerate(rows, start=1):
         row = _canonical_row(raw_row, payload.field_mapping)
         if row.get("_parse_error"):
             issues.append({"severity": "error", "row": index, "code": "parse_error", "message": row["_parse_error"]})
             continue
-        missing = sorted(field for field in REQUIRED_FIELDS if not str(row.get(field) or "").strip())
+        missing = _missing_required_fields(row)
         if missing:
             issues.append(
                 {
@@ -97,31 +106,46 @@ def _validated_rows(payload: BenchmarkImportPreviewRequest) -> tuple[str, int, l
                 }
             )
             continue
-        side = str(row["side"]).strip().lower()
+        side = _side_from_row(row)
         if side not in VALID_SIDES:
-            issues.append({"severity": "error", "row": index, "code": "invalid_side", "message": "side must be adversarial or benign"})
+            issues.append({"severity": "error", "row": index, "code": "invalid_decision", "message": "expected_decision must map to pass, warn, block, or escalate; side must be adversarial or benign"})
             continue
         prompt = str(row["prompt"]).strip()
         prompt_key = prompt.lower()
         if prompt_key in seen_prompts:
             issues.append({"severity": "warning", "row": index, "code": "duplicate_prompt", "message": "Prompt duplicates an earlier row"})
         seen_prompts.add(prompt_key)
+        external_id = str(row.get("external_id") or "").strip()[:160]
+        if external_id and external_id in seen_external_ids:
+            issues.append({"severity": "warning", "row": index, "code": "duplicate_id", "message": "example_id duplicates an earlier row"})
+        if external_id:
+            seen_external_ids.add(external_id)
         severity = str(row.get("severity") or "medium").strip().lower()
         if severity not in VALID_SEVERITIES:
             issues.append({"severity": "warning", "row": index, "code": "invalid_severity", "message": "severity defaulted to medium"})
             severity = "medium"
+        weight = _coerce_weight(row.get("weight"), index, issues)
+        metadata = _metadata_from_row(row.get("metadata"))
+        if row.get("output"):
+            metadata["output_redacted"] = str(row.get("output") or "")[:500]
+        if row.get("source"):
+            metadata["source"] = str(row.get("source") or "")[:160]
+        expected_decision = str(row.get("expected_decision") or ("block" if side == "adversarial" else "pass")).strip().lower()
         normalized.append(
             {
-                "external_id": str(row.get("external_id") or "").strip()[:160],
-                "name": str(row["name"]).strip()[:120],
+                "external_id": external_id,
+                "name": str(row.get("name") or external_id or f"Example {index}").strip()[:120],
                 "prompt": prompt,
                 "prompt_hash": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
                 "prompt_redacted": prompt[:280],
                 "side": side,
                 "policy_category": str(row["policy_category"]).strip()[:80],
                 "severity": severity,
-                "expected_safe_behavior": str(row["expected_safe_behavior"]).strip()[:500],
-                "unsafe_behavior": str(row["unsafe_behavior"]).strip()[:500],
+                "expected_decision": expected_decision,
+                "weight": weight,
+                "expected_safe_behavior": str(row.get("expected_safe_behavior") or _default_expected_behavior(side)).strip()[:500],
+                "unsafe_behavior": str(row.get("unsafe_behavior") or _default_unsafe_behavior(side, row["policy_category"])).strip()[:500],
+                "metadata": metadata,
             }
         )
     return detected, len(rows), normalized, issues
@@ -132,7 +156,10 @@ def preview_import(payload: BenchmarkImportPreviewRequest) -> dict[str, Any]:
 
     by_side = Counter(item["side"] for item in normalized)
     by_category = Counter(item["policy_category"] for item in normalized)
+    by_decision = Counter(item["expected_decision"] for item in normalized)
     blocking_errors = [issue for issue in issues if issue["severity"] == "error"]
+    validation_warnings = _dataset_warnings(normalized)
+    issues.extend(validation_warnings)
     return {
         "format": detected,
         "status": "valid" if not blocking_errors and normalized else "invalid",
@@ -142,14 +169,21 @@ def preview_import(payload: BenchmarkImportPreviewRequest) -> dict[str, Any]:
         "summary": {
             "by_side": dict(sorted(by_side.items())),
             "by_category": dict(sorted(by_category.items())),
+            "by_expected_decision": dict(sorted(by_decision.items())),
             "warnings": sum(1 for issue in issues if issue["severity"] == "warning"),
             "errors": len(blocking_errors),
             "duplicate_prompts": sum(1 for issue in issues if issue["code"] == "duplicate_prompt"),
+            "duplicate_ids": sum(1 for issue in issues if issue["code"] == "duplicate_id"),
+            "benign_examples": by_side.get("benign", 0),
+            "unsafe_examples": by_side.get("adversarial", 0),
+            "weight_total": round(sum(item["weight"] for item in normalized), 4),
+            "weight_min": min((item["weight"] for item in normalized), default=0),
+            "weight_max": max((item["weight"] for item in normalized), default=0),
         },
         "fingerprint": _import_fingerprint(payload.content, normalized),
         "schema": import_schema(),
         "preview": [
-            {key: item[key] for key in ("name", "prompt_redacted", "side", "policy_category", "severity")}
+            {key: item[key] for key in ("external_id", "name", "prompt_redacted", "side", "policy_category", "severity", "expected_decision", "weight")}
             for item in normalized[:10]
         ],
     }
@@ -159,11 +193,13 @@ def import_schema() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "formats": ["jsonl", "csv"],
-        "required_fields": sorted(REQUIRED_FIELDS),
-        "optional_fields": ["external_id", "severity"],
+        "required_fields": sorted(BUYER_REQUIRED_FIELDS),
+        "legacy_required_fields": sorted(LEGACY_REQUIRED_FIELDS),
+        "optional_fields": ["output", "source", "metadata", "severity", "weight", "expected_safe_behavior", "unsafe_behavior"],
         "valid_values": {
             "side": sorted(VALID_SIDES),
             "severity": sorted(VALID_SEVERITIES),
+            "expected_decision": sorted(PASS_DECISIONS | UNSAFE_DECISIONS),
         },
         "aliases": {field: list(aliases) for field, aliases in FIELD_ALIASES.items()},
         "limits": {
@@ -260,7 +296,7 @@ def build_import_bundle(
                 "source": source_kind,
                 "policy_category": category,
                 "severity": _highest_severity(row["severity"] for row in rows),
-                "weight": round(len(rows) / total, 6),
+                "weight": round(sum(float(row.get("weight") or 1.0) for row in rows) / max(1.0, sum(float(row.get("weight") or 1.0) for row in normalized)), 6),
                 "description": f"{len(rows)} imported {side} behavior(s) for {category}.",
                 "examples": len(rows),
             }
@@ -277,8 +313,11 @@ def build_import_bundle(
                         "side": row["side"],
                         "severity": row["severity"],
                         "policy_category": row["policy_category"],
+                        "expected_decision": row["expected_decision"],
+                        "weight": row["weight"],
                         "expected_safe_behavior": row["expected_safe_behavior"],
                         "unsafe_behavior": row["unsafe_behavior"],
+                        **row.get("metadata", {}),
                     },
                 }
             )
@@ -354,6 +393,94 @@ def _canonical_row(row: dict[str, Any], field_mapping: dict[str, str]) -> dict[s
                 canonical[target] = row.get(alias)
                 break
     return canonical
+
+
+def _missing_required_fields(row: dict[str, Any]) -> list[str]:
+    has_legacy_shape = bool(
+        str(row.get("side") or "").strip()
+        and (str(row.get("expected_safe_behavior") or "").strip() or str(row.get("unsafe_behavior") or "").strip())
+    )
+    has_buyer_decision = bool(str(row.get("expected_decision") or "").strip())
+    if has_legacy_shape and not has_buyer_decision:
+        return sorted(field for field in LEGACY_REQUIRED_FIELDS if not str(row.get(field) or "").strip())
+    return sorted(field for field in BUYER_REQUIRED_FIELDS if not str(row.get(field) or "").strip())
+
+
+def _side_from_row(row: dict[str, Any]) -> str:
+    side = str(row.get("side") or "").strip().lower()
+    if side:
+        return side
+    decision = str(row.get("expected_decision") or "").strip().lower()
+    if decision in PASS_DECISIONS:
+        return "benign"
+    if decision in UNSAFE_DECISIONS:
+        return "adversarial"
+    return ""
+
+
+def _default_expected_behavior(side: str) -> str:
+    if side == "benign":
+        return "The assistant should answer normally without unnecessary blocking."
+    return "The assistant should refuse, block, or escalate safely."
+
+
+def _default_unsafe_behavior(side: str, category: Any) -> str:
+    if side == "benign":
+        return "Over-blocking a normal user request."
+    return f"Unsafe handling of {str(category or 'the risk category')}."
+
+
+def _coerce_weight(value: Any, row: int, issues: list[dict[str, Any]]) -> float:
+    if value in {None, ""}:
+        return 1.0
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        issues.append({"severity": "warning", "row": row, "code": "invalid_weight", "message": "weight defaulted to 1.0"})
+        return 1.0
+    if parsed <= 0:
+        issues.append({"severity": "warning", "row": row, "code": "invalid_weight", "message": "weight must be positive and defaulted to 1.0"})
+        return 1.0
+    return min(parsed, 100.0)
+
+
+def _metadata_from_row(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return {str(key): _short_metadata_value(item) for key, item in value.items()}
+    if not value:
+        return {}
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return {}
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            return {"metadata_text": stripped[:500]}
+        if isinstance(parsed, dict):
+            return {str(key): _short_metadata_value(item) for key, item in parsed.items()}
+    return {"metadata_text": str(value)[:500]}
+
+
+def _short_metadata_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return str(value)[:500] if isinstance(value, str) else value
+    return str(value)[:500]
+
+
+def _dataset_warnings(normalized: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    warnings: list[dict[str, Any]] = []
+    by_side = Counter(item["side"] for item in normalized)
+    if normalized and by_side.get("benign", 0) < 2:
+        warnings.append({"severity": "warning", "code": "too_few_benign_examples", "message": "Add at least two benign examples before treating this as release evidence."})
+    if normalized and by_side.get("adversarial", 0) < 2:
+        warnings.append({"severity": "warning", "code": "too_few_unsafe_examples", "message": "Add at least two unsafe examples before treating this as release evidence."})
+    total = len(normalized)
+    if total >= 6:
+        largest_side = max(by_side.values(), default=0)
+        if largest_side / total >= 0.85:
+            warnings.append({"severity": "warning", "code": "class_imbalance", "message": "One expected-decision side dominates the dataset; add balancing examples or adjust weights."})
+    return warnings
 
 
 def _import_fingerprint(content: str, normalized: list[dict[str, Any]]) -> dict[str, Any]:

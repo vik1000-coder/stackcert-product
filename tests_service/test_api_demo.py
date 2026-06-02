@@ -1784,6 +1784,10 @@ class DemoApiTest(unittest.TestCase):
                 self.assertEqual(connector_response.status_code, 200)
                 connector = connector_response.json()["connector"]
                 self.assertEqual(connector["config"]["price_card"]["request_price_usd"], 0.001)
+                test_response = self.client.post(f"/api/projects/{project['id']}/guard-connectors/{guard_key}/test-call", json={"live": True})
+                self.assertEqual(test_response.status_code, 200)
+                self.assertEqual(test_response.json()["test_call"]["status"], "passed")
+            _RestGuardSmokeHandler.requests = []
 
             create_response = self.client.post(
                 f"/api/projects/{project['id']}/evaluation-jobs",
@@ -1920,6 +1924,10 @@ class DemoApiTest(unittest.TestCase):
                 self.assertNotIn("model-secret", str(connector))
                 self.assertEqual(connector["config"]["secret_status"], "available_local_memory")
                 self.assertEqual(connector["config"]["price_card"]["input_price_per_1m_tokens_usd"], 1.0)
+                test_response = self.client.post(f"/api/projects/{project['id']}/guard-connectors/{guard_key}/test-call", json={"live": True})
+                self.assertEqual(test_response.status_code, 200)
+                self.assertEqual(test_response.json()["test_call"]["status"], "passed")
+            _ModelJudgeSmokeHandler.requests = []
 
             create_response = self.client.post(
                 f"/api/projects/{project['id']}/evaluation-jobs",

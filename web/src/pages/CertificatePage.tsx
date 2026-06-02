@@ -5,7 +5,7 @@ import { NoRunState, useStackCertApp } from '../lib/appContext';
 import { Badge, Card, ErrorState, Explainer, LoadingState, PageHeader } from '../components/Primitives';
 
 export function CertificatePage({ lambda }: { lambda: number }) {
-  const { activeRunId, runsLoading } = useStackCertApp();
+  const { projectId, activeRunId, runsLoading, runs } = useStackCertApp();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['certificate', activeRunId, lambda], queryFn: () => api.certificate(activeRunId!, lambda), enabled: Boolean(activeRunId) });
   const readinessQuery = useQuery({
@@ -16,6 +16,14 @@ export function CertificatePage({ lambda }: { lambda: number }) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [signoffComment, setSignoffComment] = useState('');
   const [artifactVerification, setArtifactVerification] = useState<EvidenceArtifactVerification | null>(null);
+  const [selectedReportVersionId, setSelectedReportVersionId] = useState('');
+  const activeRun = runs.find((run) => run.id === activeRunId);
+  const permissions = useQuery({ queryKey: ['project-permissions', projectId], queryFn: () => api.projectPermissions(projectId) });
+  const reportVersions = useQuery({
+    queryKey: ['report-versions', activeRunId, lambda],
+    queryFn: () => api.reportVersions(activeRunId!, lambda),
+    enabled: Boolean(activeRunId)
+  });
   const issuedQuery = useQuery({
     queryKey: ['issued-certificate-for-run', activeRunId, lambda],
     queryFn: () => api.issuedCertificateForRun(activeRunId!, lambda),
@@ -40,6 +48,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     mutationFn: (artifactType: string) => api.verifyCertificateArtifact(issued!.certificate_id, artifactType),
     onSuccess: (data) => setArtifactVerification(data.verification)
   });
+  const exportReport = useMutation({
+    mutationFn: (format: 'markdown' | 'json' | 'pdf') => api.exportReport(selectedReportVersionId || issued?.certificate_id || activeRunId!, format, lambda),
+    onSuccess: (data) => downloadReportExport(data.export)
+  });
   const createSignoff = useMutation({
     mutationFn: (decision: 'approved' | 'rejected' | 'requested_changes') =>
       api.createCertificateSignoff((issued?.certificate_id ?? query.data!.certificate_id), {
@@ -58,6 +70,10 @@ export function CertificatePage({ lambda }: { lambda: number }) {
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState error={query.error} />;
   const cert = query.data!;
+  const caps = permissions.data?.permissions.capabilities ?? {};
+  const canIssue = caps.issue_report !== false;
+  const canSignoff = caps.signoff_report !== false;
+  const canExport = caps.export_report !== false;
   const evidencePreview = [
     '# StackCert Release Report',
     '',
@@ -81,6 +97,14 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         title="Release report"
         subtitle="This report supports a decision about one LLM app, one example mix, and one set of safety options. It is not a universal safety guarantee."
       />
+      {activeRun?.source === 'template_seeded' ? (
+        <Explainer title="Template evidence" tone="warn" style={{ marginBottom: 16 }}>
+          <p>
+            This report is based on duplicated sample fixture data. It is safe for walkthroughs, but replace the
+            examples and safety-check outputs before treating any export as private buyer release evidence.
+          </p>
+        </Explainer>
+      ) : null}
       <Explainer title="What this release report means" tone="accent" style={{ marginBottom: 16 }}>
         <div className="definition-list">
           <div className="definition-row">
@@ -117,6 +141,39 @@ export function CertificatePage({ lambda }: { lambda: number }) {
           </div>
         </div>
       </Explainer>
+      <div className="grid grid-4" style={{ marginBottom: 16 }}>
+        <Card>
+          <div className="stat-label">Decision</div>
+          <div style={{ marginTop: 10 }}>
+            <Badge tone={cert.status_compact} dot>
+              {displayEvidenceStatus(cert.status_compact)}
+            </Badge>
+          </div>
+          <p className="muted" style={{ margin: '12px 0 0', lineHeight: 1.5 }}>
+            Use this as a release-review artifact for the selected app scope, not as a general guarantee.
+          </p>
+        </Card>
+        <Card>
+          <div className="stat-label">Selected combination</div>
+          <h2 style={{ margin: '10px 0 0', fontSize: 20 }}>{cert.certified_label ?? cert.recommended_label}</h2>
+          <p className="muted" style={{ margin: '8px 0 0', lineHeight: 1.5 }}>
+            Recommended combination: {cert.recommended_label}.
+          </p>
+        </Card>
+        <Card>
+          <div className="stat-label">Reviewer action</div>
+          <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
+            Confirm the assumptions, limitations, output coverage, and signoff owner before locking the report.
+          </p>
+        </Card>
+        <Card>
+          <div className="stat-label">Agent hooks</div>
+          <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
+            CI gates, webhooks, MCP resources, and agent workflow reviews should read the report status and retest
+            triggers before acting.
+          </p>
+        </Card>
+      </div>
       <div className="grid grid-2">
         <Card>
           <Badge tone={cert.status_compact} dot>
@@ -210,11 +267,12 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             </label>
             <button
               className="btn primary"
-              disabled={Boolean(issued) || !acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
+              disabled={!canIssue || Boolean(issued) || !acknowledged || readiness?.can_issue === false || issueCertificate.isPending}
               onClick={() => issueCertificate.mutate()}
             >
               {issued ? 'Release report issued' : issueCertificate.isPending ? 'Issuing...' : 'Issue release report'}
             </button>
+            {!canIssue ? <p className="muted" style={{ margin: 0 }}>Your role can inspect this report, but cannot issue it.</p> : null}
             {issueCertificate.isError ? (
               <div className="notice">{issueCertificate.error instanceof Error ? issueCertificate.error.message : 'Could not issue release report.'}</div>
             ) : null}
@@ -308,6 +366,56 @@ export function CertificatePage({ lambda }: { lambda: number }) {
         </Card>
       ) : null}
       <Card>
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Export release report</h2>
+        <p className="muted" style={{ marginTop: -4, lineHeight: 1.5 }}>
+          Export the current report artifact for reviewer packets. Issued reports export the locked version; draft exports remain tied to the current run.
+        </p>
+        <div className="notice" style={{ marginBottom: 12 }}>
+          <strong>Report versions</strong>
+          <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+            <label>
+              <span className="muted">Export target</span>
+              <select className="btn" value={selectedReportVersionId} onChange={(event) => setSelectedReportVersionId(event.currentTarget.value)}>
+                <option value="">Latest report for this run</option>
+                {(reportVersions.data?.report_versions ?? []).map((version) => (
+                  <option key={version.id} value={version.id}>
+                    v{version.version} · {version.content_hash.slice(0, 10)} · {version.created_at}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {reportVersions.data?.report_versions.length ? (
+              <span className="muted">{reportVersions.data.report_versions.length} immutable report version(s) available.</span>
+            ) : (
+              <span className="muted">The first export creates the initial immutable report version.</span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(['markdown', 'json', 'pdf'] as const).map((format) => (
+            <button
+              key={format}
+              className={format === 'pdf' ? 'btn primary' : 'btn'}
+              disabled={!canExport || exportReport.isPending}
+              onClick={() => exportReport.mutate(format)}
+            >
+              Export {format.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {!canExport ? <p className="muted">Your role cannot export report artifacts.</p> : null}
+        {exportReport.data ? (
+          <div className="notice" style={{ marginTop: 12 }}>
+            Exported version {exportReport.data.export.version} as {exportReport.data.export.filename}.
+          </div>
+        ) : null}
+        {exportReport.isError ? (
+          <div className="notice" style={{ marginTop: 12 }}>
+            {exportReport.error instanceof Error ? exportReport.error.message : 'Could not export report.'}
+          </div>
+        ) : null}
+      </Card>
+      <Card>
         <h2 style={{ marginTop: 0, fontSize: 18 }}>Reviewer signoff</h2>
         <div style={{ display: 'grid', gap: 12 }}>
           <textarea
@@ -316,19 +424,20 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             placeholder="Review comment"
             value={signoffComment}
             onChange={(event) => setSignoffComment(event.currentTarget.value)}
-            disabled={!issued}
+            disabled={!issued || !canSignoff}
           />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn primary" disabled={!issued || createSignoff.isPending} onClick={() => createSignoff.mutate('approved')}>
+            <button className="btn primary" disabled={!issued || !canSignoff || createSignoff.isPending} onClick={() => createSignoff.mutate('approved')}>
               Approve
             </button>
-            <button className="btn" disabled={!issued || createSignoff.isPending} onClick={() => createSignoff.mutate('requested_changes')}>
+            <button className="btn" disabled={!issued || !canSignoff || createSignoff.isPending} onClick={() => createSignoff.mutate('requested_changes')}>
               Request changes
             </button>
-            <button className="btn" disabled={!issued || createSignoff.isPending} onClick={() => createSignoff.mutate('rejected')}>
+            <button className="btn" disabled={!issued || !canSignoff || createSignoff.isPending} onClick={() => createSignoff.mutate('rejected')}>
               Reject
             </button>
           </div>
+          {!canSignoff ? <p className="muted" style={{ margin: 0 }}>Signoff requires Reviewer, Editor, or Admin permissions.</p> : null}
           {issued?.signoffs.length ? (
             <div style={{ display: 'grid', gap: 8 }}>
               {issued.signoffs.map((signoff) => (
@@ -388,6 +497,22 @@ export function CertificatePage({ lambda }: { lambda: number }) {
       </Card>
     </div>
   );
+}
+
+function downloadReportExport(exported: { filename: string; content: string; content_type: string; encoding: 'utf-8' | 'base64' }) {
+  const bytes =
+    exported.encoding === 'base64'
+      ? Uint8Array.from(window.atob(exported.content), (char) => char.charCodeAt(0))
+      : exported.content;
+  const blob = new Blob([bytes], { type: exported.content_type });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = exported.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

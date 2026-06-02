@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Badge, ButtonLink, Card, Chip, LogoMark } from '../components/Primitives';
+import { api, type SamplePilot } from '../lib/api';
 
 export function LandingPage() {
   return (
@@ -11,18 +14,18 @@ export function LandingPage() {
             <span style={{ fontWeight: 650, fontSize: 15 }}>StackCert</span>
           </Link>
           <nav style={{ display: 'flex', gap: 24, color: 'var(--sc-ink-2)', fontSize: 13.5, fontWeight: 550 }}>
-            <a href="#problem" style={{ textDecoration: 'none' }}>
+            <Link to="/why" style={{ textDecoration: 'none' }}>
               Why
-            </a>
-            <a href="#how" style={{ textDecoration: 'none' }}>
+            </Link>
+            <Link to="/how-it-works" style={{ textDecoration: 'none' }}>
               How it works
-            </a>
-            <a href="#product" style={{ textDecoration: 'none' }}>
+            </Link>
+            <Link to="/product" style={{ textDecoration: 'none' }}>
               Product
-            </a>
-            <a href="#pricing" style={{ textDecoration: 'none' }}>
+            </Link>
+            <Link to="/pricing" style={{ textDecoration: 'none' }}>
               Pricing
-            </a>
+            </Link>
             <Link to="/blog" style={{ textDecoration: 'none' }}>
               Blog
             </Link>
@@ -36,7 +39,7 @@ export function LandingPage() {
           <div style={{ flex: 1 }} />
           <ButtonLink to="/auth/sign-in">Sign in</ButtonLink>
           <ButtonLink to="/onboarding" variant="primary">
-            Start pilot
+            Book pilot
           </ButtonLink>
         </div>
       </header>
@@ -45,23 +48,25 @@ export function LandingPage() {
         <div className="landing-container" style={{ position: 'relative' }}>
           <div style={{ display: 'grid', gap: 28, textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
             <h1 className="hero-title">
-              Choose the right
+              Know which
               <br />
-              safety checks
+              LLM safety checks
               <br />
-              for your LLM app.
+              to ship before release.
             </h1>
             <p className="hero-copy">
-              You can add rules, classifiers, model judges, stronger models, more context, or several checks at once.
-              StackCert helps you compare those choices on examples from the application you care about, so you can
-              improve safety and usefulness without paying to test every possibility.
+              StackCert compares rules, classifiers, model judges, stronger models, context changes, and fallback
+              strategies on your app's examples, then produces a release report showing the safest useful combination,
+              expected cost, latency, and remaining risks.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <ButtonLink to="/onboarding" variant="primary">
-                Start a pilot
+              <ButtonLink to="/demo" variant="primary">
+                Run a sample pilot
               </ButtonLink>
-              <ButtonLink to="/demo">View support-copilot demo</ButtonLink>
-              <ButtonLink to="/proof">See frontier proof</ButtonLink>
+              <ButtonLink to="/onboarding" variant="primary">
+                Book design-partner pilot
+              </ButtonLink>
+              <ButtonLink to="/sample-report">View sample report</ButtonLink>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 12.5 }}>
               <span>App-specific tests</span>
@@ -75,6 +80,7 @@ export function LandingPage() {
         </div>
       </section>
 
+      <SamplePilotSection />
       <SafetyOptionsSection />
       <ProblemSection />
       <AlternativesSection />
@@ -90,6 +96,52 @@ export function LandingPage() {
     </div>
   );
 }
+
+function SamplePilotSection() {
+  const navigate = useNavigate();
+  const samples = useQuery({ queryKey: ['sample-pilots'], queryFn: api.samplePilots, retry: false });
+  const duplicate = useMutation({
+    mutationFn: (templateId: string) => api.duplicateSamplePilot(templateId, { mode: 'with_fixture_run' }),
+    onSuccess: (data) => navigate(data.next_url)
+  });
+  const pilots = samples.data?.sample_pilots ?? fallbackSamplePilots;
+  return (
+    <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface)', padding: '76px 0' }}>
+      <div className="landing-container">
+        <div style={{ maxWidth: 780 }}>
+          <div className="section-eyebrow">Self-serve sample pilots</div>
+          <h2 className="section-title">Duplicate a safe pilot, then replace the evidence with yours.</h2>
+          <p className="hero-copy" style={{ margin: '16px 0 0', fontSize: 17 }}>
+            Start from customer support, internal assistant, or agentic workflow fixture data. Duplicated samples are
+            clearly marked as template evidence until your private examples and outputs replace them.
+          </p>
+        </div>
+        <div className="grid grid-3" style={{ marginTop: 28 }}>
+          {pilots.map((pilot) => (
+            <Card key={pilot.id}>
+              <Badge tone="neutral">{pilot.examples} examples · {pilot.safety_options} checks</Badge>
+              <h3 style={{ margin: '14px 0 8px', fontSize: 20 }}>{pilot.name}</h3>
+              <p className="muted" style={{ lineHeight: 1.55, minHeight: 72 }}>{pilot.description}</p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
+                {pilot.risk_concerns.slice(0, 3).map((risk) => <Chip key={risk}>{risk}</Chip>)}
+              </div>
+              <button className="btn primary" type="button" disabled={duplicate.isPending} onClick={() => duplicate.mutate(pilot.id)}>
+                {duplicate.isPending ? 'Duplicating...' : 'Duplicate sample pilot'}
+              </button>
+            </Card>
+          ))}
+        </div>
+        {duplicate.error ? <p className="notice" style={{ marginTop: 16 }}>Sign in to duplicate this sample into a private pilot workspace.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+const fallbackSamplePilots: SamplePilot[] = [
+  { id: 'customer_support', name: 'Customer Support Copilot', description: 'Refunds, account lookup, escalation, and abusive-message handling.', risk_concerns: ['privacy', 'refund abuse', 'unsafe escalation'], examples: 4, safety_options: 3 },
+  { id: 'internal_assistant', name: 'Internal Assistant', description: 'Employee knowledge assistant for internal policy and document access.', risk_concerns: ['data access', 'confidentiality', 'policy quality'], examples: 4, safety_options: 3 },
+  { id: 'agentic_workflow', name: 'Agentic Workflow', description: 'Tool-using workflow that drafts actions and needs release-gate review.', risk_concerns: ['tool misuse', 'approval bypass', 'unsafe autonomy'], examples: 4, safety_options: 3 }
+];
 
 function HeroDashboard() {
   return (
@@ -413,9 +465,9 @@ function ProductSection() {
 
 function AudienceSection() {
   const users = [
-    ['AI platform lead', 'Needs a repeatable release gate and a way to compare cost, latency, and risk across safety-check combinations.'],
-    ['Safety engineer', 'Needs to turn policy failures into app-specific examples and inspect where checks fail together.'],
-    ['Risk or GRC reviewer', 'Needs a concise release report with scope, assumptions, limitations, and signoff history.']
+    ['AI platform lead', '/ai-platform-teams', 'Needs a repeatable release gate and a way to compare cost, latency, and risk across safety-check combinations.'],
+    ['Safety engineer', '/safety-engineering-teams', 'Needs to turn policy failures into app-specific examples and inspect where checks fail together.'],
+    ['Risk or GRC reviewer', '/risk-compliance-teams', 'Needs a concise release report with scope, assumptions, limitations, and signoff history.']
   ];
   return (
     <section style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '96px 0' }}>
@@ -425,13 +477,13 @@ function AudienceSection() {
           One workflow for the people who actually approve an agent launch.
         </h2>
         <div className="grid grid-3" style={{ marginTop: 36 }}>
-          {users.map(([title, body]) => (
-            <Card key={title}>
+          {users.map(([title, href, body]) => (
+            <Link className="audience-link-card" to={href} key={title}>
               <h3 style={{ margin: '0 0 10px', fontSize: 21 }}>{title}</h3>
               <p className="muted" style={{ margin: 0, lineHeight: 1.6 }}>
                 {body}
               </p>
-            </Card>
+            </Link>
           ))}
         </div>
       </div>
@@ -442,6 +494,7 @@ function AudienceSection() {
 function DocsSection() {
   const links = [
     ['Documentation', '/docs', 'App setup, test plan, and release workflow.'],
+    ['Sample report', '/sample-report', 'Complete buyer-readable release-report outline.'],
     ['Methodology', '/methodology-paper', 'Plain-English method, then CASS details.'],
     ['Frontier proof', '/proof', 'Grok 4.3 vs local StackCert comparison.'],
     ['Pilot readiness', '/pilot-readiness', 'Ops and data preflight for design partners.'],
@@ -470,23 +523,62 @@ function DocsSection() {
 }
 
 function PricingSection() {
+  const tiers = [
+    {
+      name: 'Starter',
+      price: 'Free',
+      desc: 'Try the sample pilot and evaluate one private app with uploaded outputs.',
+      features: ['1 workflow draft', '1 active release report', 'Markdown and JSON exports'],
+      cta: 'Run sample pilot',
+      href: '/demo'
+    },
+    {
+      name: 'Design Partner Pilot',
+      price: '$8k-$15k',
+      desc: 'Guided 2-4 week pilot for one LLM workflow and one release decision.',
+      features: ['100-1,000 examples', '3-10 safety checks', '1 release report and review call'],
+      cta: 'Book pilot',
+      href: '/onboarding'
+    },
+    {
+      name: 'Team',
+      price: '$499-$1,500/mo',
+      desc: 'Repeat release reports across a small platform team after the first pilot works.',
+      features: ['3 workflows', '5 users', '10k examples/month plus customer-paid provider costs'],
+      cta: 'Start team pilot',
+      href: '/onboarding'
+    },
+    {
+      name: 'Enterprise',
+      price: 'Custom',
+      desc: 'Security review, custom retention, SSO, VPC or self-hosted paths, and private adapters.',
+      features: ['Contracted workflows', 'Procurement packet', 'Customer-hosted evidence options'],
+      cta: 'Discuss enterprise',
+      href: '/procurement'
+    }
+  ];
   return (
     <section id="pricing" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '112px 0' }}>
       <div className="landing-container">
         <div className="section-eyebrow">Pricing</div>
-        <h2 className="section-title">Pay for useful release reports, not a giant test grid.</h2>
-        <div className="grid grid-3" style={{ marginTop: 44 }}>
-          {[
-            ['Starter', 'Free', 'One app, uploaded outputs, and one active release report for evaluation.'],
-            ['Design partner', 'Fixed scope', 'Guided pilot for one app, report review, and one release-gate workflow.'],
-            ['Enterprise', 'Talk to us', 'VPC/self-hosted, SSO, custom retention, and customer-hosted adapters.']
-          ].map(([name, price, desc], index) => (
-            <Card key={name}>
-              <h3 style={{ margin: 0 }}>{name}</h3>
-              <div style={{ marginTop: 10, fontSize: 32, fontWeight: 650 }}>{price}</div>
-              <p className="muted">{desc}</p>
-              <ButtonLink to="/onboarding" variant={index === 1 ? 'accent' : 'primary'}>
-                Start
+        <h2 className="section-title">A concrete pilot package, then repeatable release evidence.</h2>
+        <p className="hero-copy" style={{ margin: '16px 0 0', maxWidth: 760, fontSize: 17 }}>
+          Early packages are subscription plus customer-paid provider costs. The unit of value is a scoped workflow:
+          examples, safety checks, evaluation runs, report artifacts, and release-gate decisions.
+        </p>
+        <div className="grid grid-4" style={{ marginTop: 44 }}>
+          {tiers.map((tier, index) => (
+            <Card key={tier.name}>
+              <h3 style={{ margin: 0 }}>{tier.name}</h3>
+              <div style={{ marginTop: 10, fontSize: 32, fontWeight: 650 }}>{tier.price}</div>
+              <p className="muted">{tier.desc}</p>
+              <ul className="pricing-feature-list">
+                {tier.features.map((feature) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+              <ButtonLink to={tier.href} variant={index === 1 ? 'accent' : 'primary'}>
+                {tier.cta}
               </ButtonLink>
             </Card>
           ))}
@@ -522,8 +614,10 @@ export function Footer() {
     {
       title: 'Product',
       links: [
+        ['Why', '/why'],
         ['Why StackCert', '/why-stackcert'],
         ['How it works', '/how-it-works'],
+        ['Product', '/product'],
         ['Pricing', '/pricing'],
         ['Changelog', '/changelog'],
         ['Status', '/status']
@@ -533,6 +627,7 @@ export function Footer() {
       title: 'Resources',
       links: [
         ['Documentation', '/docs'],
+        ['Sample report', '/sample-report'],
         ['Integrations', '/integrations'],
         ['Pilot readiness', '/pilot-readiness'],
         ['Frontier proof', '/proof'],
@@ -547,6 +642,9 @@ export function Footer() {
       links: [
         ['About', '/about'],
         ['Customers', '/customers'],
+        ['AI platform teams', '/ai-platform-teams'],
+        ['Safety engineering teams', '/safety-engineering-teams'],
+        ['Risk and compliance teams', '/risk-compliance-teams'],
         ['Security', '/security'],
         ['Procurement', '/procurement'],
         ['Support', '/support'],

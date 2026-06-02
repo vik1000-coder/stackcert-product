@@ -2304,3 +2304,66 @@ Timestamp: 2026-05-25 18:35 UTC
     API + Supabase Auth -> OK;
   - authenticated `scripts/mcp_client_smoke.py` against Cloudflare `/api/mcp`
     with the official Python MCP SDK -> OK.
+
+## 29 May 2026: CASS-Greedy-Quota Integration Materials Added
+
+**Materials copied into `docs/`**:
+- `cass_greedy_quota_report.pdf` (original 30-page technical report)
+- `cass_greedy_quota_extracted_and_organized.md` (full structured extraction, definitions, theorems, exact algorithm pseudocode, proposed approaches)
+- `cass_greedy_quota_vs_stackcert_comparison.md` (detailed compare/contrast with current `CassEngine` (K≤2 pairwise certificates, welfare, co-failure, release gates), implementation gaps, and concrete integration recommendations)
+
+**Key insight from analysis**: Greedy-Quota supplies the missing *constructive upstream selection layer* (submodular greedy on atoms, quota rules, compression, racing shortlist) that feeds naturally into existing `CassEngine`, measurement jobs, ranking UI, certificate logic, and release gates.
+
+**Immediate next steps recorded**:
+- Implement greedy selector + quota scanner as new construction job type.
+- Extend `max_k` support in `stackcert/cass/`.
+- Benchmark greedy candidates vs current pairwise certificates on the 2,000-example run.
+- Update release-gate assumptions and evidence packets.
+- Add "Construction" view to Setup UI.
+
+These materials are now durable project artifacts. See `docs/cass_greedy_quota_vs_stackcert_comparison.md` for full gap analysis and integration plan. This directly advances StackCert productization of CASS theory (certificate/ranking/correlation/drift under limited budget).
+
+## 2 June 2026: Hosted-Pilot Hardening Implemented
+
+Timestamp: 2026-06-02 19:21 UTC
+
+- Added hosted design-partner pilot hardening without changing the
+  Vite/FastAPI/Supabase/Cloudflare architecture:
+  - sample pilot templates for customer support, internal assistant, and
+    agentic workflow;
+  - private project duplication with onboarding profile, template examples,
+    template safety options, and optional `template_seeded` uploaded-output
+    evidence;
+  - UI warnings that duplicated sample evidence is fixture data and must be
+    replaced before a buyer release claim;
+  - live REST/model-judge connector test calls with redacted `last_test`
+    metadata and seven-day worker-run gating;
+  - durable report versions with Markdown, JSON, and styled PDF exports;
+  - buyer-facing project permissions/capabilities and disabled UI controls for
+    missing permissions;
+  - retention dry-run/apply execution for raw examples, provider responses,
+    redacted snippets, and aggregates;
+  - minimum YAML config import preview/apply for profile fields, safety
+    options, examples references, combination rules, and release context.
+- Updated docs:
+  - `docs/00_plan_index.md`;
+  - `docs/15_current_state_and_next_steps.md`;
+  - `docs/20_current_release_status.md`;
+  - `docs/21_design_partner_pilot_checklist.md`.
+- Final Playwright CLI QA passed:
+  - landing sample pilot duplication;
+  - private overview template-evidence warning;
+  - release report report-version view and PDF export;
+  - setup config-as-code preview;
+  - admin retention preview;
+  - 390px mobile setup overflow check;
+  - browser console warnings/errors: 0.
+- Verification:
+  - `uv run python -m compileall stackcert_service` -> OK;
+  - `uv run python -m unittest tests_service.test_api_demo -v` -> 59 tests
+    passed;
+  - `uv run python -m unittest tests_service.test_sellable_ready_controls -v`
+    -> 4 tests passed;
+  - `npm --prefix web run typecheck` -> OK;
+  - `npm --prefix web test -- --run src/App.test.tsx src/FirstPilotClarity.test.tsx src/WorkflowPolish.test.tsx`
+    -> 48 tests passed.

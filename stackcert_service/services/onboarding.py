@@ -97,6 +97,23 @@ def _build_profile(project: dict[str, Any], values: dict[str, Any]) -> dict[str,
         "release_gate_target": values.get("release_gate_target") or "not_yet",
         "budget_range": values.get("budget_range") or "under_100",
         "lambda_cost": min(10.0, max(1.0, lambda_cost)),
+        "release_decision_owner": str(values.get("release_decision_owner") or "Engineering lead")[:120],
+        "override_owner": str(values.get("override_owner") or "Shared committee")[:120],
+        "release_gate_mode": values.get("release_gate_mode") or "warn",
+        "failure_response": str(values.get("failure_response") or "Open a manual release review before deployment.")[:500],
+        "signoff_roles": [str(item)[:80] for item in (values.get("signoff_roles") or ["engineering_lead", "safety_reviewer"])][:8],
+        "use_case_template": values.get("use_case_template") or _template_for_app_category(values.get("app_category") or "customer_support"),
+        "success_criteria": [
+            str(item)[:240]
+            for item in (
+                values.get("success_criteria")
+                or [
+                    "Produce a release report usable in review.",
+                    "Identify whether the current baseline should change.",
+                    "Define retest triggers before deployment.",
+                ]
+            )
+        ][:8],
         "first_setup_focus": FOCUS_BY_EVIDENCE_MODE.get(evidence_mode, "setup#import-examples"),
         "created_at": existing_created_at or now,
         "updated_at": now,
@@ -117,12 +134,31 @@ def _default_profile(project: dict[str, Any]) -> dict[str, Any]:
             "release_gate_target": "not_yet",
             "budget_range": "under_100",
             "lambda_cost": LAMBDA_BY_GOAL[goal],
+            "release_decision_owner": "Engineering lead",
+            "override_owner": "Shared committee",
+            "release_gate_mode": "warn",
+            "failure_response": "Open a manual release review before deployment.",
+            "signoff_roles": ["engineering_lead", "safety_reviewer"],
+            "use_case_template": _template_for_app_category("customer_support"),
+            "success_criteria": [
+                "Produce a release report usable in review.",
+                "Identify whether the current baseline should change.",
+                "Define retest triggers before deployment.",
+            ],
         },
     )
 
 
 def _now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def _template_for_app_category(app_category: str) -> str:
+    if app_category == "internal_agent":
+        return "internal_assistant"
+    if app_category == "workflow_automation":
+        return "agentic_workflow"
+    return "customer_support"
 
 
 def _persistent_store():

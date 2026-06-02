@@ -164,6 +164,12 @@ def create_evaluation_job(project_id: str, payload: EvaluationJobCreate) -> dict
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Configure at least two active safety checks before running StackCert evaluation")
         if payload.adapter_mode in {"rest_guard", "model_judge"}:
             _provider_adapters(project_id, "preflight", requested_guard_ids, payload.adapter_mode)
+            live_test_issues = guard_connectors.stale_live_test_issues(project_id, requested_guard_ids, payload.adapter_mode)
+            if live_test_issues:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"message": "Worker-backed provider runs require recent passing live connector tests.", "issues": live_test_issues},
+                )
         estimated_cost_usd = _estimate_project_evaluation_cost(project_id, requested_guard_ids, sampled_examples)
         if payload.max_cost_usd is not None and estimated_cost_usd > payload.max_cost_usd:
             raise HTTPException(

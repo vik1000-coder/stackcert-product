@@ -1,6 +1,6 @@
 # Current State And Next Steps
 
-Last updated: 2026-05-25
+Last updated: 2026-06-02
 
 This document is the short operational view of the product. The older planning
 docs still matter, but this page should be the first place to check when
@@ -13,6 +13,125 @@ the execution plan owns the ordered implementation queue.
 For the shortest live-system snapshot, including current deployed revisions,
 CI status, and the latest verification commands, see
 `20_current_release_status.md`.
+
+## 2026-06-02 Hosted-Pilot Hardening Update
+
+The current branch now covers the next hosted design-partner pilot slice. The
+goal of this pass was to make a buyer-visible private pilot credible without
+migrating away from Vite, FastAPI, Supabase, and Cloudflare.
+
+What changed in this pass:
+
+- Added safe sample pilot templates for customer support, internal assistant,
+  and agentic workflows, plus duplication into a private workspace/project.
+- Duplicated samples now create template examples, safety options, onboarding
+  profile data, and optional `template_seeded` uploaded-output evidence. The
+  workbench and release report warn that this evidence is fixture data that must
+  be replaced before buyer release claims.
+- Extended connector validation so REST/model-judge checks run an explicit
+  live test call, store redacted `last_test` metadata, and gate worker-backed
+  runs unless selected connectors have a passing live test from the last seven
+  days. Uploaded-output checks remain contract/file validated.
+- Added durable report versions with immutable payload/hash metadata and
+  Markdown, JSON, and styled PDF exports from the same structured report
+  document.
+- Added project permissions/capabilities and surfaced disabled UI states for
+  report issuance, signoff, exports, connector changes, and retention/secrets.
+- Added retention execution dry-run/apply endpoints and admin UI preview for
+  expiring raw examples, deleting provider responses, and keeping redacted
+  snippets/aggregates.
+- Added minimum YAML config import preview/apply for pilot profile fields,
+  safety options, examples references, decision mappings, combination rules,
+  and release context.
+
+Latest local verification from this pass:
+
+```text
+uv run python -m compileall stackcert_service
+  -> OK
+
+uv run python -m unittest tests_service.test_api_demo -v
+  -> 59 tests passed
+
+uv run python -m unittest tests_service.test_sellable_ready_controls -v
+  -> 4 tests passed
+
+npm --prefix web run typecheck
+  -> OK
+
+npm --prefix web test -- --run src/App.test.tsx src/FirstPilotClarity.test.tsx src/WorkflowPolish.test.tsx
+  -> 48 tests passed
+
+Playwright CLI QA:
+  landing sample duplication -> private pilot overview -> template evidence
+  warning -> release report -> PDF export -> setup config preview -> admin
+  retention preview -> 390px setup mobile overflow check
+  -> OK; no browser console warnings/errors; no horizontal overflow.
+```
+
+## 2026-06-01 Design-Partner Hardening Update
+
+The latest pushed/deployed hardening pass is commit `eafbd2d`
+(`Harden design-partner pilot readiness`) on
+`codex/design-partner-deployability-discovery`. It was manually deployed to
+Cloudflare staging as Worker version
+`80f1b282-fac3-469a-b8c6-e2856cc24f90`.
+
+What changed in this pass:
+
+- Sentry was intentionally skipped. Operations readiness now uses a non-Sentry
+  evidence gate in `scripts/design_partner_ops_check.py`.
+- The private pilot path is now uploaded-output first: matching example/output
+  templates, stable ID contract, output coverage preview, release-context
+  fields, run creation, and recommendation/report/gate next steps are above the
+  advanced connector/worker controls.
+- `/proof` now has a buyer-readable cost simulator, explicit honest-fallback
+  language, task-specific benchmark slices, redacted example input/output
+  summaries, and a clear explanation of the fail-closed voting rule.
+- Public docs/pages now include pilot readiness, procurement, support,
+  workflow integrations, sitemap, and `llms.txt` updates for the
+  design-partner launch posture.
+- New docs:
+  - `21_design_partner_pilot_checklist.md`
+  - `22_workflow_integration_guide.md`
+  - `23_design_partner_sales_pack.md`
+
+Latest verification from that pass:
+
+```text
+npm --prefix web run typecheck
+  -> OK
+
+npm --prefix web test -- --run
+  -> 40 tests passed
+
+uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
+  -> 131 tests passed
+
+npm --prefix web run build
+  -> OK, with the existing Vite >500 kB chunk warning
+
+npm run deploy
+  -> Cloudflare staging deployed
+
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
+  -> deployment smoke OK
+
+uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+  -> cloud run api smoke OK
+```
+
+Playwright QA covered local desktop/mobile `/proof`, `/pilot-readiness`,
+`/integrations`, `/procurement`, `/support`, and
+`/app/ws_demo/proj_acme_copilot/setup`; it also covered hosted desktop/mobile
+for the public proof/readiness/integration/procurement/support pages. The
+setup-page ordering bug was checked and fixed: uploaded-output work now renders
+before advanced connectors/workers.
+
+Not verified in the latest pass: authenticated Supabase smoke, hosted
+uploaded-output pilot smoke, signed webhook smoke, and Cloud Run worker smoke.
+Those scripts exist, but the required Supabase smoke credentials were not
+exported in the shell.
 
 ## Current Working State
 
@@ -40,6 +159,10 @@ StackCert is now a usable prototype with a real product shape:
 - Uploaded-output pilot path: users can create a project, commit an example
   suite, upload safety-check outputs, generate a CASS-backed recommendation,
   inspect rankings/overlap/measurements, and issue scoped release evidence.
+- Setup now presents that uploaded-output path as the production v1 path before
+  advanced managed connectors/workers. It includes matching pilot file
+  templates, output coverage checks, release-context fields, and clear
+  recommendation/report/gate handoff copy.
 - Managed worker path: users can configure REST safety-check and model-judge
   connectors, enqueue provider-style evaluation jobs against a committed suite,
   enforce a run budget cap, and persist the resulting CASS evidence run.
@@ -55,6 +178,10 @@ StackCert is now a usable prototype with a real product shape:
   `pass`/`warn`/`block`, blocking reasons, evidence packet id, retest
   triggers, and machine-readable assumptions. It supports Supabase user auth or
   release-gate-only machine tokens scoped separately from MCP tokens.
+- Signed release-gate webhook:
+  `POST /api/projects/{project_id}/release-gates/webhook` wraps the same
+  evaluator for deployment systems that can send HMAC-signed JSON with
+  timestamp replay protection in production.
 - Worker-produced evidence writes are idempotent across retries: jobs, guard
   outputs, measurement recommendations, and usage events now have stable
   conflict keys instead of duplicate-prone append behavior.
@@ -112,8 +239,14 @@ The hosted demo is useful for product walkthroughs. It is still staging:
   `STACKCERT_PERSISTENCE_BACKEND=supabase`, explicitly enables the seeded demo
   workspace for staging smoke users, and allows the Cloudflare staging origin
   in CORS.
+- The latest manual deploy updated the Cloudflare static frontend and public
+  discovery files only. It did not deploy a new Cloud Run API image.
 
 ## Current Verification Baseline
+
+The newest exact verification baseline is in `20_current_release_status.md`.
+Older command logs below are retained as historical evidence for prior
+milestones and may include earlier test counts or Cloud Run revision IDs.
 
 Latest local verification from the current working tree:
 
@@ -425,7 +558,8 @@ Current immutable-evidence status:
 ## What To Do Next
 
 The imported pilot-readiness plan and feasibility review have been condensed
-into a five-milestone executable roadmap:
+into a five-milestone executable roadmap. Implementation status after the
+2026-06-01 hardening pass:
 
 1. Pilot trust layer: service-layer tenancy/RBAC, route access checks, and
    audit events. Status: implemented and tested.
@@ -454,21 +588,27 @@ into a five-milestone executable roadmap:
    errors, immutable packet badges, export history, retest explanations, and
    first-pilot readiness guidance are implemented and locally verified. The
    admin view now includes provider health derived from usage, retries, timeouts,
-   rate limits, and dead letters. Optional Sentry hooks are available for the
-   API and web app.
-   External operations setup still needs production owners for monitoring,
+   rate limits, and dead letters. Sentry is skipped for the current hardening
+   pass. External operations setup still needs production owners for monitoring,
    backups, sender domain, and budget alerts.
 
 The immediate execution queue is now:
 
-1. Deploy the first design-partner pilot path as uploaded-output first: one
-   app, representative examples, safety-check outputs, recommendation, release
-   report, and optional release gate.
-2. Configure production operations outside the repo: Sentry projects, uptime
-   checks, Cloud Run alert policies, Supabase backup/restore rehearsal, and
-   Auth sender-domain/email templates.
-3. Add the first customer-specific deployment adapter on top of the signed
+1. Export Supabase smoke credentials and rerun authenticated hosted checks:
+   `deployment_smoke.py`, `hosted_uploaded_output_pilot_smoke.py`,
+   `release_gate_webhook_smoke.py`, and `cloud_run_worker_smoke.py`.
+2. Fill the non-Sentry ops evidence template and pass:
+   `uv run python scripts/design_partner_ops_check.py --evidence-json ... --strict`.
+3. Configure production operations outside the repo: uptime checks, Cloud Run
+   alert policies, Supabase backup/restore rehearsal, Auth sender-domain/email
+   templates, customer-data contract, and support owner.
+4. Run one real design-partner uploaded-output pilot: one app, representative
+   examples, safety-check outputs, recommendation, release report, and optional
+   release gate.
+5. Add the first customer-specific deployment adapter on top of the signed
    generic webhook once a design partner names the platform.
+6. Address the Vite bundle-size warning with code splitting after the pilot
+   workflow stabilizes.
 
 ## Current Priority
 

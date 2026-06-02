@@ -1,13 +1,19 @@
 # StackCert Production Plan Index
 
-Last updated: 2026-05-25
+Last updated: 2026-06-02
 
 This directory is the living implementation plan for turning the CASS prototype
 into a production-ready StackCert company product.
 
 ## Current Decision
 
-Build StackCert as a full-stack SaaS/workbench with:
+Build StackCert as a design-partner pilot product first, then expand toward a
+full-stack SaaS/workbench. The v1 sellable path is uploaded-output first:
+customers bring one LLM app, representative examples, and safety-check outputs;
+StackCert compares the combinations they could ship and produces a scoped
+release report plus optional release-gate checks.
+
+The target architecture remains:
 
 - React + Vite + TypeScript for the public site and authenticated app.
 - FastAPI for product APIs and CASS engine orchestration.
@@ -74,6 +80,15 @@ Latest primary files:
   from the imported plan, feasibility review, and implementation state.
 - `19_route_access_matrix.md`: service route access contract for app users,
   machine tokens, object scopes, demo exceptions, and audit events.
+- `20_current_release_status.md`: concise deployed status, current commit,
+  Cloudflare/Cloud Run URLs, latest verification, and remaining production
+  work.
+- `21_design_partner_pilot_checklist.md`: operational checklist and evidence
+  gate for using StackCert with real design-partner data.
+- `22_workflow_integration_guide.md`: release-gate and webhook integration
+  contract for GitHub/GitLab/CircleCI/generic deploy systems.
+- `23_design_partner_sales_pack.md`: buyer-facing pilot offer, inclusions,
+  exclusions, procurement FAQ, and success criteria.
 
 ## Current Hosted Demo
 
@@ -97,6 +112,18 @@ The implementation is past planning. The working app now includes:
 - FastAPI service around the Python CASS core.
 - Supabase-backed persistence for pilot runs and supporting records.
 - Uploaded-output pilot flow through scoped release evidence.
+- Uploaded-output-first setup UX with pilot file templates, stable ID contract,
+  output coverage preview, release-context fields, and report/gate handoff.
+- Hosted-pilot hardening for design partners: self-serve safe sample pilot
+  duplication into private projects, template-seeded evidence warnings, recent
+  live connector-test gates for REST/model-judge worker runs, durable report
+  versions, Markdown/JSON/PDF report exports, project capability reporting,
+  retention dry-run/apply, and minimum YAML config import.
+- Public `/proof` page with Grok 4.3 comparison, local-combination proof pack,
+  fail-closed voting rule, task-specific benchmark slices, redacted
+  input/output examples, cost simulator, and honest fallback language.
+- Public pilot-readiness, procurement, support, integrations, sitemap, and
+  `llms.txt` updates for design-partner discoverability and buyer review.
 - Deterministic, REST, and model-judge worker evaluation paths that persist
   `worker_evaluation` evidence runs.
 - Separate Cloud Run worker job `stackcert-worker`, smoke-tested against the
@@ -115,18 +142,24 @@ The implementation is past planning. The working app now includes:
   and trace-import previews from LangSmith/Langfuse/OpenTelemetry-style JSONL.
 - GitLab/Circle/generic release-gate integration examples, release-context
   hashes in evidence, and workspace budget/provider runtime controls.
+- Project permissions expose buyer-facing Admin/Editor/Reviewer/Viewer
+  capabilities; the app disables issue/signoff/export/configuration controls
+  with explanatory copy when the current role cannot perform the action.
 
-Milestones 1 and 2 are implemented, and most of Milestone 3 is now live in
+Milestones 1 and 2 are implemented, and most of Milestones 3-5 are now live in
 staging: service-layer tenancy/RBAC, membership-aware lists, route
 authorization, audit events, immutable evidence semantics, private artifact
 handling, export verification, readiness diagnostics, managed connector-secret
 refs, retry/dead-letter controls, lease renewal, an independent Cloud Run
-worker job, and a workspace admin operations dashboard. The current priority is
-the remaining production hardening slice: persisted budget policy UI,
-reviewed trace-import commits, signed deployment webhooks, and operations
-setup. See
+worker job, workspace admin operations, uploaded-output setup polish, signed
+deployment webhooks, provider-health/admin surfaces, proof positioning, and
+design-partner public pages. The current priority is external production
+readiness: authenticated hosted smoke, non-Sentry ops evidence, backup/restore
+rehearsal, Auth email setup, alert/uptime checks, and the first real
+design-partner uploaded-output pilot. See
 `15_current_state_and_next_steps.md`,
-`18_pilot_ready_execution_plan.md`, and `19_route_access_matrix.md`.
+`18_pilot_ready_execution_plan.md`,
+`19_route_access_matrix.md`, and `20_current_release_status.md`.
 
 ## Test Cadence
 
@@ -144,4 +177,19 @@ The current core smoke test remains:
 ```bash
 cd stackcert_product
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+The latest design-partner hardening gate is:
+
+```bash
+cd stackcert_product
+npm --prefix web run typecheck
+npm --prefix web test -- --run
+npm --prefix web run build
+uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
+uv run python scripts/deployment_smoke.py \
+  --web-url https://stackcert-staging.savikk129.workers.dev \
+  --api-url https://stackcert-staging.savikk129.workers.dev
+uv run python scripts/cloud_run_api_smoke.py \
+  --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
 ```

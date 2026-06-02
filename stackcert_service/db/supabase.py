@@ -15,8 +15,8 @@ class SupabasePersistenceError(RuntimeError):
     """Raised when the server-side Supabase persistence layer is unavailable."""
 
 
-EVIDENCE_RUN_SOURCES = {"uploaded_outputs", "worker_evaluation"}
-BENCHMARK_SUITE_SOURCE_FILTER = "in.(custom_import,trace_import)"
+EVIDENCE_RUN_SOURCES = {"uploaded_outputs", "worker_evaluation", "template_seeded"}
+BENCHMARK_SUITE_SOURCE_FILTER = "in.(custom_import,trace_import,sample_template,config_import)"
 
 
 def configured_supabase_store() -> SupabaseStore | None:
@@ -206,10 +206,59 @@ class SupabaseStore:
                 "budget_range": profile["budget_range"],
                 "lambda_cost": profile["lambda_cost"],
                 "first_setup_focus": profile["first_setup_focus"],
+                "release_decision_owner": profile.get("release_decision_owner") or "Engineering lead",
+                "override_owner": profile.get("override_owner") or "Shared committee",
+                "release_gate_mode": profile.get("release_gate_mode") or "warn",
+                "failure_response": profile.get("failure_response") or "Open a manual release review before deployment.",
+                "signoff_roles": profile.get("signoff_roles") or ["engineering_lead", "safety_reviewer"],
+                "use_case_template": profile.get("use_case_template") or "customer_support",
+                "success_criteria": profile.get("success_criteria") or [],
             },
             prefer="resolution=merge-duplicates,return=representation",
         )
         return self._onboarding_profile_from_row(rows[0])
+
+    def get_workspace_retention_policy(self, workspace_id: str) -> dict[str, Any] | None:
+        workspace_db_id = self._resolve_workspace(workspace_id)
+        rows = self._request(
+            "GET",
+            "workspace_retention_policies",
+            params={"workspace_id": f"eq.{workspace_db_id}", "select": "*", "limit": "1"},
+        )
+        return self._retention_policy_from_row(rows[0], workspace_id=workspace_id) if rows else None
+
+    def upsert_workspace_retention_policy(self, workspace_id: str, policy: dict[str, Any], actor_id: str | None = None) -> dict[str, Any]:
+        workspace_db_id = self._resolve_workspace(workspace_id)
+        payload = _retention_policy_payload(policy, workspace_db_id=workspace_db_id, actor_id=actor_id)
+        rows = self._request(
+            "POST",
+            "workspace_retention_policies",
+            params={"on_conflict": "workspace_id"},
+            json=payload,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return self._retention_policy_from_row(rows[0], workspace_id=workspace_id)
+
+    def get_project_retention_policy(self, project_id: str) -> dict[str, Any] | None:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        rows = self._request(
+            "GET",
+            "project_retention_policies",
+            params={"workspace_id": f"eq.{workspace_db_id}", "project_id": f"eq.{project_db_id}", "select": "*", "limit": "1"},
+        )
+        return self._retention_policy_from_row(rows[0], project_id=project_id) if rows else None
+
+    def upsert_project_retention_policy(self, project_id: str, policy: dict[str, Any], actor_id: str | None = None) -> dict[str, Any]:
+        workspace_db_id, project_db_id = self._resolve_project(project_id)
+        payload = _retention_policy_payload(policy, workspace_db_id=workspace_db_id, project_db_id=project_db_id, actor_id=actor_id)
+        rows = self._request(
+            "POST",
+            "project_retention_policies",
+            params={"on_conflict": "project_id"},
+            json=payload,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return self._retention_policy_from_row(rows[0], project_id=project_id)
 
     def get_workspace_budget_policy(self, workspace_id: str) -> dict[str, Any] | None:
         workspace_db_id = self._resolve_workspace(workspace_id)
@@ -1020,6 +1069,62 @@ class SupabaseStore:
         )
         return self._certificate_signoff_from_row(signoff_rows[0], certificate_id)
 
+    def list_report_versions_for_run(self, run_id: str) -> list[dict[str, Any]]:
+        rows = self._request(
+            "GET",
+            "report_versions",
+            params={
+                "run_id": f"eq.{run_id}",
+                "select": "*",
+                "order": "version.desc,created_at.desc",
+            },
+        )
+        return [self._report_version_from_row(row) for row in rows]
+
+    def get_report_version(self, report_version_id: str) -> dict[str, Any] | None:
+        rows = self._request(
+            "GET",
+            "report_versions",
+            params={"id": f"eq.{report_version_id}", "select": "*", "limit": "1"},
+        )
+        return self._report_version_from_row(rows[0]) if rows else None
+
+    def create_report_version(self, report_version: dict[str, Any]) -> dict[str, Any]:
+        existing = self._request(
+            "GET",
+            "report_versions",
+            params={
+                "run_id": f"eq.{report_version['run_id']}",
+                "content_hash": f"eq.{report_version['content_hash']}",
+                "select": "*",
+                "limit": "1",
+            },
+        )
+        if existing:
+            return self._report_version_from_row(existing[0])
+        rows = self._request(
+            "POST",
+            "report_versions",
+            json={
+                "id": report_version["id"],
+                "workspace_id": report_version.get("workspace_id"),
+                "project_id": report_version.get("project_id"),
+                "run_id": report_version.get("run_id"),
+                "certificate_id": report_version.get("certificate_id"),
+                "version": report_version["version"],
+                "content_hash": report_version["content_hash"],
+                "release_context_hash": report_version["release_context_hash"],
+                "renderer_version": report_version["renderer_version"],
+                "payload": report_version["payload"],
+                "markdown": report_version["markdown"],
+                "html": report_version["html"],
+                "artifact_refs": report_version.get("artifact_refs") or [],
+                "created_by": report_version.get("created_by"),
+            },
+            prefer="return=representation",
+        )
+        return self._report_version_from_row(rows[0])
+
     def record_audit_event(self, event: dict[str, Any]) -> dict[str, Any]:
         api_workspace_id = event.get("workspace_id")
         api_project_id = event.get("project_id")
@@ -1704,6 +1809,26 @@ class SupabaseStore:
         }
 
     @staticmethod
+    def _report_version_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "workspace_id": row.get("workspace_id"),
+            "project_id": row.get("project_id"),
+            "run_id": row.get("run_id"),
+            "certificate_id": row.get("certificate_id"),
+            "version": int(row.get("version") or 1),
+            "content_hash": row.get("content_hash"),
+            "release_context_hash": row.get("release_context_hash"),
+            "renderer_version": row.get("renderer_version"),
+            "payload": row.get("payload") or {},
+            "markdown": row.get("markdown") or "",
+            "html": row.get("html") or "",
+            "artifact_refs": row.get("artifact_refs") or [],
+            "created_by": row.get("created_by"),
+            "created_at": row.get("created_at"),
+        }
+
+    @staticmethod
     def _workspace_from_row(row: dict[str, Any]) -> dict[str, Any]:
         row_id = str(row["id"])
         return {
@@ -1749,6 +1874,29 @@ class SupabaseStore:
             "budget_range": row.get("budget_range") or "under_100",
             "lambda_cost": float(row.get("lambda_cost") or 5.0),
             "first_setup_focus": row.get("first_setup_focus") or "setup#import-examples",
+            "release_decision_owner": row.get("release_decision_owner") or "Engineering lead",
+            "override_owner": row.get("override_owner") or "Shared committee",
+            "release_gate_mode": row.get("release_gate_mode") or "warn",
+            "failure_response": row.get("failure_response") or "Open a manual release review before deployment.",
+            "signoff_roles": row.get("signoff_roles") or ["engineering_lead", "safety_reviewer"],
+            "use_case_template": row.get("use_case_template") or "customer_support",
+            "success_criteria": row.get("success_criteria") or [],
+            "created_at": row.get("created_at"),
+            "updated_at": row.get("updated_at"),
+        }
+
+    @staticmethod
+    def _retention_policy_from_row(row: dict[str, Any], *, workspace_id: str | None = None, project_id: str | None = None) -> dict[str, Any]:
+        row_workspace_id = str(row["workspace_id"])
+        return {
+            "workspace_id": workspace_id or (settings.demo_workspace_id if row_workspace_id == settings.demo_workspace_db_id else row_workspace_id),
+            "project_id": project_id,
+            "raw_examples_retention_days": row.get("raw_examples_retention_days"),
+            "keep_aggregate_metrics": bool(row.get("keep_aggregate_metrics", True)),
+            "keep_redacted_snippets": bool(row.get("keep_redacted_snippets", True)),
+            "delete_provider_responses": bool(row.get("delete_provider_responses", True)),
+            "export_before_delete": bool(row.get("export_before_delete", True)),
+            "notes": row.get("notes"),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
         }
@@ -1961,6 +2109,30 @@ def _job_status_to_db(status: str) -> str:
         "failed": "failed",
         "canceled": "canceled",
     }.get(status, "queued")
+
+
+def _retention_policy_payload(
+    policy: dict[str, Any],
+    *,
+    workspace_db_id: str,
+    project_db_id: str | None = None,
+    actor_id: str | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "workspace_id": workspace_db_id,
+        "raw_examples_retention_days": policy.get("raw_examples_retention_days"),
+        "keep_aggregate_metrics": bool(policy.get("keep_aggregate_metrics", True)),
+        "keep_redacted_snippets": bool(policy.get("keep_redacted_snippets", True)),
+        "delete_provider_responses": bool(policy.get("delete_provider_responses", True)),
+        "export_before_delete": bool(policy.get("export_before_delete", True)),
+        "notes": policy.get("notes") or None,
+    }
+    if project_db_id:
+        payload["project_id"] = project_db_id
+    if _is_uuid(actor_id):
+        payload["created_by"] = actor_id
+        payload["updated_by"] = actor_id
+    return payload
 
 
 def _is_uuid(value: str | None) -> bool:

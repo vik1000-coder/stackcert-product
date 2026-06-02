@@ -45,6 +45,15 @@ export type RunSummary = {
   release_context?: Record<string, unknown>;
 };
 
+export type SamplePilot = {
+  id: 'customer_support' | 'internal_assistant' | 'agentic_workflow' | string;
+  name: string;
+  description: string;
+  risk_concerns: string[];
+  examples: number;
+  safety_options: number;
+};
+
 export type RankingRow = {
   architecture_id: string;
   guard_ids: string[];
@@ -104,6 +113,72 @@ export type RankingPayload = {
   rows: RankingRow[];
   marginal_winner: RankingRow;
   recommended: RankingRow;
+};
+
+export type RunExample = {
+  example_id: string;
+  input: string;
+  output?: string | null;
+  expected_decision: 'pass' | 'block' | string;
+  risk_category: string;
+  risk_category_label: string;
+  severity: string;
+  weight: number;
+  source: string;
+  metadata: Record<string, unknown>;
+  checks: Array<{
+    guard_id: string;
+    guard_label: string;
+    decision: string;
+    confidence: number;
+    reason?: string | null;
+    latency_ms?: number | null;
+    cost?: number | null;
+    error?: string | null;
+  }>;
+  final_decision: string;
+  final_reason: string;
+  affected_recommendation: boolean;
+  recommendation_failure: boolean;
+};
+
+export type RunExamplesPayload = {
+  run: RunSummary;
+  combination_rule: string;
+  recommended_guard_ids: string[];
+  examples: RunExample[];
+  summary: { examples: number; failures: number; affected_recommendation: number };
+};
+
+export type RunFailureCluster = {
+  id: string;
+  title: string;
+  count: number;
+  severity: string;
+  risk_categories?: Record<string, number>;
+  example_ids?: string[];
+  examples: RunExample[];
+};
+
+export type RunFailuresPayload = {
+  run: RunSummary;
+  clusters: RunFailureCluster[];
+  summary: { cluster_count: number; total_flagged_examples: number; blocking_cluster_count?: number };
+};
+
+export type RunStabilityPayload = {
+  run: RunSummary;
+  recommended: RankingRow;
+  stability_pct: number;
+  checks: Record<string, string | number>;
+  guardrails: Array<{ code: string; message: string }>;
+  summary: {
+    examples: number;
+    benign_examples: number;
+    unsafe_examples: number;
+    certified_comparisons: number;
+    comparison_count: number;
+  };
 };
 
 export type CorrelationsPayload = {
@@ -426,6 +501,7 @@ export type GuardCatalogItem = {
     auth_secret_stored: boolean;
     auth_secret_visible: boolean;
   };
+  config?: Record<string, unknown>;
 };
 
 export type GuardConnectorInput = {
@@ -450,6 +526,33 @@ export type GuardConnectorInput = {
   rate_limit_per_minute?: number;
   retry_max_attempts?: number;
   retry_backoff_base_seconds?: number;
+  decision_mapping?: Record<string, string>;
+  max_concurrency?: number;
+  temperature?: number;
+  max_tokens?: number;
+  decision_schema?: string;
+};
+
+export type GuardConnectorTestCall = {
+  connector_id: string;
+  guard_id: string;
+  adapter_type: string;
+  status: 'passed' | 'failed' | 'not_required' | string;
+  message: string;
+  request_preview: Record<string, unknown>;
+  expected_response: Record<string, unknown>;
+  decision_mapping: Record<string, string>;
+  live?: boolean;
+  last_test?: {
+    status: string;
+    tested_at: string;
+    expires_at: string;
+    normalized_decision: string;
+    latency_ms: number;
+    error_class?: string | null;
+    redacted_response_preview?: Record<string, unknown>;
+  } | null;
+  issues: Array<{ code: string; message: string }>;
 };
 
 export type CandidateStack = {
@@ -530,12 +633,16 @@ export type UploadedOutputRunInput = {
   tool_config_hash?: string;
   retrieval_config_hash?: string;
   traffic_profile_hash?: string;
+  field_mapping?: Record<string, string>;
+  decision_mapping?: Record<string, string>;
 };
 
 export type UploadedOutputPreviewInput = {
   benchmark_suite_id?: string;
   format: 'auto' | 'jsonl' | 'csv';
   content: string;
+  field_mapping?: Record<string, string>;
+  decision_mapping?: Record<string, string>;
 };
 
 export type UploadedOutputPreview = {
@@ -699,6 +806,13 @@ export type ProjectOnboardingProfile = {
   budget_range: OnboardingBudgetRange;
   lambda_cost: number;
   first_setup_focus: string;
+  release_decision_owner: string;
+  override_owner: string;
+  release_gate_mode: 'advisory' | 'warn' | 'block';
+  failure_response: string;
+  signoff_roles: string[];
+  use_case_template: 'customer_support' | 'internal_assistant' | 'agentic_workflow' | 'custom';
+  success_criteria: string[];
   created_at?: string;
   updated_at?: string;
 };
@@ -792,6 +906,76 @@ export type ProjectBudgetPolicyInput = {
   measurement_cap_usd?: number | null;
   provider_spend_disabled?: boolean;
   notes?: string | null;
+};
+
+export type RetentionPolicy = {
+  workspace_id?: string | null;
+  project_id?: string | null;
+  raw_examples_retention_days: number | null;
+  keep_aggregate_metrics: boolean;
+  keep_redacted_snippets: boolean;
+  delete_provider_responses: boolean;
+  export_before_delete: boolean;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type RetentionPolicyInput = Partial<
+  Pick<
+    RetentionPolicy,
+    'raw_examples_retention_days' | 'keep_aggregate_metrics' | 'keep_redacted_snippets' | 'delete_provider_responses' | 'export_before_delete' | 'notes'
+  >
+>;
+
+export type RetentionExecution = {
+  project_id: string;
+  workspace_id?: string | null;
+  mode: 'dry_run' | 'apply';
+  policy: RetentionPolicy;
+  actions: Array<{ id: string; label: string; action: string; retention_days?: number; estimated_records: number; status: string }>;
+  summary: Record<string, unknown>;
+  applied_at?: string;
+};
+
+export type ProjectPermissions = {
+  role: string;
+  role_label: 'Admin' | 'Editor' | 'Reviewer' | 'Viewer' | string;
+  capabilities: Record<string, boolean>;
+};
+
+export type ReportExport = {
+  report_id: string;
+  run_id?: string;
+  certificate_id?: string | null;
+  format: 'markdown' | 'json' | 'pdf';
+  content_type: string;
+  filename: string;
+  version: number;
+  report_version_id?: string;
+  content_hash?: string;
+  generated_at: string;
+  encoding: 'utf-8' | 'base64';
+  content: string;
+  summary: Record<string, unknown>;
+};
+
+export type ReportVersion = {
+  id: string;
+  workspace_id: string;
+  project_id: string;
+  run_id: string;
+  certificate_id?: string | null;
+  version: number;
+  content_hash: string;
+  release_context_hash: string;
+  renderer_version: string;
+  payload: Record<string, unknown>;
+  markdown: string;
+  html: string;
+  artifact_refs: Array<Record<string, unknown>>;
+  created_by?: string | null;
+  created_at: string;
 };
 
 export type AdminProjectSummary = {
@@ -970,10 +1154,27 @@ export const api = {
   createWorkspace: (payload: WorkspaceInput) => post<{ workspace: Workspace }>('/api/workspaces', payload),
   projects: () => request<{ projects: Project[] }>('/api/projects'),
   project: (projectId: string) => request<{ project: Project | null }>(`/api/projects/${projectId}`),
+  projectPermissions: (projectId: string) => request<{ project_id: string; workspace_id: string; permissions: ProjectPermissions }>(`/api/projects/${projectId}/permissions`),
   createProject: ({ workspace_id, ...payload }: ProjectInput) =>
     post<{ project: Project }>(`/api/workspaces/${workspace_id}/projects`, payload),
   createOnboardingPilot: (payload: OnboardingPilotInput) =>
     post<{ workspace: Workspace; project: Project; profile: ProjectOnboardingProfile }>('/api/onboarding/pilots', payload),
+  samplePilots: () => request<{ sample_pilots: SamplePilot[] }>('/api/sample-pilots'),
+  duplicateSamplePilot: (
+    templateId: string,
+    payload: { workspace_id?: string; project_name?: string; slug?: string; mode?: 'draft' | 'with_fixture_run' }
+  ) =>
+    post<{
+      sample_pilot: Pick<SamplePilot, 'id' | 'name' | 'description'>;
+      workspace: Workspace;
+      project: Project;
+      profile: ProjectOnboardingProfile;
+      suite: BenchmarkSuite;
+      connectors: GuardCatalogItem[];
+      run: RunSummary | null;
+      template_seeded: boolean;
+      next_url: string;
+    }>(`/api/sample-pilots/${templateId}/duplicate`, payload),
   onboardingProfile: (projectId: string) =>
     request<{ profile: ProjectOnboardingProfile }>(`/api/projects/${projectId}/onboarding-profile`),
   updateOnboardingProfile: (projectId: string, payload: Partial<ProjectOnboardingProfileInput>) =>
@@ -987,6 +1188,9 @@ export const api = {
     post<{ run: RunSummary }>(`/api/projects/${projectId}/runs/uploaded-outputs`, payload),
   overview: (runId: string, lambda: number) => request<OverviewPayload>(`/api/runs/${runId}/overview?lambda_cost=${lambda}`),
   ranking: (runId: string, lambda: number) => request<RankingPayload>(`/api/runs/${runId}/ranking?lambda_cost=${lambda}`),
+  runExamples: (runId: string, lambda: number) => request<RunExamplesPayload>(`/api/runs/${runId}/examples?lambda_cost=${lambda}`),
+  runFailures: (runId: string, lambda: number) => request<RunFailuresPayload>(`/api/runs/${runId}/failures?lambda_cost=${lambda}`),
+  runStability: (runId: string, lambda: number) => request<RunStabilityPayload>(`/api/runs/${runId}/stability?lambda_cost=${lambda}`),
   correlations: (runId: string, lambda: number, side: 'adversarial' | 'benign') =>
     request<CorrelationsPayload>(`/api/runs/${runId}/correlations?lambda_cost=${lambda}&side=${side}`),
   measurements: (runId: string, lambda: number) => request<MeasurementsPayload>(`/api/runs/${runId}/measurements?lambda_cost=${lambda}`),
@@ -999,6 +1203,10 @@ export const api = {
   issuedCertificate: (certificateId: string) => request<{ certificate: IssuedCertificate | null }>(`/api/certificates/${certificateId}`),
   issueCertificate: (runId: string, lambda: number, payload: { acknowledge_limitations: boolean; expires_in_days: number; reviewer_note?: string }) =>
     post<{ certificate: IssuedCertificate }>(`/api/runs/${runId}/certificate/issue?lambda_cost=${lambda}`, payload),
+  reportVersions: (runId: string, lambda: number) => request<{ report_versions: ReportVersion[] }>(`/api/runs/${runId}/report-versions?lambda_cost=${lambda}`),
+  reportVersion: (reportVersionId: string) => request<{ report: ReportVersion }>(`/api/reports/${reportVersionId}`),
+  exportReport: (reportId: string, format: 'markdown' | 'json' | 'pdf', lambda: number) =>
+    post<{ export: ReportExport }>(`/api/reports/${reportId}/export?lambda_cost=${lambda}`, { format }),
   createCertificateSignoff: (
     certificateId: string,
     payload: { signer_role: string; decision: CertificateSignoff['decision']; comment?: string }
@@ -1040,6 +1248,8 @@ export const api = {
   guardConnectors: (projectId: string) => request<{ connectors: GuardCatalogItem[] }>(`/api/projects/${projectId}/guard-connectors?lambda_cost=5`),
   createGuardConnector: (projectId: string, payload: GuardConnectorInput) =>
     post<{ connector: GuardCatalogItem }>(`/api/projects/${projectId}/guard-connectors`, payload),
+  testGuardConnector: (projectId: string, guardId: string, payload: { live?: boolean; example_id?: string; input?: string; output?: string; metadata?: Record<string, unknown> }) =>
+    post<{ test_call: GuardConnectorTestCall }>(`/api/projects/${projectId}/guard-connectors/${guardId}/test-call`, payload),
   stacks: (projectId: string) => request<{ run: RunSummary | null; stacks: CandidateStack[] }>(`/api/projects/${projectId}/stacks?lambda_cost=5`),
   jobs: (projectId: string) => request<{ jobs: StackCertJob[] }>(`/api/projects/${projectId}/jobs`),
   retryJob: (jobId: string) => post<{ job: StackCertJob }>(`/api/jobs/${jobId}/retry`, {}),
@@ -1054,10 +1264,29 @@ export const api = {
     request<{ budget: WorkspaceBudgetOverview }>(`/api/workspaces/${workspaceId}/budget-policy`),
   updateWorkspaceBudgetPolicy: (workspaceId: string, payload: WorkspaceBudgetPolicyInput) =>
     patch<{ budget: WorkspaceBudgetOverview }>(`/api/workspaces/${workspaceId}/budget-policy`, payload),
+  workspaceRetentionPolicy: (workspaceId: string) =>
+    request<{ retention_policy: RetentionPolicy }>(`/api/workspaces/${workspaceId}/retention-policy`),
+  updateWorkspaceRetentionPolicy: (workspaceId: string, payload: RetentionPolicyInput) =>
+    patch<{ retention_policy: RetentionPolicy }>(`/api/workspaces/${workspaceId}/retention-policy`, payload),
   projectBudgetPolicy: (projectId: string) =>
     request<{ budget: ProjectBudgetOverview }>(`/api/projects/${projectId}/budget-policy`),
   updateProjectBudgetPolicy: (projectId: string, payload: ProjectBudgetPolicyInput) =>
     patch<{ budget: ProjectBudgetOverview }>(`/api/projects/${projectId}/budget-policy`, payload),
+  projectRetentionPolicy: (projectId: string) =>
+    request<{ retention_policy: RetentionPolicy }>(`/api/projects/${projectId}/retention-policy`),
+  updateProjectRetentionPolicy: (projectId: string, payload: RetentionPolicyInput) =>
+    patch<{ retention_policy: RetentionPolicy }>(`/api/projects/${projectId}/retention-policy`, payload),
+  dryRunProjectRetention: (projectId: string) =>
+    post<{ retention_execution: RetentionExecution }>(`/api/projects/${projectId}/retention-policy/dry-run`, { confirm: false }),
+  applyProjectRetention: (projectId: string) =>
+    post<{ retention_execution: RetentionExecution }>(`/api/projects/${projectId}/retention-policy/apply`, { confirm: true }),
+  importProjectConfig: (projectId: string, payload: { mode: 'dry_run' | 'apply'; content: string }) =>
+    post<{ config_import: { project_id: string; mode: string; status: string; changes: Record<string, unknown>; applied?: Record<string, unknown> } }>(
+      `/api/projects/${projectId}/config/import`,
+      payload
+    ),
+  projectAuditEvents: (projectId: string, limit = 100) =>
+    request<{ audit_events: AuditEvent[] }>(`/api/projects/${projectId}/audit-events?limit=${limit}`),
   createMeasurementPlan: (runId: string, payload: { action_ids: string[]; max_cost_usd?: number }, lambda: number) =>
     post<{ id: string; job: StackCertJob; status: string; run_id: string; summary: Record<string, unknown>; actions: MeasurementsPayload['actions'] }>(
       `/api/runs/${runId}/measurement-plans?lambda_cost=${lambda}`,
