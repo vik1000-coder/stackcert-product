@@ -11,15 +11,15 @@ Cloudflare agree.
 - Repository: `vik1000-coder/stackcert-product`
 - Branch: `codex/design-partner-deployability-discovery` for the current
   deployability PR; `main` remains the release base.
-- Latest pushed hardening commit before the current local pass: `eafbd2d`
-  (`Harden design-partner pilot readiness`).
-- Current local pass awaiting push/deploy: hosted-pilot hardening for safe
-  sample duplication, live connector validation gates, report versions/exports,
-  project permissions, retention execution, and YAML config import.
-- Latest manual Cloudflare staging deploy recorded before this local pass:
-  Worker version `80f1b282-fac3-469a-b8c6-e2856cc24f90`. Use
-  `npx wrangler deployments list --name stackcert-staging` after deploy for the
-  newest live version ID.
+- Latest pushed hosted-pilot hardening commit: `b0b5219` (`Harden hosted pilot
+  workflow`).
+- Latest deployed API image from this branch:
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:b0b5219-staging-202606021930-amd64`.
+- Latest manual Cloudflare staging deploy from this branch before the
+  deployment-status docs refresh: Worker version
+  `c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0`. Use
+  `npx wrangler deployments list --name stackcert-staging` for the newest live
+  version ID, because this docs refresh can create a later static deployment.
 - Release path: pushes to `main` run `ci`, the GitHub Pages fallback deploy,
   and then the Cloudflare Worker deploy after CI succeeds.
 - Latest audit result:
@@ -60,8 +60,9 @@ Cloudflare Workers:
 
 - Worker: `stackcert-staging`
 - Deployment status: verified through direct `wrangler deploy` during this
-  audit from commit `eafbd2d`.
-- Current verified version ID: `80f1b282-fac3-469a-b8c6-e2856cc24f90`
+  audit from commit `b0b5219`.
+- Current verified version ID before the docs-refresh redeploy:
+  `c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0`
 - Behavior: serves `web/dist` static assets and proxies `/api/*` plus
   `/api/mcp` and `/openapi.json` to Cloud Run.
 
@@ -69,9 +70,9 @@ Cloud Run API:
 
 - Service: `stackcert-api`
 - Region: `us-central1`
-- Latest ready revision: `stackcert-api-00019-cwt`
+- Latest ready revision: `stackcert-api-00020-7qm`
 - Image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:7f9558b-staging-202606010411-amd64`
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:b0b5219-staging-202606021930-amd64`
 - Traffic: 100% to latest revision
 - Scale guardrails: min instances `0`, max instances `3`, concurrency `40`
 - GCP budget guardrail: `StackCert staging $50`
@@ -89,7 +90,7 @@ Supabase:
 
 - Auth is active for the hosted app.
 - Local and linked remote migrations match through
-  `20260525164132_add_budget_policies.sql`.
+  `20260602162000_report_versions_and_hardening.sql`.
 - Recent Supabase changelog check noted the current Data API exposure change;
   current migrations explicitly grant access and enable RLS for exposed public
   tables.
@@ -156,6 +157,28 @@ npm --prefix web run typecheck
 
 npm --prefix web test -- --run src/App.test.tsx src/FirstPilotClarity.test.tsx src/WorkflowPolish.test.tsx
   -> 48 tests passed
+
+npm run build
+  -> OK, with the existing Vite >500 kB chunk warning
+
+supabase db push --linked --dry-run
+  -> would apply 20260602143000 and 20260602162000
+
+supabase db push --linked --yes
+  -> applied 20260602143000 and 20260602162000
+
+Cloud Run API deploy
+  -> revision stackcert-api-00020-7qm serving 100% traffic
+
+npm run deploy
+  -> Cloudflare Worker stackcert-staging deployed as version
+     c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0
+
+uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+  -> cloud run api smoke OK
+
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
+  -> deployment smoke OK
 ```
 
 Most recent full pre-deploy baseline from the previous status update:

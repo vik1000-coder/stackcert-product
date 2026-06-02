@@ -69,6 +69,28 @@ Playwright CLI QA:
   -> OK; no browser console warnings/errors; no horizontal overflow.
 ```
 
+Deployment results from this pass:
+
+```text
+supabase db push --linked --yes
+  -> applied 20260602143000_sellable_ready_pilot_controls.sql
+  -> applied 20260602162000_report_versions_and_hardening.sql
+
+Cloud Run API
+  -> deployed image b0b5219-staging-202606021930-amd64
+  -> revision stackcert-api-00020-7qm serving 100% traffic
+
+npm run deploy
+  -> Cloudflare Worker stackcert-staging deployed as version
+     c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0 before the docs-refresh redeploy
+
+uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
+  -> cloud run api smoke OK
+
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
+  -> deployment smoke OK
+```
+
 ## 2026-06-01 Design-Partner Hardening Update
 
 The latest pushed/deployed hardening pass is commit `eafbd2d`
