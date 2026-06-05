@@ -174,11 +174,16 @@ Product controls:
 CASS gives StackCert a concrete, defensible claim:
 
 - It compares candidate combinations, not absolute universal safety.
-- It measures overlap where composition can break intuition.
+- It measures overlap, brittle atoms, and shared failures where composition can
+  break intuition.
 - It records the example mix and risk profile.
 - It can explain unresolved comparisons and recommend targeted tests.
 - It can produce scoped release evidence with assumptions rather than vague
   assurance language.
+
+The legacy K<=2 serial interval certificate is now named `old_cass`. It remains
+the current auditable finite-sample evidence layer, while `CASS` refers to the
+broader atom-aware, correlation-aware search frame.
 
 That narrower claim is commercially useful and easier to defend than broad
 "AI safety certification."

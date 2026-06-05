@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 
 from stackcert.cass.intervals import pair_interval_for
+from stackcert.cass.methodology import cass_assumptions
 from stackcert.cass.moments import (
     architecture_name,
     build_candidate_architectures,
@@ -301,19 +302,17 @@ class CassEngine:
             comparisons=comparisons,
             measurement_actions=tuple(measurement_actions),
             validation_report=self.validation_report,
-            assumptions={
-                "aggregation": "serial",
-                "max_k": self.max_k,
-                "rho_prior": self.rho_prior,
-                "use_feasible_bounds": self.use_feasible_bounds,
-                "residual_treatment": "zero for K<=2",
-                "certificate_scope": "finite benchmark mixture",
-            },
+            assumptions=cass_assumptions(
+                max_k=self.max_k,
+                rho_prior=self.rho_prior,
+                use_feasible_bounds=self.use_feasible_bounds,
+            ),
             limitations=(
-                "The certificate is conditional on the specified benchmark mixture and candidate set.",
+                "The evidence packet is conditional on the specified benchmark mixture, release goal, and candidate set.",
                 "It is not a guarantee of universal deployment safety.",
                 "Source shift, guard version changes, prompt changes, and policy changes require re-certification.",
-                "This prototype supports exact K=2 serial stack certificates; larger stacks are out of scope.",
+                "The current auditable evidence layer is old_cass: exact K<=2 serial interval accounting.",
+                "CASS v2 search policy can compare richer committee ideas, but release claims must stay inside measured evidence.",
             ),
             recertification_triggers=(
                 "Base model version changes",

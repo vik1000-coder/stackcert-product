@@ -84,6 +84,9 @@ export function CertificatePage({ lambda }: { lambda: number }) {
     'What this supports:',
     'The selected safety-check combination beat the other combinations tested for this app, example mix, release goal weighting, and assumptions.',
     '',
+    'Method:',
+    `CASS (${displayAssumptionValue(cert.assumptions.method_version)}) with ${displayAssumptionValue(cert.assumptions.evidence_engine)} audit evidence.`,
+    '',
     'What this does not prove:',
     'It does not guarantee universal safety, legal compliance, or future behavior after model, prompt, safety option, tool, traffic, or policy changes.',
     '',
@@ -140,6 +143,17 @@ export function CertificatePage({ lambda }: { lambda: number }) {
             </div>
           </div>
         </div>
+      </Explainer>
+      <Explainer title="Method audit trail" tone="neutral" style={{ marginBottom: 16 }}>
+        <p>
+          CASS is the current committee-search method: it accounts for brittle atoms, shared failures, cost, and release
+          goal weighting. old_cass is preserved as the K&lt;=2 serial interval evidence layer used to make this report
+          auditable.
+        </p>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          External closed-source benchmark priors are not part of this report unless they appear as source-backed,
+          labeled assumptions.
+        </p>
       </Explainer>
       <div className="grid grid-4" style={{ marginBottom: 16 }}>
         <Card>
@@ -638,6 +652,13 @@ function displayArtifactType(value: string) {
 
 function displayAssumptionLabel(label: string) {
   const labels: Record<string, string> = {
+    method_id: 'Method',
+    method_version: 'Method version',
+    method_summary: 'Method summary',
+    evidence_engine: 'Evidence layer',
+    evidence_engine_version: 'Evidence layer version',
+    external_benchmark_priors: 'External benchmark priors',
+    search_policy: 'Search policy',
     aggregation: 'Combination rule',
     max_k: 'Max checks',
     rho_prior: 'Overlap prior',

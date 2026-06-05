@@ -1497,7 +1497,8 @@ class DemoApiTest(unittest.TestCase):
         result = response.json()["result"]
         structured = result["structuredContent"]
         self.assertIn(structured["deploy_gate"]["decision"], {"pass", "review"})
-        self.assertEqual(structured["theory"]["method"], "CASS K<=2 serial safety-check comparison")
+        self.assertEqual(structured["theory"]["method"], "CASS atom-aware correlation-aware committee search")
+        self.assertEqual(structured["theory"]["old_cass"]["method_id"], "old_cass")
         links = {item["uri"] for item in result["content"] if item["type"] == "resource_link"}
         self.assertIn("stackcert://projects/proj_acme_copilot/release-evidence-status", links)
         self.assertIn("stackcert://runs/real_main_2000/theory-card", links)

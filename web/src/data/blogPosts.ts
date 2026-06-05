@@ -90,7 +90,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The research method underneath is CASS: correlation-aware selection of safety-agent ensembles. The product idea is simpler: spend evaluation budget where it can change the launch decision.'
+          'The research method underneath is CASS: atom-aware, correlation-aware search over safety-agent committees. The legacy K<=2 serial interval certificate is now named old_cass and remains useful as an auditable evidence layer.'
       },
       {
         type: 'code',
@@ -107,12 +107,12 @@ export const blogPosts: BlogPost[] = [
         type: 'callout',
         title: 'Headline result',
         body:
-          'At lambda 5, the top-marginal pair had finite-oracle regret of 0.025318. In this finite benchmark, CASS recovered and certified the zero-regret winner at both 25% and 50% measurement budgets.'
+          'At lambda 5, the top-marginal pair had finite-oracle regret of 0.025318. In this finite benchmark, old_cass recovered and certified the zero-regret K<=2 serial winner at both 25% and 50% measurement budgets.'
       },
       {
         type: 'paragraph',
         text:
-          'We also added Qwen3 8B as a stronger feasible local model. It helped at lower safety penalties, but it did not make combination selection obsolete. In the safety-heavy setting, CASS chose a different pair with much lower adversarial miss-through.'
+          'We also added Qwen3 8B as a stronger feasible local model. It helped at lower safety penalties, but it did not make combination selection obsolete. In the safety-heavy setting, the CASS search frame chose a different pair with much lower adversarial miss-through.'
       },
       { type: 'heading', text: 'What release evidence does not mean' },
       {
@@ -129,7 +129,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The rest of this series covers the business case, the theory, the CASS method, the 2,000-example run, and the stronger-model comparison. The throughline is simple: safety-check selection is a scoped decision problem, not a race to add more checks.'
+          'The rest of this series covers the business case, the theory, CASS as the new committee-search frame, old_cass as the retained interval audit layer, the 2,000-example run, and the stronger-model comparison. The throughline is simple: safety-check selection is a scoped decision problem, not a race to add more checks.'
       }
     ]
   },
@@ -213,7 +213,7 @@ export const blogPosts: BlogPost[] = [
         src: '/blog/figures/fig02_budgeted_lambda5_methods.svg',
         alt: 'CASS budgeted lambda 5 methods comparison',
         caption:
-          'In the lambda 5 finite run, CASS certified the zero-regret winner using 13 pair-cells. Broader measurement baselines used many more pair-cells without certifying.'
+          'In the lambda 5 finite run, old_cass certified the zero-regret K<=2 winner using 13 pair-cells. Broader measurement baselines used many more pair-cells without certifying.'
       },
       {
         type: 'paragraph',
@@ -346,7 +346,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'A CASS certificate is a scoped comparison result. It says one candidate combination beats the alternatives under the stated benchmark, weights, risk profile, candidate set, and interval assumptions.'
+          'A StackCert report is a scoped comparison result. Under today\'s implementation, CASS supplies the committee-search frame and old_cass supplies the auditable K<=2 interval evidence. The report says one candidate combination beats the alternatives under the stated benchmark, weights, risk profile, candidate set, and interval assumptions.'
       },
       {
         type: 'paragraph',
@@ -399,7 +399,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'CASS combines the known first-order estimates with bounds on unknown overlap. Each candidate combination gets a lower and upper welfare value. Each head-to-head comparison gets a gap interval. If a candidate can no longer win, CASS stops spending attention on it.'
+          'CASS now describes the broader atom-aware, correlation-aware search policy. The retained old_cass evidence layer combines known first-order estimates with bounds on unknown overlap. Each candidate combination gets a lower and upper welfare value. Each head-to-head comparison gets a gap interval. If a candidate can no longer win, StackCert stops spending attention on it.'
       },
       {
         type: 'quote',
@@ -449,7 +449,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The method also has limits. K=2 pairs are the cleanest case. K>=3 needs residual-aware intervals, which can be conservative. Source shift can weaken conclusions. Local prompted judges are not ground-truth safety classifiers. CASS organizes the decision; it does not replace good examples or careful review.'
+          'The method also has limits. old_cass K=2 pairs are the cleanest auditable interval case. K>=3, quota rules, context recipes, and external priors need separate validation. Source shift can weaken conclusions. Local prompted judges are not ground-truth safety classifiers. CASS organizes the decision; it does not replace good examples or careful review.'
       },
       { type: 'heading', text: 'Why this matters for StackCert' },
       {
@@ -471,8 +471,8 @@ export const blogPosts: BlogPost[] = [
     audience: 'Researchers, safety evaluation teams, and skeptical practitioners',
     summary:
       'The main empirical post: setup, validation, finite-oracle result, budgeted CASS behavior, bootstrap robustness, and limits.',
-    takeaway:
-      'In the safety-heavy regime, marginal selection picked the wrong pair. CASS recovered and certified the full pairwise winner with targeted tests.',
+      takeaway:
+      'In the safety-heavy regime, marginal selection picked the wrong pair. old_cass recovered and certified the full pairwise winner with targeted tests.',
     blocks: [
       {
         type: 'paragraph',

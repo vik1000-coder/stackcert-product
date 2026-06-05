@@ -147,7 +147,7 @@ const pages: Record<string, StaticContent> = {
       { heading: 'Core idea', body: 'Combinations should be evaluated by joint behavior, not just one-at-a-time safety-check scores.' },
       { heading: 'Targeted tests', body: 'StackCert tests overlaps that can change the recommendation instead of measuring every expensive path.' },
       { heading: 'Frontier proof', body: 'The proof page runs this idea on a 240-example support-safety task against xAI Grok 4.3 and local candidate checks.' },
-      { heading: 'CASS details', body: 'The underlying method is CASS: Correlation-Aware Stack Selection, scoped to the example mix, candidate combinations, goal score, and assumptions.' }
+      { heading: 'CASS details', body: 'CASS now means atom-aware, correlation-aware committee search for scoped release evidence. The legacy K<=2 serial interval certificate is retained as old_cass for audit and ablation.' }
     ]
   },
   'replication-kit': {
@@ -183,7 +183,7 @@ const pages: Record<string, StaticContent> = {
       { heading: 'Combination', body: 'The set of safety checks you choose to run for an application workflow.' },
       { heading: 'Overlap', body: 'When two checks miss the same risky examples or block the same normal examples.' },
       { heading: 'Release report', body: 'A scoped review record that says what examples and safety-check combinations were tested, what StackCert recommends, what is not covered, and when to retest.' },
-      { heading: 'CASS', body: 'The underlying method StackCert uses to choose combinations by measuring overlap where it matters.' }
+      { heading: 'CASS', body: 'The underlying method StackCert uses to choose combinations by measuring overlap, brittle atoms, and shared failures where they matter. The old K<=2 interval layer is called old_cass.' }
     ]
   },
   about: {

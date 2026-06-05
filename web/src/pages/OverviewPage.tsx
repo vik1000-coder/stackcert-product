@@ -101,6 +101,19 @@ export function OverviewPage({ lambda }: { lambda: number }) {
           avoided <strong>{fmtUsd(data.stats.cost_avoided_usd)}</strong> of estimated testing spend.
         </p>
       </Explainer>
+      <Explainer title="Method audit trail" tone="neutral" style={{ marginBottom: 16 }}>
+        <p>
+          {data.run.methodology?.display_name ?? 'CASS'} now means atom-aware, correlation-aware committee search for
+          scoped release evidence. This run also records{' '}
+          <strong>{data.run.methodology?.evidence_engine?.display_name ?? 'old_cass'}</strong>, the retained K&lt;=2
+          serial interval layer used for the current finite-sample audit packet.
+        </p>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          {data.run.methodology?.external_benchmark_priors?.applied
+            ? `${data.run.methodology.external_benchmark_priors.count ?? 0} source-backed external prior(s) are labeled in this run.`
+            : 'No closed-source or large-scale benchmark prior is applied unless source-backed priors are explicitly provided.'}
+        </p>
+      </Explainer>
       <div className="grid grid-4" style={{ marginBottom: 16 }}>
         <Card>
           <div className="stat-label">Release posture</div>
@@ -347,6 +360,8 @@ function displayProjectDescription(description: string) {
 
 function displayActivityMessage(message: string) {
   return message
+    .replace('CASS evidence generated; old_cass interval layer recorded for audit.', 'Release report generated with CASS method metadata and old_cass audit accounting.')
+    .replace('CASS evidence generated from uploaded safety-check outputs; old_cass interval layer recorded for audit.', 'Release report generated from uploaded safety-check outputs with old_cass audit accounting.')
     .replace('Scoped certificate generated from CASS engine.', 'Release report generated from the tested app examples.')
     .replace('Release evidence generated from uploaded safety-check outputs.', 'Release report generated from uploaded safety-check outputs.')
     .replace('measurement actions', 'targeted tests')

@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-02
 
-This directory is the living implementation plan for turning the CASS prototype
+This directory is the living implementation plan for turning the StackCert CASS method
 into a production-ready StackCert company product.
 
 ## Current Decision
@@ -16,7 +16,7 @@ release report plus optional release-gate checks.
 The target architecture remains:
 
 - React + Vite + TypeScript for the public site and authenticated app.
-- FastAPI for product APIs and CASS engine orchestration.
+- FastAPI for product APIs and CASS/old_cass evidence orchestration.
 - Supabase Postgres, Auth, and Storage from the beginning.
 - Cloud Run API and worker services for economical horizontal scale.
 - GitHub Actions for test, security, migration, preview, and release workflows.
@@ -89,6 +89,8 @@ Latest primary files:
   contract for GitHub/GitLab/CircleCI/generic deploy systems.
 - `23_design_partner_sales_pack.md`: buyer-facing pilot offer, inclusions,
   exclusions, procurement FAQ, and success criteria.
+- `24_cass_v2_methodology.md`: current CASS naming contract, old_cass audit
+  layer, and public/reporting claim boundary.
 
 ## Current Hosted Demo
 

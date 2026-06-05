@@ -1,23 +1,25 @@
 # Product Language Guide
 
-Last updated: 2026-05-23
+Last updated: 2026-06-05
 
-This guide records the current public and demo vocabulary. It exists because the
-backend and research layer still use CASS-era terms, while the product should be
-understandable to a normal LLM app team.
+This guide records the current public and demo vocabulary. CASS now means the
+current atom-aware, correlation-aware committee-search method. The old K<=2
+serial interval certificate is called `old_cass` when discussed directly. The
+product should still be understandable to a normal LLM app team.
 
 ## Current Positioning
 
-StackCert helps teams choose cost-effective safety-check combinations for LLM
-apps. It compares options on examples from the application the team cares about,
-runs targeted tests where overlap can change the decision, and produces scoped
-release evidence.
+StackCert helps teams choose cost-effective safety-check combinations for
+agentic LLM workflows. It compares rules, classifiers, small model judges,
+frontier fallback routes, context policies, and customer checks on examples from
+the workflow the team cares about, then produces scoped release evidence.
 
 The plain-English value proposition:
 
-- Safer results because combinations are judged on app-specific unsafe and normal
-  examples.
-- Lower cost because StackCert avoids testing every possible overlap.
+- Safer agent workflows because combinations are judged on workflow-specific
+  unsafe and normal examples.
+- Lower cost because StackCert finds when small-model combinations are enough and
+  when frontier fallback is still needed.
 - Better scale because teams can repeat the workflow across apps, releases, and
   retest triggers.
 - Clearer review because the evidence says what was tested, what was not tested,
@@ -61,25 +63,26 @@ Acceptable exceptions:
 - API routes and scripts can keep compatibility names such as
   `certificate-status`.
 - Methodology pages can say "CASS" after explaining it in plain English.
+- Historical K<=2 results and interval-engine details should say `old_cass`.
 - Internal engineering docs can name the backend fields when needed.
 
 ## Landing Page Story
 
 The landing page should teach the problem before naming the method:
 
-1. LLM app teams have many safety options.
+1. Agentic workflow teams have many safety options.
 2. Common shortcuts are flawed: pick the best single check, use a more expensive
    model, add lots of context, or test every combination.
-3. The real question is which combination works for this application.
-4. StackCert compares combinations on app examples and runs only decision-changing
-   overlap tests.
+3. The real question is which combination works for this workflow.
+4. StackCert compares combinations on workflow examples and runs only
+   decision-changing overlap tests.
 5. The result is a recommendation plus release evidence that is safer, cheaper,
    and easier to scale.
 
 Current hero:
 
 ```text
-Choose the right safety checks for your LLM app.
+Make agentic workflows cheaper and safer to release.
 ```
 
 ## Demo Dashboard Story

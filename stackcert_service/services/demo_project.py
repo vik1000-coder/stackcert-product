@@ -11,8 +11,9 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from stackcert.cass.certificates import CassEngine
+from stackcert.cass.methodology import cass_methodology, cass_scope_text
 from stackcert.cass.moments import pair_key
+from stackcert.cass.old_cass import OldCassEngine as CassEngine
 from stackcert.cass.scheduler import SchedulerResult, greedy_measurement_plan
 from stackcert.cass.welfare import welfare_from_sides
 from stackcert.data.importers import infer_guards_from_outputs, load_examples_jsonl, load_guard_outputs_jsonl
@@ -202,6 +203,7 @@ def run_summary(lambda_cost: float = 5.0) -> dict[str, Any]:
         "certificate_id": certificate.certificate_id,
         "certificate_status": compact_status(certificate.status),
         "measurement_actions": len(scheduled.actions),
+        "methodology": cass_methodology(max_k=engine.max_k, rho_prior=engine.rho_prior),
     }
 
 
@@ -284,7 +286,7 @@ def overview(lambda_cost: float = 5.0) -> dict[str, Any]:
             "status": compact_status(certificate.status),
             "raw_status": certificate.status,
             "generated_at": certificate.generated_at,
-            "scope": "Finite benchmark mixture, candidate stack set, K=2 serial aggregation.",
+            "scope": cass_scope_text(evidence_source="demo"),
             "limitations": list(certificate.limitations),
         },
         "recommended_stack": recommended,
@@ -313,7 +315,7 @@ def overview(lambda_cost: float = 5.0) -> dict[str, Any]:
             for cell in engine.cells
         ],
         "activity": [
-            {"kind": "certificate", "message": "Scoped certificate generated from CASS engine.", "tone": "ok"},
+            {"kind": "certificate", "message": "CASS evidence generated; old_cass interval layer recorded for audit.", "tone": "ok"},
             {
                 "kind": "planner",
                 "message": f"{len(scheduled.actions)} measurement actions selected by bundle-greedy planner.",
@@ -494,7 +496,7 @@ def drift(lambda_cost: float = 5.0) -> dict[str, Any]:
                 "id": "recert_demo_001",
                 "status": run["certificate_status"],
                 "run_id": run["id"],
-                "summary": "Seeded demo run generated from current CASS evidence matrix.",
+                "summary": "Seeded demo run generated from the sample evidence matrix with old_cass audit accounting.",
             }
         ],
     }

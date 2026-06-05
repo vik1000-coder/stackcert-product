@@ -901,7 +901,7 @@ def _execute_demo_evaluation_job(job: dict[str, Any], payload: EvaluationJobCrea
     job["artifact_preview"] = preview
     job["next_steps"] = [
         "Persist full outputs to Supabase Storage and guard_outputs for large customer suites.",
-        "Recompute CASS certificate after approved outputs land.",
+        "Recompute CASS release evidence after approved outputs land.",
     ]
     return job
 
@@ -1118,7 +1118,7 @@ def _execute_measurement_plan_job(job: dict[str, Any]) -> dict[str, Any]:
     }
     job["usage_preview"] = recorded_events[:8]
     job["next_steps"] = [
-        "Recompute the CASS certificate after these measurements land in the run output table.",
+        "Recompute the CASS release evidence after these measurements land in the run output table.",
         "Review actual spend against the selected plan before queueing additional measurements.",
     ]
     return job

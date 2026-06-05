@@ -116,6 +116,15 @@ def render_certificate_markdown(certificate: StackCertificate, engine: CassEngin
         f"- Certified stack: `{arch_label(certificate.certified_architecture.guard_ids) if certificate.certified_architecture else 'None'}`",
         f"- Welfare profile: `{certificate.welfare_profile.name}` with lambda `{certificate.welfare_profile.lambda_cost}`",
         "",
+        "## Methodology",
+        "",
+        f"- Method: `{certificate.assumptions.get('method_id', 'cass')}`",
+        f"- Method version: `{certificate.assumptions.get('method_version', 'cass-v2-atom-correlation-search')}`",
+        f"- Evidence engine: `{certificate.assumptions.get('evidence_engine', 'old_cass')}`",
+        f"- Evidence engine version: `{certificate.assumptions.get('evidence_engine_version', 'old_cass-k2-serial-interval-v1')}`",
+        "- Interpretation: CASS is the current atom-aware, correlation-aware committee search policy. old_cass is the retained K<=2 serial interval evidence layer used for this packet.",
+        "- External priors: no closed-source or large-scale benchmark prior is applied unless source-backed priors are explicitly provided.",
+        "",
         "## Benchmark Mixture",
         "",
         "| cell | side | source | normalized weight | examples |",
@@ -178,4 +187,3 @@ def write_certificate_markdown(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_certificate_markdown(certificate, engine=engine), encoding="utf-8")
-

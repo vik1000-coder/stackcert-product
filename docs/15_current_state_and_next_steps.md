@@ -167,7 +167,7 @@ StackCert is now a usable prototype with a real product shape:
   through `/api/onboarding/pilots`, stores the project pilot profile in
   Supabase, and routes the user to the setup section that matches their first
   evidence source.
-- FastAPI service around the Python CASS engine.
+- FastAPI service around the Python CASS method metadata and old_cass evidence engine.
 - Supabase schema, Auth integration, RLS smoke coverage, and remote free-tier
   migration history.
 - Hosted staging demo using Cloudflare Workers static assets for the frontend,
@@ -175,9 +175,10 @@ StackCert is now a usable prototype with a real product shape:
   traffic.
 - GitHub Actions workflows for CI, fallback GitHub Pages deployment, and
   Cloudflare Workers staging deployment after CI succeeds.
-- CASS core with exact K<=2 serial safety-check combination scoring,
-  comparison intervals, targeted measurement recommendations, and evidence
-  export.
+- CASS product surfaces now expose `cass-v2-atom-correlation-search`; the
+  retained `old_cass-k2-serial-interval-v1` engine supplies exact K<=2 serial
+  safety-check combination scoring, comparison intervals, targeted measurement
+  recommendations, and evidence export.
 - Uploaded-output pilot path: users can create a project, commit an example
   suite, upload safety-check outputs, generate a CASS-backed recommendation,
   inspect rankings/overlap/measurements, and issue scoped release evidence.
@@ -473,8 +474,9 @@ Do not overstate the current release evidence. It is scoped to:
 - the benchmark/example mixture;
 - safety-check versions and thresholds;
 - model, prompt, tool, retrieval, and traffic assumptions;
-- K<=2 serial aggregation in the current CASS engine;
+- K<=2 serial aggregation in the current old_cass evidence engine;
 - the candidate stack set evaluated in the run.
+- the explicit CASS/old_cass methodology boundary shown in the report.
 
 The hosted Edge Function demo does not replace the Python FastAPI/worker path.
 Provider-grade evaluation, retries, budgets, and durable artifact writes belong

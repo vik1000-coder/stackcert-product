@@ -6,6 +6,13 @@ from typing import Any
 from fastapi import HTTPException, status
 from pydantic import ValidationError
 
+from stackcert.cass.methodology import (
+    CASS_METHOD_ID,
+    CASS_METHOD_VERSION,
+    OLD_CASS_METHOD_ID,
+    OLD_CASS_METHOD_VERSION,
+    cass_methodology,
+)
 from stackcert_service.config import settings
 from stackcert_service.security import access
 from stackcert_service.security.auth import Principal
@@ -156,7 +163,7 @@ def list_tools() -> list[dict[str, Any]]:
         {
             "name": "get_run_theory_card",
             "title": "Get CASS Theory Card",
-            "description": "Explain the CASS K<=2 serial-stack math, assumptions, interval accounting, and diagnostics for a run.",
+            "description": "Explain the CASS v2 method, old_cass evidence layer, assumptions, interval accounting, and diagnostics for a run.",
             "inputSchema": {
                 "type": "object",
                 "required": ["run_id"],
@@ -497,7 +504,7 @@ def get_prompt_for_principal(name: str, arguments: dict[str, Any] | None = None,
         card = theory_card(run_id)
         text = (
             "Audit whether this release decision stays inside the CASS evidence scope. "
-            "Check finite benchmark mixture, K<=2 serial aggregation, rho_prior/feasible-bound assumptions, candidate set, "
+            "Check finite benchmark mixture, CASS v2 method scope, old_cass K<=2 interval accounting, rho_prior/feasible-bound assumptions, candidate set, "
             f"unmeasured interval accounting, and recertification triggers. Theory card: {json.dumps(card, sort_keys=True)}"
         )
         return _prompt_result("Audit CASS release-evidence assumptions.", text)
@@ -583,8 +590,16 @@ def theory_card(run_id: str, lambda_cost: float = 5.0) -> dict[str, Any]:
     pair_cells_measured = int(stats.get("pair_cells_measured") or 0)
     return {
         "run_id": run_id,
-        "method": "CASS K<=2 serial safety-check comparison",
-        "theory_version": "cass-k2-serial-v1",
+        "method": "CASS atom-aware correlation-aware committee search",
+        "method_id": CASS_METHOD_ID,
+        "theory_version": CASS_METHOD_VERSION,
+        "methodology": overview["run"].get("methodology")
+        or cass_methodology(max_k=overview["run"]["k"], rho_prior=overview["run"]["rho_prior"]),
+        "old_cass": {
+            "method_id": OLD_CASS_METHOD_ID,
+            "theory_version": OLD_CASS_METHOD_VERSION,
+            "role": "auditable K<=2 serial interval evidence layer",
+        },
         "status": overview["certificate"]["status"],
         "not_a_guarantee": True,
         "formulae": THEORY_FORMULAE,
@@ -615,7 +630,8 @@ def theory_card(run_id: str, lambda_cost: float = 5.0) -> dict[str, Any]:
             "measurement_summary": measurements["summary"],
         },
         "interpretation": [
-            "A valid status means the recommended stack wins under the scoped CASS comparison interval, not that the deployed agent is universally safe.",
+            "A valid status means the recommended stack wins under scoped CASS evidence, not that the deployed agent is universally safe.",
+            "old_cass is retained as the auditable K<=2 interval layer for the current evidence packet.",
             "A provisional status means the best lower-bound recommendation should be reviewed and can often be tightened with the listed measurement actions.",
             "Retest when examples, weights, safety-check versions, model versions, prompts, tools, retrieval corpora, or traffic mix change.",
         ],
@@ -640,6 +656,9 @@ def release_evidence_packet(run_id: str, lambda_cost: float = 5.0) -> dict[str, 
     packet = {key: value for key, value in payload.items() if key != "markdown"}
     packet["run_id"] = run_id
     packet["not_a_guarantee"] = True
+    overview = _overview_for_run(run_id, lambda_cost)
+    packet["methodology"] = overview["run"].get("methodology")
+    packet["scope"] = overview["certificate"].get("scope")
     return packet
 
 
@@ -945,7 +964,7 @@ def _resource_links_for_status(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     "type": "resource_link",
                     "uri": f"stackcert://runs/{run_id}/theory-card",
                     "name": "theory-card",
-                    "description": "CASS theory and interval accounting.",
+                    "description": "CASS method card and old_cass interval accounting.",
                     "mimeType": "application/json",
                 },
             ]
@@ -956,7 +975,15 @@ def _resource_links_for_status(payload: dict[str, Any]) -> list[dict[str, Any]]:
 def _theory_summary_from_overview(overview: dict[str, Any], ranking: dict[str, Any]) -> dict[str, Any]:
     stats = overview["stats"]
     return {
-        "method": "CASS K<=2 serial safety-check comparison",
+        "method": "CASS atom-aware correlation-aware committee search",
+        "method_id": CASS_METHOD_ID,
+        "method_version": CASS_METHOD_VERSION,
+        "old_cass_engine": OLD_CASS_METHOD_VERSION,
+        "old_cass": {
+            "method_id": OLD_CASS_METHOD_ID,
+            "theory_version": OLD_CASS_METHOD_VERSION,
+            "role": "auditable K<=2 serial interval evidence layer",
+        },
         "aggregation": "serial",
         "max_k": overview["run"]["k"],
         "lambda_cost": overview["run"]["lambda_cost"],

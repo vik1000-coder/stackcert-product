@@ -12,8 +12,9 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from stackcert.cass.certificates import CassEngine
+from stackcert.cass.methodology import cass_methodology, cass_scope_text
 from stackcert.cass.moments import pair_key
+from stackcert.cass.old_cass import OldCassEngine as CassEngine
 from stackcert.cass.scheduler import SchedulerResult, greedy_measurement_plan
 from stackcert.cass.welfare import welfare_from_sides
 from stackcert.data.importers import infer_guards_from_outputs
@@ -383,6 +384,7 @@ def run_summary(run_id: str) -> dict[str, Any]:
         "benchmark_suite_id": run.get("benchmark_suite_id"),
         "benchmark_suite_name": run.get("benchmark_suite_name"),
         "release_context": _run_release_context(bundle),
+        "methodology": cass_methodology(max_k=engine.max_k, rho_prior=engine.rho_prior),
         "created_at": run.get("created_at"),
         "completed_at": run.get("completed_at"),
         "source": run.get("source"),
@@ -413,7 +415,7 @@ def overview(run_id: str, lambda_cost: float | None = None) -> dict[str, Any]:
             "status": compact_status(certificate.status),
             "raw_status": certificate.status,
             "generated_at": certificate.generated_at,
-            "scope": "Uploaded-output pilot suite, candidate safety-check set, K=2 serial aggregation.",
+            "scope": cass_scope_text(evidence_source="pilot"),
             "limitations": list(certificate.limitations),
         },
         "recommended_stack": recommended,
@@ -442,7 +444,7 @@ def overview(run_id: str, lambda_cost: float | None = None) -> dict[str, Any]:
             for cell in engine.cells
         ],
         "activity": [
-            {"kind": "certificate", "message": "Release evidence generated from uploaded safety-check outputs.", "tone": "ok"},
+            {"kind": "certificate", "message": "CASS evidence generated from uploaded safety-check outputs; old_cass interval layer recorded for audit.", "tone": "ok"},
             {"kind": "planner", "message": f"{len(scheduled.actions)} targeted tests remain available if reviewers want tighter intervals.", "tone": "neutral"},
             {"kind": "drift", "message": "Retest when examples, safety checks, prompts, tools, or traffic mix changes.", "tone": "warn"},
         ],

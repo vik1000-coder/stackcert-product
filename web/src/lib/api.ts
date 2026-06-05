@@ -43,6 +43,29 @@ export type RunSummary = {
   completed_at?: string;
   source?: string;
   release_context?: Record<string, unknown>;
+  methodology?: CassMethodology;
+};
+
+export type CassMethodology = {
+  method_id: string;
+  method_version: string;
+  display_name?: string;
+  summary?: string;
+  search_policy?: Record<string, unknown>;
+  evidence_engine?: {
+    method_id?: string;
+    method_version?: string;
+    display_name?: string;
+    scope?: string;
+    max_k?: number | null;
+    rho_prior?: number | null;
+  };
+  external_benchmark_priors?: {
+    applied?: boolean;
+    count?: number;
+    policy?: string;
+  };
+  claim_boundaries?: string[];
 };
 
 export type SamplePilot = {

@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from stackcert.cass.methodology import CASS_METHOD_VERSION, OLD_CASS_METHOD_VERSION
 from stackcert_service.config import settings
 from stackcert_service.schemas import ReleaseGateEvaluateRequest
 from stackcert_service.services import guard_connectors
@@ -85,7 +86,10 @@ def evaluate_project_gate(project_id: str, payload: ReleaseGateEvaluateRequest) 
         "assumptions": {
             "not_a_guarantee": True,
             "scope": evidence.get("scope"),
-            "cass_scope": "finite benchmark mixture, configured safety-check versions, K<=2 serial CASS comparison",
+            "cass_scope": "CASS v2 scoped committee search; old_cass K<=2 serial interval evidence supplies this finite benchmark packet",
+            "method_version": CASS_METHOD_VERSION,
+            "old_cass_engine": OLD_CASS_METHOD_VERSION,
+            "methodology": evidence.get("methodology") or evidence.get("theory", {}).get("methodology"),
             "context_binding": _context_binding_assumptions(payload),
             "release_context": {
                 "environment": payload.environment,

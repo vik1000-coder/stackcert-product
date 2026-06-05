@@ -162,11 +162,11 @@ def evidence_readiness(run_id: str, lambda_cost: float = 5.0) -> dict[str, Any]:
         blockers.append(
             _readiness_item(
                 "invalid_certificate_status",
-                "The current CASS result is not valid enough to issue release evidence.",
+                "The current CASS evidence packet is not valid enough to issue release evidence.",
                 {"certificate_status": certificate_status},
             )
         )
-        checks.append(_readiness_check("cass_status", "CASS status", "blocked", f"Current status is {certificate_status}."))
+        checks.append(_readiness_check("cass_status", "CASS evidence status", "blocked", f"Current status is {certificate_status}."))
     elif certificate_status != "valid":
         warnings.append(
             _readiness_item(
@@ -175,9 +175,9 @@ def evidence_readiness(run_id: str, lambda_cost: float = 5.0) -> dict[str, Any]:
                 {"certificate_status": certificate_status},
             )
         )
-        checks.append(_readiness_check("cass_status", "CASS status", "warning", f"Current status is {certificate_status}."))
+        checks.append(_readiness_check("cass_status", "CASS evidence status", "warning", f"Current status is {certificate_status}."))
     else:
-        checks.append(_readiness_check("cass_status", "CASS status", "passed", "CASS found a valid selected combination."))
+        checks.append(_readiness_check("cass_status", "CASS evidence status", "passed", "CASS found a valid selected combination with old_cass interval accounting recorded for audit."))
 
     measurement_actions = int(run.get("measurement_actions") or 0)
     if measurement_actions:

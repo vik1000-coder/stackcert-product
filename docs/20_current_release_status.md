@@ -1,6 +1,6 @@
 # Current Release Status
 
-Last updated: 2026-06-02 19:21 UTC
+Last updated: 2026-06-05
 
 This is the concise status page for the deployed StackCert staging system. Use
 it when checking whether local code, GitHub, Supabase, Cloud Run, and
@@ -11,15 +11,11 @@ Cloudflare agree.
 - Repository: `vik1000-coder/stackcert-product`
 - Branch: `codex/design-partner-deployability-discovery` for the current
   deployability PR; `main` remains the release base.
-- Latest pushed hosted-pilot hardening commit: `b0b5219` (`Harden hosted pilot
-  workflow`).
-- Latest deployed API image from this branch:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:b0b5219-staging-202606021930-amd64`.
-- Latest manual Cloudflare staging deploy from this branch before the
-  deployment-status docs refresh: Worker version
-  `c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0`. Use
-  `npx wrangler deployments list --name stackcert-staging` for the newest live
-  version ID, because this docs refresh can create a later static deployment.
+- Current branch work adopts CASS v2 positioning and product surfaces while
+  preserving `old_cass` as the legacy K<=2 serial interval evidence engine.
+- Use `git log -1 --oneline`, `gcloud run services describe stackcert-api`, and
+  `npx wrangler deployments list --name stackcert-staging` for exact live
+  commit, Cloud Run revision/image, and Cloudflare Worker version IDs.
 - Release path: pushes to `main` run `ci`, the GitHub Pages fallback deploy,
   and then the Cloudflare Worker deploy after CI succeeds.
 - Latest audit result:
@@ -98,7 +94,8 @@ Supabase:
 ## Current Product Capabilities
 
 - Public landing pages, auth, guided onboarding, project setup, and the app
-  workbench are live.
+  workbench are live. The landing page now leads with cheaper, safer agentic
+  workflow release evidence.
 - Public `/proof` page is live with the support-copilot prompt-safety proof
   pack, Grok 4.3 baseline, local-combination comparison, explicit voting rule,
   task-specific benchmark slices, example input/output summaries, cost
@@ -106,12 +103,17 @@ Supabase:
 - Public design-partner pages are live for pilot readiness, integrations,
   procurement, support, security/privacy positioning, sitemap, and `llms.txt`.
 - CASS-backed recommendation, ranking, overlap, measurement, cost, release
-  evidence, and retest views are live for the demo project.
+  evidence, and retest views are live for the demo project. Public methodology
+  and app surfaces distinguish current `cass-v2-atom-correlation-search` from
+  historical `old_cass-k2-serial-interval-v1`.
 - Uploaded-output pilot flow persists benchmark suites, outputs, runs,
   readiness, and issued evidence.
-- Safe sample pilot templates can be duplicated into private projects. Seeded
-  fixture runs are marked `template_seeded` and the app warns buyers to replace
-  sample evidence before relying on a release claim.
+- Safe sample pilot templates can be duplicated into private projects. Current
+  templates cover customer support, internal assistants, and agentic workflows
+  with 12 examples and 5 candidate checks each, including small-model judges and
+  frontier fallback routes. Seeded fixture runs are marked `template_seeded` and
+  the app warns buyers to replace sample evidence before relying on a release
+  claim.
 - Private pilot setup now leads with uploaded-output tasks: matching example
   and output templates, stable `external_id`/`example_id` contract,
   output-coverage preview, release-context fields, run creation, report/gate

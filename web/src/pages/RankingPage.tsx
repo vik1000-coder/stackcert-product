@@ -36,7 +36,8 @@ export function RankingPage({ lambda }: { lambda: number }) {
         <p>
           This table answers: <strong>which combination should this app ship?</strong> The shortcut is to score each
           safety option on its own and combine those scores. StackCert also checks whether options fail together, which
-          is why the obvious pick can move down.
+          is why the obvious pick can move down. CASS is the atom-aware, correlation-aware search layer; old_cass remains
+          the auditable K&lt;=2 interval evidence layer for this current report.
         </p>
       </Explainer>
       <Card style={{ marginBottom: 14 }}>

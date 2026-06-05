@@ -47,7 +47,11 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Know which.*LLM safety checks.*to ship before release/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Make agentic.*workflows cheaper.*and safer to release/i })).toBeInTheDocument();
+    expect(screen.getByText(/Tool-using agents need release evidence/i)).toBeInTheDocument();
+    expect(screen.getByText(/Compare SOTA fallback, a single small model, and small-model combinations/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Best local single check/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/StackCert local pair/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/An LLM app has many safety options/i)).toBeInTheDocument();
     expect(screen.getByText(/Choosing the combination is the hard part/i)).toBeInTheDocument();
     expect(screen.getByText(/What teams often do instead/i)).toBeInTheDocument();
