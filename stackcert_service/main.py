@@ -277,8 +277,7 @@ def create_onboarding_pilot(payload: OnboardingPilotCreate, principal: Principal
 
 
 @app.get("/api/sample-pilots")
-def list_sample_pilots(principal: PrincipalDep) -> dict[str, object]:
-    access.require_app_principal(principal)
+def list_sample_pilots() -> dict[str, object]:
     return {"sample_pilots": sample_pilots.list_templates()}
 
 

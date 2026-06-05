@@ -223,6 +223,19 @@ class SellableReadyControlsTest(unittest.TestCase):
         self.assertEqual(config.status_code, 200, config.text)
         self.assertEqual(config.json()["config_import"]["status"], "valid")
 
+    def test_sample_pilot_listing_is_public_but_duplication_requires_auth(self) -> None:
+        old_environment = settings.environment
+        object.__setattr__(settings, "environment", "production")
+        try:
+            samples = self.client.get("/api/sample-pilots")
+            self.assertEqual(samples.status_code, 200, samples.text)
+            self.assertEqual(len(samples.json()["sample_pilots"]), 3)
+
+            duplicate = self.client.post("/api/sample-pilots/customer_support/duplicate", json={"mode": "with_fixture_run"})
+            self.assertEqual(duplicate.status_code, 401)
+        finally:
+            object.__setattr__(settings, "environment", old_environment)
+
     def test_live_connector_validation_gates_worker_runs(self) -> None:
         project_id = self._create_private_pilot()
         suite_id = self._create_minimal_suite(project_id)
