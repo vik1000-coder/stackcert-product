@@ -53,7 +53,7 @@ Done:
   390px, and `/app/ws_demo/proj_acme_copilot/setup` at 390px with no console
   warnings/errors and no horizontal overflow.
 - Cloudflare Worker static-header deployment is live as version
-  `9a8a81e3-9825-4e60-8926-587a81b0f32f`; live root responses include CSP,
+  `423d5df7-05a2-4e35-a563-7e2287dfe6b6`; live root responses include CSP,
   HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy, and nosniff.
 - Authenticated hosted smokes passed on 2026-06-05: Supabase sign-in,
   authenticated `/api/projects`, MCP release evidence, uploaded-output pilot,

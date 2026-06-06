@@ -25,9 +25,9 @@ What changed in this pass:
 - Cloudflare Workers now applies static security headers to asset responses:
   CSP, HSTS, frame denial, referrer policy, permissions policy, and MIME
   sniffing protection.
-- The staging Cloud Run API was redeployed as revision
-  `stackcert-api-00023-rvx` with project-scoped signed release-gate webhook
-  secret configuration.
+- The staging Cloud Run API was redeployed through commit `fb1e7b0` as
+  revision `stackcert-api-00024-nkf`, with project-scoped signed release-gate
+  webhook secret configuration preserved.
 - Frontend routes are code-split; the previous Vite production bundle warning
   is gone and the main JS chunk is about 285 kB.
 - Mobile setup anchor scrolling now accounts for the sticky header.
@@ -75,13 +75,13 @@ uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-staging.sa
 
 uv run python scripts/hosted_uploaded_output_pilot_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
   -> hosted uploaded-output pilot smoke OK:
-     project=84749071-5221-4df8-8cea-bbf47d3184c0 run=run_a1d690445ed5
+     project=c189a5ce-cc43-45bc-9908-476b5de3378b run=run_00af6c55f7a6
 
 uv run python scripts/release_gate_webhook_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --project-id proj_acme_copilot
   -> release-gate webhook smoke OK: decision=pass
 
 uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted> --project-id project-e7840c42-f298-4bd9-bff --region us-central1
-  -> cloud run worker smoke OK: job_46bc4f7b2749 complete
+  -> cloud run worker smoke OK: job_00e06dd52e0c complete
 
 uv run python scripts/design_partner_ops_check.py --evidence-json artifacts/design-partner-ops-evidence.json --strict
   -> status ready

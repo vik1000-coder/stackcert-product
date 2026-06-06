@@ -13,6 +13,9 @@ Cloudflare agree.
   deployability PR; `main` remains the release base.
 - Current branch work adopts CASS v2 positioning and product surfaces while
   preserving `old_cass` as the legacy K<=2 serial interval evidence engine.
+- Latest deployed code commit: `fb1e7b0` (`Harden design-partner launch
+  readiness`), pushed to `codex/design-partner-deployability-discovery` and
+  deployed to Cloud Run/Cloudflare on 2026-06-06.
 - Use `git log -1 --oneline`, `gcloud run services describe stackcert-api`, and
   `npx wrangler deployments list --name stackcert-staging` for exact live
   commit, Cloud Run revision/image, and Cloudflare Worker version IDs.
@@ -58,9 +61,9 @@ Cloudflare Workers:
 
 - Worker: `stackcert-staging`
 - Deployment status: verified through direct `wrangler deploy` during this
-  audit from commit `f7c7f86` plus local Worker/header changes.
+  audit from commit `fb1e7b0`.
 - Current verified version ID:
-  `9a8a81e3-9825-4e60-8926-587a81b0f32f`
+  `423d5df7-05a2-4e35-a563-7e2287dfe6b6`
 - Behavior: serves `web/dist` static assets and proxies `/api/*` plus
   `/api/mcp` and `/openapi.json` to Cloud Run.
 
@@ -68,9 +71,9 @@ Cloud Run API:
 
 - Service: `stackcert-api`
 - Region: `us-central1`
-- Latest ready revision: `stackcert-api-00023-rvx`
+- Latest ready revision: `stackcert-api-00024-nkf`
 - Image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:f7c7f86-staging-202606051620-amd64`
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:fb1e7b0-staging-202606061802-amd64`
 - Traffic: 100% to latest revision
 - Scale guardrails: min instances `0`, max instances `3`, concurrency `40`
 - GCP budget guardrail: `StackCert staging $50`
@@ -177,13 +180,13 @@ uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-staging.sa
 
 uv run python scripts/hosted_uploaded_output_pilot_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
   -> hosted uploaded-output pilot smoke OK:
-     project=84749071-5221-4df8-8cea-bbf47d3184c0 run=run_a1d690445ed5
+     project=c189a5ce-cc43-45bc-9908-476b5de3378b run=run_00af6c55f7a6
 
 uv run python scripts/release_gate_webhook_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --project-id proj_acme_copilot
   -> release-gate webhook smoke OK: decision=pass
 
 uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted> --project-id project-e7840c42-f298-4bd9-bff --region us-central1
-  -> cloud run worker smoke OK: job_46bc4f7b2749 complete
+  -> cloud run worker smoke OK: job_00e06dd52e0c complete
 
 uv run python scripts/design_partner_ops_check.py --evidence-json artifacts/design-partner-ops-evidence.json --strict
   -> status ready
