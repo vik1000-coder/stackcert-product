@@ -18,12 +18,19 @@ The plain-English value proposition:
 
 - Safer agent workflows because combinations are judged on workflow-specific
   unsafe and normal examples.
-- Lower cost because StackCert finds when small-model combinations are enough and
-  when frontier fallback is still needed.
+- Lower cost because StackCert finds the cheapest defensible release path: a
+  local/open-weight committee when it is enough, a frontier fallback when it
+  changes the decision, or a human-review gate when automation is not ready.
 - Better scale because teams can repeat the workflow across apps, releases, and
   retest triggers.
 - Clearer review because the evidence says what was tested, what was not tested,
   and when it must be refreshed.
+
+The commercial posture is service-led product. Early buyers should experience
+StackCert as a guided diagnostic or design-partner pilot backed by software, not
+as a blank self-serve SaaS form that pretends to know the buyer's risk policy.
+The software should make the work repeatable; the first paid outcome is a
+defensible release report.
 
 ## Preferred Terms
 
@@ -82,7 +89,15 @@ The landing page should teach the problem before naming the method:
 Current hero:
 
 ```text
-Make agentic workflows cheaper and safer to release.
+Find the cheapest defensible release path for your AI agent.
+```
+
+Avoid saying "small models beat frontier models" as a general claim. Say:
+
+```text
+StackCert compares frontier baselines, open-weight judges, guard models,
+customer controls, and hybrid routes, then shows which path is defensible for
+this workflow.
 ```
 
 ## Demo Dashboard Story
@@ -131,3 +146,18 @@ The evidence should always show:
 - retest triggers;
 - signoff state;
 - export links.
+
+## Pricing Language
+
+Use service-led package language until repeat usage is proven:
+
+- `Sample Sandbox`: free sample pilot with clearly marked template evidence.
+- `Diagnostic Sprint`: $5k-$10k for benchmark design, candidate mapping, a
+  small replay, and go/no-go memo.
+- `Design Partner Pilot`: $15k-$35k for one private workflow, buyer examples,
+  candidate checks/routes, a release report, review call, and retest plan.
+- `Production Evidence Program`: $4k-$12k/month for repeated reports, retests,
+  reviewer seats, audit history, and release-gate integrations.
+
+Provider costs are customer-paid or explicitly budgeted. Do not imply unlimited
+frontier benchmarking in a fixed pilot price.

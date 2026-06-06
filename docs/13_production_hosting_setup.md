@@ -762,29 +762,47 @@ differences.
 ## Design-Partner Observability
 
 The first deployable customer posture is a design-partner uploaded-output
-pilot. Configure these before real customer artifacts:
+pilot. Staging now has health uptime checks, log-based alert policies, and a
+Supabase schema restore rehearsal. Complete or extend these before real
+customer artifacts:
 
-- FastAPI: set `SENTRY_DSN` and `STACKCERT_RELEASE_VERSION` on Cloud Run.
-- Web: set `VITE_SENTRY_DSN` and `VITE_STACKCERT_RELEASE_VERSION` at build
-  time.
+- Release identity: set `STACKCERT_RELEASE_VERSION` on Cloud Run and
+  `VITE_STACKCERT_RELEASE_VERSION` at build time.
+- Error reporting: Sentry is intentionally skipped for the current hardening
+  pass; add `SENTRY_DSN`/`VITE_SENTRY_DSN` only when the team chooses Sentry or
+  another customer-safe error-reporting owner.
 - Cloud Run log-based alerts:
   - API 5xx responses on `stackcert-api`;
   - worker dead-letter events or failed `stackcert-worker` executions;
   - repeated provider `rate_limited`, `timeout`, or `provider_unavailable`
     errors;
   - release-gate or release-gate webhook errors.
+- Alert routing:
+  - staging alert policies currently route to notification channel
+    `projects/project-e7840c42-f298-4bd9-bff/notificationChannels/12163037838207638915`;
+  - verify the email channel with Google Cloud if prompted;
+  - record the support owner, escalation channel, response window, and rollback
+    contact.
 - Uptime checks:
-  - Cloudflare app root;
-  - same-origin `/api/health`;
-  - authenticated `/api/projects` with the smoke user;
-  - release-gate evaluate call with the demo project.
+  - direct Cloud Run `/api/health`;
+  - Cloudflare same-origin `/api/health`;
+  - authenticated `/api/projects` with the smoke user, once a credentialed
+    monitor is approved;
+  - release-gate evaluate call with the demo project, once a safe monitor
+    secret is approved.
 - Backup/restore rehearsal:
-  - export Supabase Postgres backup metadata;
+  - staging full restore rehearsal tooling is available at
+    `scripts/supabase_restore_rehearsal.py`;
+  - latest run restored `public,private,storage` plus Storage metadata into
+    disposable `postgres:17-alpine`;
+  - before paid production, export Supabase Postgres and Storage backup
+    metadata;
   - restore to a non-production target;
-  - verify a workspace, project, release report, artifact metadata, and audit
-    event can be read;
-  - record the evidence in `docs/21_design_partner_pilot_checklist.md` or the
-    internal launch tracker.
+  - verify a workspace, project, release report, artifact metadata, audit event,
+    and private artifact can be read;
+  - record the evidence in `docs/21_design_partner_pilot_checklist.md`,
+    `artifacts/design-partner-ops-evidence.json`, or the internal launch
+    tracker.
 
 ## Production Usability Checklist
 

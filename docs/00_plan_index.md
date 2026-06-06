@@ -1,6 +1,6 @@
 # StackCert Production Plan Index
 
-Last updated: 2026-06-02
+Last updated: 2026-06-05
 
 This directory is the living implementation plan for turning the StackCert CASS method
 into a production-ready StackCert company product.
@@ -91,6 +91,9 @@ Latest primary files:
   exclusions, procurement FAQ, and success criteria.
 - `24_cass_v2_methodology.md`: current CASS naming contract, old_cass audit
   layer, and public/reporting claim boundary.
+- `25_launch_readiness_artifacts.md`: Auth email setup, customer data terms,
+  first-pilot execution, adapter intake, and provider-throttling evidence
+  templates for launch.
 
 ## Current Hosted Demo
 
@@ -155,10 +158,16 @@ handling, export verification, readiness diagnostics, managed connector-secret
 refs, retry/dead-letter controls, lease renewal, an independent Cloud Run
 worker job, workspace admin operations, uploaded-output setup polish, signed
 deployment webhooks, provider-health/admin surfaces, proof positioning, and
-design-partner public pages. The current priority is external production
-readiness: authenticated hosted smoke, non-Sentry ops evidence, backup/restore
-rehearsal, Auth email setup, alert/uptime checks, and the first real
-design-partner uploaded-output pilot. See
+design-partner public pages. The 2026-06-05 production-readiness pass also
+verified authenticated hosted smokes, uploaded-output pilot smoke, signed
+webhook smoke, Cloud Run worker smoke, Cloudflare security headers,
+non-Sentry ops evidence, Google Cloud uptime checks/log alerts, alert
+notification routing, Supabase schema/full Storage-metadata restore rehearsal,
+and frontend route code splitting. The current priority is external launch
+readiness: production Supabase Auth sender/templates, signed design-partner
+pilot terms, the first real uploaded-output pilot, a customer-specific
+release-gate adapter, and provider throttling observation under real managed-run
+traffic. See
 `15_current_state_and_next_steps.md`,
 `18_pilot_ready_execution_plan.md`,
 `19_route_access_matrix.md`, and `20_current_release_status.md`.

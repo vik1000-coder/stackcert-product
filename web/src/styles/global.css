@@ -2395,6 +2395,10 @@ tr:last-child td {
   flex-direction: column;
 }
 
+.setup-page [id] {
+  scroll-margin-top: 88px;
+}
+
 .setup-suite-row {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) 120px 120px minmax(0, 1fr);
@@ -2893,6 +2897,10 @@ tr:last-child td {
     height: auto;
     min-height: 56px;
     padding-block: 10px;
+  }
+
+  .setup-page [id] {
+    scroll-margin-top: 190px;
   }
 
   .search-box {

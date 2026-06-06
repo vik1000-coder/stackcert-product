@@ -1,6 +1,6 @@
 # Current State And Next Steps
 
-Last updated: 2026-06-02
+Last updated: 2026-06-05
 
 This document is the short operational view of the product. The older planning
 docs still matter, but this page should be the first place to check when
@@ -13,6 +13,89 @@ the execution plan owns the ordered implementation queue.
 For the shortest live-system snapshot, including current deployed revisions,
 CI status, and the latest verification commands, see
 `20_current_release_status.md`.
+
+## 2026-06-05 Operations And Hosted-Smoke Update
+
+The latest readiness pass closed the main repo-owned blockers for a staged
+design-partner pilot. The product is still not cleared for broad real customer
+data, but the previous missing smoke/evidence items are now verified.
+
+What changed in this pass:
+
+- Cloudflare Workers now applies static security headers to asset responses:
+  CSP, HSTS, frame denial, referrer policy, permissions policy, and MIME
+  sniffing protection.
+- The staging Cloud Run API was redeployed as revision
+  `stackcert-api-00023-rvx` with project-scoped signed release-gate webhook
+  secret configuration.
+- Frontend routes are code-split; the previous Vite production bundle warning
+  is gone and the main JS chunk is about 285 kB.
+- Mobile setup anchor scrolling now accounts for the sticky header.
+- Demo bundle cold-cache fills are serialized per lambda cost to avoid
+  duplicated expensive first-load work under concurrent requests.
+- Google Cloud uptime checks are configured for direct Cloud Run `/api/health`
+  and Cloudflare same-origin `/api/health`.
+- Google Cloud log-based metrics and alert policies are configured for API 5xx,
+  worker dead letters, provider failures, and release-gate errors.
+- Google Cloud alert policies route to notification channel
+  `projects/project-e7840c42-f298-4bd9-bff/notificationChannels/12163037838207638915`.
+- Supabase schema restore rehearsal completed against a disposable local
+  Postgres target, with evidence recorded in
+  `artifacts/design-partner-ops-evidence.json`.
+- Repeatable full restore rehearsal tooling now restores `public,private,storage`
+  plus Storage metadata into disposable Postgres and verifies table, bucket,
+  object, and artifact metadata counts.
+
+Latest verification from this pass:
+
+```text
+uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
+  -> 139 tests passed
+
+uv run python -m unittest discover -s tests -p 'test_*.py' -v
+  -> 19 tests passed
+
+npm --prefix web run typecheck
+  -> OK
+
+npm --prefix web test -- --run
+  -> 52 tests passed
+
+npm run build
+  -> OK; route chunks split and the previous >500 kB Vite warning is gone.
+
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
+  -> deployment smoke OK
+
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> deployment smoke OK, including authenticated /api/projects and MCP checks
+
+uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> mcp client smoke OK
+
+uv run python scripts/hosted_uploaded_output_pilot_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> hosted uploaded-output pilot smoke OK:
+     project=84749071-5221-4df8-8cea-bbf47d3184c0 run=run_a1d690445ed5
+
+uv run python scripts/release_gate_webhook_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --project-id proj_acme_copilot
+  -> release-gate webhook smoke OK: decision=pass
+
+uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted> --project-id project-e7840c42-f298-4bd9-bff --region us-central1
+  -> cloud run worker smoke OK: job_46bc4f7b2749 complete
+
+uv run python scripts/design_partner_ops_check.py --evidence-json artifacts/design-partner-ops-evidence.json --strict
+  -> status ready
+```
+
+Still required before real customer data:
+
+- Execute one real design-partner uploaded-output pilot under signed terms.
+- Configure production-grade Supabase Auth custom sender domain/SMTP and
+  reviewed invite/password lifecycle templates.
+- Build the first customer-specific release-gate adapter on top of the signed
+  generic webhook.
+- Observe provider throttling/retry behavior under real managed-provider
+  traffic.
 
 ## 2026-06-02 Hosted-Pilot Hardening Update
 
@@ -93,10 +176,10 @@ uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.sa
 
 ## 2026-06-01 Design-Partner Hardening Update
 
-The latest pushed/deployed hardening pass is commit `eafbd2d`
+This earlier pushed/deployed hardening pass was commit `eafbd2d`
 (`Harden design-partner pilot readiness`) on
-`codex/design-partner-deployability-discovery`. It was manually deployed to
-Cloudflare staging as Worker version
+`codex/design-partner-deployability-discovery`. It was manually deployed at
+the time to Cloudflare staging as Worker version
 `80f1b282-fac3-469a-b8c6-e2856cc24f90`.
 
 What changed in this pass:
@@ -131,7 +214,7 @@ uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
   -> 131 tests passed
 
 npm --prefix web run build
-  -> OK, with the existing Vite >500 kB chunk warning
+  -> OK, with the historical Vite >500 kB chunk warning
 
 npm run deploy
   -> Cloudflare staging deployed
@@ -150,10 +233,10 @@ for the public proof/readiness/integration/procurement/support pages. The
 setup-page ordering bug was checked and fixed: uploaded-output work now renders
 before advanced connectors/workers.
 
-Not verified in the latest pass: authenticated Supabase smoke, hosted
-uploaded-output pilot smoke, signed webhook smoke, and Cloud Run worker smoke.
-Those scripts exist, but the required Supabase smoke credentials were not
-exported in the shell.
+Those previously unverified hosted authenticated smokes were rerun on
+2026-06-05 with Supabase smoke credentials exported and now pass. See the
+2026-06-05 update above and `20_current_release_status.md` for the exact
+commands and outcomes.
 
 ## Current Working State
 
@@ -262,8 +345,9 @@ The hosted demo is useful for product walkthroughs. It is still staging:
   `STACKCERT_PERSISTENCE_BACKEND=supabase`, explicitly enables the seeded demo
   workspace for staging smoke users, and allows the Cloudflare staging origin
   in CORS.
-- The latest manual deploy updated the Cloudflare static frontend and public
-  discovery files only. It did not deploy a new Cloud Run API image.
+- The latest manual deploy updated both the Cloudflare static frontend/Worker
+  and the Cloud Run API image. See `20_current_release_status.md` for the
+  current Worker version, Cloud Run revision, and image tag.
 
 ## Current Verification Baseline
 
@@ -369,15 +453,15 @@ Hosted authenticated uploaded-output preview smoke
   -> created a temporary Supabase project/suite and returned coverage=1.0
 ```
 
-Latest hosted verification:
+Historical hosted verification retained from earlier milestones:
 
 - Supabase remote migration history matches local migrations:
   `20260523151421`, `20260523192827`, `20260524023733`, `20260525001842`,
   `20260525021244`.
 - Cloudflare Workers static app is live at
   `https://stackcert-staging.savikk129.workers.dev`.
-- Cloudflare deployment list shows the latest `stackcert-staging` deployment
-  was created by the GitHub `deploy cloudflare` workflow.
+- Cloudflare deployment list at that point showed the `stackcert-staging`
+  deployment was created by the GitHub `deploy cloudflare` workflow.
 - Cloud Run `GET /api/health` returns `200`.
 - Cloud Run unauthenticated API calls return `401`/`403` as expected.
 - Authenticated deployment smoke against Cloudflare + Cloud Run + Supabase Auth
@@ -405,17 +489,17 @@ Latest hosted verification:
   `project-e7840c42-f298-4bd9-bff` in `us-central1`.
 - Cloud Run service `stackcert-api` is deployed at
   `https://stackcert-api-oaw2bwdgyq-uc.a.run.app`.
-- Latest ready Cloud Run API revision is `stackcert-api-00017-vmj`, serving
-  the image deployed from commit `932ac14` with the staging cap raised to max
-  instances `3` and min instances kept at `0`.
-- Latest image:
+- Ready Cloud Run API revision at that point was `stackcert-api-00017-vmj`,
+  serving the image deployed from commit `932ac14` with the staging cap raised
+  to max instances `3` and min instances kept at `0`.
+- Image from that milestone:
   `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:932ac14-staging-202605251701-amd64`.
 - Cloud Run worker job `stackcert-worker` is deployed in `us-central1` from
   the same image with service account
   `stackcert-worker-runtime@project-e7840c42-f298-4bd9-bff.iam.gserviceaccount.com`,
   one task, parallelism `1`, max retries `0`, and task timeout `900s`.
-- The latest worker execution `stackcert-worker-vps7b` completed successfully
-  in `1m37.1s`; `scripts/cloud_run_worker_smoke.py` queued a demo
+- The worker execution `stackcert-worker-vps7b` completed successfully in
+  `1m37.1s`; `scripts/cloud_run_worker_smoke.py` queued a demo
   deterministic job and verified it completed through the API.
 - The linked Supabase staging project now has the idempotent demo seed rows
   from `supabase/seed.sql`, which are required for demo jobs to satisfy FK
@@ -431,7 +515,7 @@ Latest hosted verification:
 - The API image now includes the packaged 2,000-example / 8-safety-option CASS
   demo artifacts under `demo_data/`, so Cloud Run no longer falls back to the
   compact clean-clone fixture.
-- The current Cloud Run revision passes unauthenticated and authenticated
+- That Cloud Run revision passed unauthenticated and authenticated
   `scripts/cloud_run_api_smoke.py`, authenticated `scripts/mcp_client_smoke.py`
   against the hosted `/api/mcp` endpoint with the official Python MCP SDK, and
   full `scripts/deployment_smoke.py` against Cloudflare same-origin API +
@@ -613,26 +697,25 @@ into a five-milestone executable roadmap. Implementation status after the
    first-pilot readiness guidance are implemented and locally verified. The
    admin view now includes provider health derived from usage, retries, timeouts,
    rate limits, and dead letters. Sentry is skipped for the current hardening
-   pass. External operations setup still needs production owners for monitoring,
-   backups, sender domain, and budget alerts.
+   pass. Uptime checks, log-based alert policies, alert notification routing,
+   Supabase schema/full Storage-metadata restore rehearsal, and the read-only
+   ops evidence gate are now complete for staging. External operations still
+   need production Auth sender/template setup, signed customer data terms, and
+   the first live pilot execution.
 
 The immediate execution queue is now:
 
-1. Export Supabase smoke credentials and rerun authenticated hosted checks:
-   `deployment_smoke.py`, `hosted_uploaded_output_pilot_smoke.py`,
-   `release_gate_webhook_smoke.py`, and `cloud_run_worker_smoke.py`.
-2. Fill the non-Sentry ops evidence template and pass:
-   `uv run python scripts/design_partner_ops_check.py --evidence-json ... --strict`.
-3. Configure production operations outside the repo: uptime checks, Cloud Run
-   alert policies, Supabase backup/restore rehearsal, Auth sender-domain/email
-   templates, customer-data contract, and support owner.
-4. Run one real design-partner uploaded-output pilot: one app, representative
+1. Configure production-grade Supabase Auth sender domain/SMTP, invite/password
+   lifecycle templates, email confirmation policy, and account lifecycle copy.
+2. Finalize the customer data contract: data mode, retention, deletion/export
+   owner, redaction rules, and allowed artifact types.
+3. Run one real design-partner uploaded-output pilot: one app, representative
    examples, safety-check outputs, recommendation, release report, and optional
    release gate.
-5. Add the first customer-specific deployment adapter on top of the signed
+4. Add the first customer-specific deployment adapter on top of the signed
    generic webhook once a design partner names the platform.
-6. Address the Vite bundle-size warning with code splitting after the pilot
-   workflow stabilizes.
+5. Observe provider throttling, retry, dead-letter, and budget behavior under
+   real managed-provider traffic before expanding managed runs beyond beta.
 
 ## Current Priority
 
@@ -647,9 +730,12 @@ worker job, Cloudflare, and GitHub CI/CD are wired and smoke-tested. The worker
 can now move a pilot team from uploaded outputs to deterministic, REST, or
 model-judge managed runs with retry-safe evidence writes, managed secret refs,
 lease renewal, cost accounting, release-gate checks, release-context matching,
-persisted budget controls, and operator-facing queue/dead-letter health. The
-highest-value remaining production work is to run the uploaded-output pilot
-with a design partner, complete monitoring/backup/auth operations, and only then
-expand managed provider execution. StackCert does not need to host arbitrary
-customer local models for v1; customer-owned models should appear as uploaded
-outputs, customer-hosted REST endpoints, or later customer-run workers.
+persisted budget controls, and operator-facing queue/dead-letter health.
+Uptime checks, log-based alert policies, alert notification routing, Supabase
+schema/full Storage-metadata restore rehearsal, and the non-Sentry evidence
+gate are complete for staging. The highest-value remaining production work is
+to configure production Auth email handling, sign terms, run the first real
+uploaded-output design-partner pilot, and only then expand managed provider
+execution. StackCert does not need to host arbitrary customer local models for
+v1; customer-owned models should appear as uploaded outputs, customer-hosted
+REST endpoints, or later customer-run workers.

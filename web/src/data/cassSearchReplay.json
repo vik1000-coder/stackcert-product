@@ -1,0 +1,625 @@
+{
+  "aggregation_rules": [
+    {
+      "description": "Block when any selected check blocks.",
+      "id": "serial_veto",
+      "label": "Serial veto"
+    },
+    {
+      "description": "Block when at least half of selected checks block.",
+      "id": "majority",
+      "label": "Majority vote"
+    },
+    {
+      "description": "Block when at least two thirds of selected checks block.",
+      "id": "supermajority",
+      "label": "Supermajority vote"
+    },
+    {
+      "description": "Block only when every selected check blocks.",
+      "id": "unanimous_block",
+      "label": "Unanimous block"
+    },
+    {
+      "description": "Scan block-at-N thresholds for each committee size.",
+      "id": "quota_n",
+      "label": "Quota rules"
+    }
+  ],
+  "lambda": 5.0,
+  "limitations": [
+    "This replay uses saved outputs; it does not make new model calls or prove source-shift robustness.",
+    "The public 240-example sample is intentionally small so the frontier comparison is inspectable.",
+    "Voting-rule winners can overfit a benchmark; buyer pilots should freeze candidates and validate on customer holdout examples."
+  ],
+  "max_k": 4,
+  "method": "cass_v2_candidate_replay",
+  "scopes": [
+    {
+      "candidate_count_cass": 1821,
+      "candidate_count_old_cass": 45,
+      "cass_recommendation": {
+        "agent_ids": [
+          "llama3_2_1b_judge",
+          "llama_guard3_1b",
+          "qwen3_8b_judge"
+        ],
+        "agents": [
+          "Llama 3.2 1B judge",
+          "Llama Guard 3 1B",
+          "Qwen3 8B judge"
+        ],
+        "benign_pass_rate": 0.85,
+        "check_count": 3,
+        "errors": 0,
+        "goal_score": 0.5687,
+        "mean_runtime_sec": 1.8526,
+        "missing_outputs": 0,
+        "parse_failures": 0,
+        "provider_cost_usd": 0.0,
+        "release_decision": "pass",
+        "rule_id": "quota_1",
+        "rule_label": "Quota 1",
+        "unsafe_miss_rate": 0.0563
+      },
+      "delta_vs_old_cass": {
+        "benign_pass_rate": -0.0125,
+        "goal_score": 0.0187,
+        "unsafe_miss_rate": -0.0062
+      },
+      "examples": 240,
+      "frontier_reference": {
+        "agent_ids": [
+          "grok_4_3_judge"
+        ],
+        "agents": [
+          "xAI Grok 4.3 judge"
+        ],
+        "benign_pass_rate": 0.9625,
+        "check_count": 1,
+        "errors": 6,
+        "goal_score": 0.9,
+        "mean_runtime_sec": 4.2038,
+        "missing_outputs": 0,
+        "parse_failures": 6,
+        "provider_cost_usd": 0.127688,
+        "release_decision": "pass",
+        "rule_id": "serial_veto",
+        "rule_label": "Serial veto",
+        "unsafe_miss_rate": 0.0125
+      },
+      "id": "public_frontier_sample_240",
+      "label": "Public 240-example frontier proof sample",
+      "local_agent_ids": [
+        "cautious_rules_policy",
+        "gemma3_1b_judge",
+        "lexical_guard",
+        "llama3_2_1b_judge",
+        "llama3_2_3b_judge",
+        "llama_guard3_1b",
+        "phi3_mini_judge",
+        "qwen3_8b_judge",
+        "rules_policy"
+      ],
+      "local_agents": [
+        "Cautious rules policy",
+        "Gemma 3 1B judge",
+        "Lexical guard",
+        "Llama 3.2 1B judge",
+        "Llama 3.2 3B judge",
+        "Llama Guard 3 1B",
+        "Phi-3 Mini judge",
+        "Qwen3 8B judge",
+        "Rules policy"
+      ],
+      "old_cass_reference": {
+        "agent_ids": [
+          "llama_guard3_1b",
+          "qwen3_8b_judge"
+        ],
+        "agents": [
+          "Llama Guard 3 1B",
+          "Qwen3 8B judge"
+        ],
+        "benign_pass_rate": 0.8625,
+        "check_count": 2,
+        "errors": 0,
+        "goal_score": 0.55,
+        "mean_runtime_sec": 2.0357,
+        "missing_outputs": 0,
+        "parse_failures": 0,
+        "provider_cost_usd": 0.0,
+        "release_decision": "pass",
+        "rule_id": "serial_veto",
+        "rule_label": "Serial veto",
+        "unsafe_miss_rate": 0.0625
+      },
+      "top_cass_candidates": [
+        {
+          "agent_ids": [
+            "llama3_2_1b_judge",
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama 3.2 1B judge",
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.85,
+          "check_count": 3,
+          "errors": 0,
+          "goal_score": 0.5687,
+          "mean_runtime_sec": 1.8526,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0563
+        },
+        {
+          "agent_ids": [
+            "llama3_2_1b_judge",
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama 3.2 1B judge",
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.85,
+          "check_count": 3,
+          "errors": 0,
+          "goal_score": 0.5687,
+          "mean_runtime_sec": 1.8526,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0563
+        },
+        {
+          "agent_ids": [
+            "llama3_2_1b_judge",
+            "llama3_2_3b_judge",
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama 3.2 1B judge",
+            "Llama 3.2 3B judge",
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.775,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5563,
+          "mean_runtime_sec": 1.7892,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0437
+        },
+        {
+          "agent_ids": [
+            "llama3_2_1b_judge",
+            "llama3_2_3b_judge",
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama 3.2 1B judge",
+            "Llama 3.2 3B judge",
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.775,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5563,
+          "mean_runtime_sec": 1.7892,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0437
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.8625,
+          "check_count": 2,
+          "errors": 0,
+          "goal_score": 0.55,
+          "mean_runtime_sec": 2.0357,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "majority",
+          "rule_label": "Majority vote",
+          "unsafe_miss_rate": 0.0625
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.8625,
+          "check_count": 2,
+          "errors": 0,
+          "goal_score": 0.55,
+          "mean_runtime_sec": 2.0357,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0625
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.8625,
+          "check_count": 2,
+          "errors": 0,
+          "goal_score": 0.55,
+          "mean_runtime_sec": 2.0357,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0625
+        },
+        {
+          "agent_ids": [
+            "cautious_rules_policy",
+            "llama3_2_1b_judge",
+            "llama_guard3_1b",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Cautious rules policy",
+            "Llama 3.2 1B judge",
+            "Llama Guard 3 1B",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.825,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5437,
+          "mean_runtime_sec": 1.3895,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0563
+        }
+      ]
+    },
+    {
+      "candidate_count_cass": 1821,
+      "candidate_count_old_cass": 45,
+      "cass_recommendation": {
+        "agent_ids": [
+          "llama_guard3_1b",
+          "phi3_mini_judge",
+          "qwen3_8b_judge"
+        ],
+        "agents": [
+          "Llama Guard 3 1B",
+          "Phi-3 Mini judge",
+          "Qwen3 8B judge"
+        ],
+        "benign_pass_rate": 0.7106,
+        "check_count": 3,
+        "errors": 0,
+        "goal_score": 0.5934,
+        "mean_runtime_sec": 2.0074,
+        "missing_outputs": 0,
+        "parse_failures": 0,
+        "provider_cost_usd": 0.0,
+        "release_decision": "pass",
+        "rule_id": "quota_1",
+        "rule_label": "Quota 1",
+        "unsafe_miss_rate": 0.0234
+      },
+      "delta_vs_old_cass": {
+        "benign_pass_rate": -0.0024,
+        "goal_score": 0.0812,
+        "unsafe_miss_rate": -0.0168
+      },
+      "examples": 2000,
+      "frontier_reference": null,
+      "id": "broad_local_fixture_2000",
+      "label": "Broader 2,000-example local fixture",
+      "local_agent_ids": [
+        "cautious_rules_policy",
+        "gemma3_1b_judge",
+        "lexical_guard",
+        "llama3_2_1b_judge",
+        "llama3_2_3b_judge",
+        "llama_guard3_1b",
+        "phi3_mini_judge",
+        "qwen3_8b_judge",
+        "rules_policy"
+      ],
+      "local_agents": [
+        "Cautious rules policy",
+        "Gemma 3 1B judge",
+        "Lexical guard",
+        "Llama 3.2 1B judge",
+        "Llama 3.2 3B judge",
+        "Llama Guard 3 1B",
+        "Phi-3 Mini judge",
+        "Qwen3 8B judge",
+        "Rules policy"
+      ],
+      "old_cass_reference": {
+        "agent_ids": [
+          "llama_guard3_1b",
+          "phi3_mini_judge"
+        ],
+        "agents": [
+          "Llama Guard 3 1B",
+          "Phi-3 Mini judge"
+        ],
+        "benign_pass_rate": 0.713,
+        "check_count": 2,
+        "errors": 0,
+        "goal_score": 0.5122,
+        "mean_runtime_sec": 1.0516,
+        "missing_outputs": 0,
+        "parse_failures": 0,
+        "provider_cost_usd": 0.0,
+        "release_decision": "pass",
+        "rule_id": "serial_veto",
+        "rule_label": "Serial veto",
+        "unsafe_miss_rate": 0.0402
+      },
+      "top_cass_candidates": [
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7106,
+          "check_count": 3,
+          "errors": 0,
+          "goal_score": 0.5934,
+          "mean_runtime_sec": 2.0074,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0234
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7106,
+          "check_count": 3,
+          "errors": 0,
+          "goal_score": 0.5934,
+          "mean_runtime_sec": 2.0074,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0234
+        },
+        {
+          "agent_ids": [
+            "lexical_guard",
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Lexical guard",
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7031,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5901,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0226
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge",
+            "rules_policy"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge",
+            "Rules policy"
+          ],
+          "benign_pass_rate": 0.7031,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5901,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0226
+        },
+        {
+          "agent_ids": [
+            "lexical_guard",
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Lexical guard",
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7031,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5901,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0226
+        },
+        {
+          "agent_ids": [
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge",
+            "rules_policy"
+          ],
+          "agents": [
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge",
+            "Rules policy"
+          ],
+          "benign_pass_rate": 0.7031,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5901,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0226
+        },
+        {
+          "agent_ids": [
+            "cautious_rules_policy",
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Cautious rules policy",
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7019,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5889,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "quota_1",
+          "rule_label": "Quota 1",
+          "unsafe_miss_rate": 0.0226
+        },
+        {
+          "agent_ids": [
+            "cautious_rules_policy",
+            "llama_guard3_1b",
+            "phi3_mini_judge",
+            "qwen3_8b_judge"
+          ],
+          "agents": [
+            "Cautious rules policy",
+            "Llama Guard 3 1B",
+            "Phi-3 Mini judge",
+            "Qwen3 8B judge"
+          ],
+          "benign_pass_rate": 0.7019,
+          "check_count": 4,
+          "errors": 0,
+          "goal_score": 0.5889,
+          "mean_runtime_sec": 1.5056,
+          "missing_outputs": 0,
+          "parse_failures": 0,
+          "provider_cost_usd": 0.0,
+          "release_decision": "pass",
+          "rule_id": "serial_veto",
+          "rule_label": "Serial veto",
+          "unsafe_miss_rate": 0.0226
+        }
+      ]
+    }
+  ],
+  "takeaways": [
+    "CASS v2 improves the search frame by admitting K<=4 committees and multiple aggregation rules while keeping old_cass as the auditable K<=2 serial reference.",
+    "The public frontier sample still shows Grok as the strongest raw scorer; StackCert's claim should be cheapest defensible release path, not cheap always beats frontier.",
+    "On the broader local fixture, the expanded CASS v2 local committee improves the lambda-5 goal score over the old K=2 serial pair by adding Qwen3 8B to Llama Guard 3 1B and Phi-3 Mini."
+  ]
+}

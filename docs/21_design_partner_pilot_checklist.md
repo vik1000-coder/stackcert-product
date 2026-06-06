@@ -6,8 +6,8 @@ broad self-serve production.
 
 ## Current Status
 
-As of 2026-06-02, the product is deployable as a staging design-partner demo,
-not yet cleared for real customer data.
+As of 2026-06-05, the product is deployable as staging design-partner
+infrastructure, but not yet cleared for real customer data.
 
 Done:
 
@@ -41,16 +41,51 @@ Done:
   mobile setup overflow check.
 - Latest public hosted smoke passed against Cloudflare same-origin API and
   direct Cloud Run `/api/health`.
+- Static Cloudflare asset responses now have deployable security headers for
+  CSP, HSTS, frame denial, referrer policy, permissions policy, and MIME
+  sniffing protection.
+- Frontend routes are code-split; the previous production build bundle warning
+  is gone.
+- Mobile setup anchors land below the sticky header, and demo bundle cold cache
+  fills are serialized per lambda cost to avoid duplicated expensive first-load
+  work.
+- Latest local Browser QA passed for `/proof` at 1280px, `/pilot-readiness` at
+  390px, and `/app/ws_demo/proj_acme_copilot/setup` at 390px with no console
+  warnings/errors and no horizontal overflow.
+- Cloudflare Worker static-header deployment is live as version
+  `9a8a81e3-9825-4e60-8926-587a81b0f32f`; live root responses include CSP,
+  HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy, and nosniff.
+- Authenticated hosted smokes passed on 2026-06-05: Supabase sign-in,
+  authenticated `/api/projects`, MCP release evidence, uploaded-output pilot,
+  signed release-gate webhook, and Cloud Run worker execution.
+- Google Cloud uptime checks are configured for direct Cloud Run `/api/health`
+  and Cloudflare same-origin `/api/health`.
+- Google Cloud log-based metrics and alert policies are configured for API 5xx,
+  worker dead letters, provider failures, and release-gate errors.
+- Google Cloud alert policies route to notification channel
+  `projects/project-e7840c42-f298-4bd9-bff/notificationChannels/12163037838207638915`
+  for the staging support email.
+- Supabase schema restore rehearsal completed against a disposable local
+  Postgres target; evidence is recorded in
+  `artifacts/design-partner-ops-evidence.json`.
+- Repeatable full restore rehearsal tooling exists in
+  `scripts/supabase_restore_rehearsal.py`; the latest run restored
+  `public,private,storage` plus Storage metadata into disposable
+  `postgres:17-alpine` and verified 28 public tables, 8 storage tables,
+  6 buckets, and 11 storage objects.
+- `uv run python scripts/design_partner_ops_check.py --evidence-json artifacts/design-partner-ops-evidence.json --strict`
+  passes.
+- Launch artifact templates are in `docs/25_launch_readiness_artifacts.md`.
 
 Still required before real customer data:
 
-- Export Supabase smoke credentials and rerun authenticated hosted smoke,
-  hosted uploaded-output pilot smoke, signed webhook smoke, and worker smoke.
-- Fill the operations evidence template and run the checker in strict mode.
-- Configure uptime checks, Cloud Run log-based alerts, Supabase restore
-  rehearsal evidence, Supabase Auth sender/templates, customer data contract,
-  and support owner.
 - Run one real design-partner pilot with agreed redaction/retention terms.
+- Configure production-grade Supabase Auth custom sender domain/SMTP and
+  reviewed invite/password lifecycle templates before broad production.
+- Complete and sign the customer data terms in
+  `docs/25_launch_readiness_artifacts.md` for the first real pilot.
+- Add the first customer-specific release-gate adapter and observe throttling
+  under real managed-provider traffic.
 
 ## Pilot Mode
 
@@ -71,11 +106,13 @@ Still required before real customer data:
   examples are raw, redacted, hashes-only, or customer-hosted.
 - Auth: configure production Supabase sender domain, email templates, email
   confirmation policy, and invite/account lifecycle copy.
-- Monitoring: configure Cloud Run log-based alerts and uptime checks for
-  `/api/health`, authenticated `/api/projects`, and the Cloudflare same-origin
-  API proxy. Sentry is intentionally skipped for the current hardening pass.
-- Backups: rehearse Supabase Postgres and Storage restore, then record restore
-  date, operator, source snapshot, restored target, and verification command.
+- Monitoring: Cloud Run log-based alert policies, health uptime checks, and
+  alert notification routing are configured for staging. Sentry is
+  intentionally skipped for the current hardening pass.
+- Backups: Supabase schema restore has been rehearsed for staging. Before paid
+  production, rehearse the full Postgres and Storage restore path, then record
+  restore date, operator, source snapshot, restored target, and verification
+  command.
 - Release scope: confirm the design partner understands that the release report
   is scoped to the app, example mix, safety options, versions, release goal
   weighting, and assumptions.
@@ -86,10 +123,16 @@ Still required before real customer data:
 
 - Local and hosted smoke command output.
 - Alert policy identifiers or screenshots for API 5xx, worker dead letters,
-  provider failures, and release-gate errors.
-- Uptime check identifiers for health, authenticated API, and Cloudflare proxy.
-- Backup/restore rehearsal notes.
+  provider failures, release-gate errors, and attached notification channels.
+- Uptime check identifiers for direct Cloud Run health and Cloudflare
+  same-origin health; add authenticated API or release-gate checks when a
+  credentialed monitor is approved.
+- Backup/restore rehearsal notes for schema and, before paid production, full
+  Postgres plus Storage restore.
 - Signed webhook test result showing one valid pass and one failed signature.
+- Completed Auth email setup, customer data terms, first-pilot execution,
+  adapter intake, and provider-throttling sections from
+  `docs/25_launch_readiness_artifacts.md` when applicable.
 
 ## Readiness Evidence Template
 

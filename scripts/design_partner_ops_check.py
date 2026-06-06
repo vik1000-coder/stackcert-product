@@ -45,9 +45,19 @@ REQUIRED_CHECKS = (
         "Alert policy ids for API 5xx, worker dead letters, provider failures, and release-gate errors.",
     ),
     ReadinessCheck(
+        "alert_notification_channels",
+        "Alert notification channels",
+        "Notification channel ids attached to the StackCert alert policies and the support destination they notify.",
+    ),
+    ReadinessCheck(
         "supabase_restore_rehearsal",
         "Supabase backup/restore rehearsal",
         "Restore date, source snapshot, restored target, operator, and verification command.",
+    ),
+    ReadinessCheck(
+        "supabase_full_restore_rehearsal",
+        "Supabase full restore rehearsal",
+        "Repeatable restore evidence covering public/private schemas plus Supabase Storage metadata or private artifacts.",
     ),
     ReadinessCheck(
         "supabase_auth_email",

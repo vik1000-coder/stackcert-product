@@ -13,9 +13,11 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+DEFAULT_HEADERS = {"User-Agent": "StackCertCloudRunWorkerSmoke/1.0"}
+
 
 def read_json(url: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, Any]]:
-    request = urllib.request.Request(url, headers={"Accept": "application/json", **(headers or {})})
+    request = urllib.request.Request(url, headers={**DEFAULT_HEADERS, "Accept": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.status, json.loads(response.read().decode("utf-8"))
@@ -31,7 +33,7 @@ def post_json(url: str, body: dict[str, Any], headers: dict[str, str] | None = N
     request = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Accept": "application/json", "Content-Type": "application/json", **(headers or {})},
+        headers={**DEFAULT_HEADERS, "Accept": "application/json", "Content-Type": "application/json", **(headers or {})},
         method="POST",
     )
     try:

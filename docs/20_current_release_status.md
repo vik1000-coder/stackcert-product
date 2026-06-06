@@ -19,14 +19,16 @@ Cloudflare agree.
 - Release path: pushes to `main` run `ci`, the GitHub Pages fallback deploy,
   and then the Cloudflare Worker deploy after CI succeeds.
 - Latest audit result:
-  - local frontend/backend gates: success;
-  - local and hosted Playwright smoke: success for public/pilot-readiness
-    pages;
-  - manual Cloudflare deploy: success;
+  - local frontend/backend gates: success on 2026-06-05;
+  - local Browser smoke: success for `/proof`, `/pilot-readiness`, and mobile
+    setup anchor behavior;
+  - Cloudflare Worker dry-run: success for the current static-header worker;
   - same-origin public deployment smoke: success;
   - direct Cloud Run public API smoke: success;
-  - authenticated hosted uploaded-output smoke: not run in the latest pass
-    because Supabase smoke credentials were not exported in the shell.
+  - authenticated hosted uploaded-output, webhook, worker, and Supabase-auth
+    smokes: success on 2026-06-05;
+  - non-Sentry operations evidence gate: ready with evidence file
+    `artifacts/design-partner-ops-evidence.json`.
 - Exact run and commit IDs are intentionally not hard-coded here because docs
   updates create new commits and Cloudflare version IDs change on every deploy.
   Use `gh run list --branch main --limit 6` and
@@ -56,9 +58,9 @@ Cloudflare Workers:
 
 - Worker: `stackcert-staging`
 - Deployment status: verified through direct `wrangler deploy` during this
-  audit from commit `b0b5219`.
-- Current verified version ID before the docs-refresh redeploy:
-  `c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0`
+  audit from commit `f7c7f86` plus local Worker/header changes.
+- Current verified version ID:
+  `9a8a81e3-9825-4e60-8926-587a81b0f32f`
 - Behavior: serves `web/dist` static assets and proxies `/api/*` plus
   `/api/mcp` and `/openapi.json` to Cloud Run.
 
@@ -66,9 +68,9 @@ Cloud Run API:
 
 - Service: `stackcert-api`
 - Region: `us-central1`
-- Latest ready revision: `stackcert-api-00020-7qm`
+- Latest ready revision: `stackcert-api-00023-rvx`
 - Image:
-  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:b0b5219-staging-202606021930-amd64`
+  `us-central1-docker.pkg.dev/project-e7840c42-f298-4bd9-bff/stackcert/stackcert-api:f7c7f86-staging-202606051620-amd64`
 - Traffic: 100% to latest revision
 - Scale guardrails: min instances `0`, max instances `3`, concurrency `40`
 - GCP budget guardrail: `StackCert staging $50`
@@ -145,42 +147,46 @@ Supabase:
 Most recent local verification from this status update:
 
 ```text
-uv run python -m compileall stackcert_service
-  -> OK
+uv run python -m unittest discover -s tests_service -p 'test_*.py' -v
+  -> 139 tests passed
 
-uv run python -m unittest tests_service.test_api_demo -v
-  -> 59 tests passed
+uv run python -m unittest discover -s tests -p 'test_*.py' -v
+  -> 19 tests passed
 
-uv run python -m unittest tests_service.test_sellable_ready_controls -v
-  -> 4 tests passed
-
-npm --prefix web run typecheck
-  -> OK
-
-npm --prefix web test -- --run src/App.test.tsx src/FirstPilotClarity.test.tsx src/WorkflowPolish.test.tsx
-  -> 48 tests passed
+npm --prefix web test -- --run
+  -> 52 tests passed
 
 npm run build
-  -> OK, with the existing Vite >500 kB chunk warning
+  -> OK; route chunks split and the previous >500 kB Vite warning is gone.
+     Main JS chunk is about 285 kB.
 
-supabase db push --linked --dry-run
-  -> would apply 20260602143000 and 20260602162000
+npx wrangler deploy --dry-run
+  -> OK; reads 42 static asset files and validates the Worker bindings.
 
-supabase db push --linked --yes
-  -> applied 20260602143000 and 20260602162000
-
-Cloud Run API deploy
-  -> revision stackcert-api-00020-7qm serving 100% traffic
-
-npm run deploy
-  -> Cloudflare Worker stackcert-staging deployed as version
-     c9e4c39a-c20b-4635-baee-4a7bdfcfe0a0
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
+  -> deployment smoke OK
 
 uv run python scripts/cloud_run_api_smoke.py --api-url https://stackcert-api-oaw2bwdgyq-uc.a.run.app
   -> cloud run api smoke OK
 
-uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev
-  -> deployment smoke OK
+uv run python scripts/deployment_smoke.py --web-url https://stackcert-staging.savikk129.workers.dev --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> deployment smoke OK, including authenticated /api/projects and MCP checks
+
+uv run python scripts/mcp_client_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> mcp client smoke OK
+
+uv run python scripts/hosted_uploaded_output_pilot_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted>
+  -> hosted uploaded-output pilot smoke OK:
+     project=84749071-5221-4df8-8cea-bbf47d3184c0 run=run_a1d690445ed5
+
+uv run python scripts/release_gate_webhook_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --project-id proj_acme_copilot
+  -> release-gate webhook smoke OK: decision=pass
+
+uv run python scripts/cloud_run_worker_smoke.py --api-url https://stackcert-staging.savikk129.workers.dev --supabase-url <redacted> --email demo@stackcert.dev --password <redacted> --project-id project-e7840c42-f298-4bd9-bff --region us-central1
+  -> cloud run worker smoke OK: job_46bc4f7b2749 complete
+
+uv run python scripts/design_partner_ops_check.py --evidence-json artifacts/design-partner-ops-evidence.json --strict
+  -> status ready
 ```
 
 Most recent full pre-deploy baseline from the previous status update:
@@ -196,7 +202,7 @@ npm --prefix web test -- --run
   -> 40 tests passed
 
 npm --prefix web run build
-  -> OK, with the existing Vite >500 kB chunk warning
+  -> OK, with the historical Vite >500 kB chunk warning
 
 npm run deploy
   -> Cloudflare Worker `stackcert-staging` deployed as version
@@ -231,6 +237,14 @@ Local desktop/mobile:
   -> no horizontal overflow; no console errors; setup loads with API present;
      uploaded-output path renders before advanced connectors/workers.
 
+Current local Browser pass:
+  /proof at 1280x720
+  /pilot-readiness at 390x844
+  /app/ws_demo/proj_acme_copilot/setup at 390x844
+  -> no console warnings/errors; no horizontal overflow; setup first heading
+     visible in about 0.5s on a cold local API process; the `#import-examples`
+     CTA lands below the sticky mobile header.
+
 Hosted desktop/mobile:
   /proof
   /pilot-readiness
@@ -240,45 +254,31 @@ Hosted desktop/mobile:
   -> no horizontal overflow; no console errors.
 ```
 
-Latest unauthenticated hosted behavior checked through smoke tests:
+Latest hosted behavior checked through smoke tests:
 
 - unauthenticated app API calls are denied;
 - Cloudflare same-origin `/api/health` returns OK;
 - direct Cloud Run `/api/health` returns OK;
-- hosted public pages render the proof and design-partner readiness content.
-
-Authenticated smoke coverage exists in the scripts, but the latest manual pass
-did not run the Supabase-authenticated project, MCP, release-gate webhook,
-worker, or hosted uploaded-output smoke paths because the required Supabase
-smoke environment variables were not exported locally.
+- hosted public pages render the proof and design-partner readiness content;
+- hosted browser sign-in with the smoke user reaches `/onboarding?resume=1`;
+- authenticated `/api/projects`, MCP, uploaded-output pilot, release-gate
+  webhook, and Cloud Run worker paths pass.
 
 ## Remaining Production Work
 
 The app is solid staging/design-partner infrastructure, but still needs these
 before it can be sold as production-ready for real customer data:
 
-1. Fill and pass the non-Sentry operations evidence gate:
-   `scripts/design_partner_ops_check.py --evidence-json ... --strict`.
-   Required evidence includes uptime checks, Cloud Run log-based alerts,
-   Supabase restore rehearsal, Auth email setup, customer data contract, and
-   support owner. Sentry is intentionally skipped for the current hardening
-   pass.
-2. Backup/restore rehearsal for Supabase Postgres and Storage artifacts.
-3. Auth sender-domain setup, email templates, and invite/account lifecycle
-   policy.
-4. Re-run authenticated hosted smoke with exported Supabase smoke credentials,
-   including:
-   - `scripts/deployment_smoke.py` with Supabase auth;
-   - `scripts/hosted_uploaded_output_pilot_smoke.py`;
-   - `scripts/release_gate_webhook_smoke.py`;
-   - `scripts/cloud_run_worker_smoke.py`.
-5. First customer-specific deployment adapter on top of the signed generic
+1. Execute one real design-partner pilot under signed terms. Agree data mode,
+   redaction, retention, deletion/export owner, and allowed artifact types
+   before upload.
+2. Configure production-grade Supabase Auth sender domain/SMTP and reviewed
+   invite/password lifecycle email templates. The staging policy is recorded in
+   the ops evidence, but custom sender/templates are not yet configured.
+3. First customer-specific deployment adapter on top of the signed generic
    release-gate webhook.
-6. Provider throttling observation in hosted operations after the new provider
+4. Provider throttling observation in hosted operations after the new provider
    health admin view has real managed-run traffic.
-7. Code-split the frontend bundle or raise the warning threshold once the app
-   shell is otherwise stable; the current build succeeds but Vite still warns
-   about a >500 kB chunk.
 
 Design-partner v1 is intentionally uploaded-output first. StackCert does not
 need to host customer local models for the first deployable workflow; customer
@@ -304,4 +304,15 @@ Completed in the current implementation branch:
   `POST /api/projects/{project_id}/release-gates/webhook`.
 - Provider health admin view derived from jobs, retries, dead letters, and
   usage events.
+- Static Cloudflare asset responses now add CSP, HSTS, frame, referrer,
+  permissions, and content-type security headers.
+- Google Cloud alert policies now route to notification channel
+  `projects/project-e7840c42-f298-4bd9-bff/notificationChannels/12163037838207638915`.
+- Repeatable Supabase restore rehearsal tooling now covers
+  `public,private,storage` plus Storage metadata.
+- Frontend routes are code-split, removing the previous Vite >500 kB chunk
+  warning.
+- Mobile setup anchors use a sticky-header-safe scroll offset, and demo bundle
+  cold-load access is serialized per lambda cost so concurrent first requests
+  do not duplicate the expensive cache fill.
 - Design-partner pilot checklist: `docs/21_design_partner_pilot_checklist.md`.

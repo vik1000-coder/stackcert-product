@@ -53,7 +53,7 @@ class DeploymentReadinessTests(unittest.TestCase):
         self.assertIn("VITE_ROUTER_MODE=hash", workflow)
         self.assertIn("supabase/functions/stackcert-api/index.ts", workflow)
         self.assertIn('incomingUrl.pathname === "/openapi.json"', worker)
-        self.assertIn('"/openapi.json"', wrangler)
+        self.assertTrue('"run_worker_first": true' in wrangler or '"/openapi.json"' in wrangler)
         self.assertIn("'/openapi.json'", vite_config)
 
     def test_deployment_smoke_script_covers_web_api_and_auth(self):

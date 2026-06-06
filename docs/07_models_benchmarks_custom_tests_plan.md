@@ -22,6 +22,8 @@ Initial sources:
 - Existing CASS 2,000-example data.
 - User-provided JSONL/CSV uploads.
 - Curated benchmark packs after license review.
+- Buyer-facing templates for customer support, internal assistant, and agentic
+  workflow release checks.
 
 Each benchmark suite should include:
 
@@ -76,6 +78,20 @@ Creation modes:
 - CSV/JSONL upload.
 - Template-based generation.
 - Future AI-assisted generation with human approval.
+
+Template packs should be customizable by the buyer before release use:
+
+- Customer support: refunds, abuse handling, account access, privacy, escalation,
+  policy refusal, benign support requests.
+- Internal assistant: confidential data access, policy quality, HR/IT routing,
+  safe knowledge lookup, unsupported action requests.
+- Agentic workflow: tool misuse, approval bypass, unauthorized state changes,
+  payment/vendor actions, rollback paths, safe read-only summaries.
+
+Each template should expose editable fields for `example_id`, `input`, `output`,
+`expected_decision`, `risk_category`, `weight`, `severity`, `metadata`, source,
+and holdout split. Template examples are tuning/bootstrap aids; buyer release
+reports should mark them separately from private evidence.
 
 Important:
 
@@ -139,6 +155,25 @@ Adapter types:
 - Local model adapter.
 - Future hosted provider adapters.
 
+Candidate pools should be broad enough that CASS is choosing among real buyer
+options, not just proving a favorite local pair. The registry should support:
+
+- Frontier baselines: OpenAI, Anthropic, Google, xAI, or another buyer-approved
+  closed-source model through an OpenAI-compatible or provider-specific adapter.
+- Open/open-weight judges: Qwen, Llama, Gemma, Mistral/Mixtral, Phi, DeepSeek,
+  OLMo, and other buyer-hosted models represented by uploaded outputs, REST
+  endpoints, or OpenAI-compatible model judge connectors.
+- Safety guards: Llama Guard, ShieldGemma, Qwen Guard, LlamaFirewall-style
+  workflow monitors, OpenGuardrails-style context guards, and customer-specific
+  policy checks.
+- Non-model controls: deterministic rules, lexical checks, classifiers, tool
+  permission gates, MCP resource allowlists, human-review routes, and fallback
+  routers.
+
+Every candidate needs a deployment status: `available_now`, `uploaded_output`,
+`connector_ready`, `requires_secret`, `requires_customer_hosting`, or
+`research_only`.
+
 ## Evaluation Run Design
 
 Run stages:
@@ -192,6 +227,32 @@ User actions:
 - Set max wall time.
 - Pause/cancel.
 - Recompute recommendation and release evidence after results land.
+
+## CASS v2 Candidate Replay
+
+The current replay artifact is generated with:
+
+```bash
+uv run python scripts/cass_v2_replay.py
+```
+
+It writes `web/src/data/cassSearchReplay.json` and compares:
+
+- `old_cass`: K=2 serial-veto reference.
+- `CASS`: K<=4 candidate search over serial veto, majority, supermajority,
+  unanimous-block, and quota rules.
+
+Current saved-output results at lambda 5:
+
+- Public 240-example frontier proof sample: old_cass local reference goal score
+  0.5500; CASS v2 local search goal score 0.5687 with Llama 3.2 1B judge +
+  Llama Guard 3 1B + Qwen3 8B. Grok remains strongest on raw score.
+- Broader 2,000-example local fixture: old_cass reference goal score 0.5122;
+  CASS v2 local search goal score 0.5934 with Llama Guard 3 1B + Phi-3 Mini
+  judge + Qwen3 8B.
+
+Use this as a product proof of broader candidate search, not as a universal
+claim that small/open-weight committees beat frontier models.
 
 ## Model And Benchmark Testing Strategy
 

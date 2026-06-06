@@ -7,6 +7,7 @@ from dataclasses import asdict, replace
 from functools import lru_cache
 from io import StringIO
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -31,6 +32,8 @@ FIXTURE_WEIGHTS_PATH = settings.product_root / "demo_data" / "weights_fixture.js
 PACKAGED_EXAMPLES_PATH = settings.product_root / "demo_data" / "examples_real_main_2000.jsonl"
 PACKAGED_OUTPUTS_PATH = settings.product_root / "demo_data" / "real_main_2000_8agent_outputs.jsonl"
 PACKAGED_WEIGHTS_PATH = settings.product_root / "demo_data" / "cass_real.json"
+_demo_bundle_locks_guard = RLock()
+_demo_bundle_locks: dict[float, RLock] = {}
 
 
 def _demo_artifact_paths() -> tuple[Path, Path, Path | None, str]:
@@ -92,8 +95,29 @@ def _load_cells_examples_outputs(lambda_cost: float) -> tuple[CassEngine, Schedu
 
 
 @lru_cache(maxsize=8)
-def demo_bundle(lambda_cost: float = 5.0) -> tuple[CassEngine, SchedulerResult, StackCertificate]:
+def _cached_demo_bundle(lambda_cost: float = 5.0) -> tuple[CassEngine, SchedulerResult, StackCertificate]:
     return _load_cells_examples_outputs(float(lambda_cost))
+
+
+def _demo_bundle_lock(lambda_cost: float) -> RLock:
+    with _demo_bundle_locks_guard:
+        return _demo_bundle_locks.setdefault(lambda_cost, RLock())
+
+
+def demo_bundle(lambda_cost: float = 5.0) -> tuple[CassEngine, SchedulerResult, StackCertificate]:
+    key = float(lambda_cost)
+    with _demo_bundle_lock(key):
+        return _cached_demo_bundle(key)
+
+
+def _clear_demo_bundle_cache() -> None:
+    with _demo_bundle_locks_guard:
+        _demo_bundle_locks.clear()
+    _cached_demo_bundle.cache_clear()
+
+
+demo_bundle.cache_clear = _clear_demo_bundle_cache  # type: ignore[attr-defined]
+demo_bundle.cache_info = _cached_demo_bundle.cache_info  # type: ignore[attr-defined]
 
 
 def workspace() -> dict[str, Any]:

@@ -58,12 +58,13 @@ const pages: Record<string, StaticContent> = {
   pricing: {
     eyebrow: 'Product',
     title: 'Pricing',
-    summary: 'The sellable v1 is a design-partner pilot: one LLM workflow, 100 to 1,000 examples, 3 to 10 safety checks, one frontier baseline where appropriate, one release report, and one review call.',
-    note: 'Provider calls are handled as customer-paid costs or explicit evaluation credits. The buyer should know which workflows, examples, runs, reports, users, and overages are included before the pilot starts.',
+    summary: 'StackCert is service-led first: a guided diagnostic or design-partner pilot uses the product to create repeatable release evidence for one agent workflow.',
+    note: 'Provider calls are customer-paid costs or explicit evaluation credits. The buyer should know which workflows, examples, candidate checks, runs, reports, users, and overages are included before work starts.',
     sections: [
-      { heading: 'Design Partner Pilot', body: '$8,000 to $15,000 for a guided 2-4 week pilot: one workflow, example/output import, safety-check comparison, release report, methodology review, and integration guidance.' },
-      { heading: 'Team', body: '$499 to $1,500/month after a successful pilot: several workflows, a small team, uploaded outputs, REST connectors, model-judge configuration, reports, and basic audit history.' },
-      { heading: 'Enterprise', body: 'Contracted workflows, SSO, custom retention, VPC or self-hosted paths, customer-hosted evidence, security review, procurement packet, and priority support.' }
+      { heading: 'Diagnostic Sprint', body: '$5,000 to $10,000 for benchmark design, candidate safety-option mapping, a small evidence replay, and a go/no-go memo for one agent workflow.' },
+      { heading: 'Design Partner Pilot', body: '$15,000 to $35,000 for a guided 2-6 week pilot: one private workflow, 100 to 2,000 examples, 3 to 15 safety checks or routes, release report, review call, and retest plan.' },
+      { heading: 'Production Evidence Program', body: '$4,000 to $12,000/month after a successful pilot for repeated release reports, retests, reviewer seats, audit history, and release-gate integrations.' },
+      { heading: 'Enterprise', body: 'Custom pricing for contracted workflows, SSO, custom retention, VPC or self-hosted paths, customer-hosted evidence, security review, procurement packet, and priority support.' }
     ]
   },
   'sample-report': {
@@ -88,7 +89,7 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Current build', body: 'Supabase-backed apps, safety option connectors, example import, queued workers, usage ledger, release reports, signoffs, and deployment gates.' },
       { heading: 'Latest slice', body: 'First-pilot readiness guidance, design-partner deployability, provider-health operations, signed release-gate webhooks, and release-report language.' },
-      { heading: 'Next', body: 'Design-partner onboarding, production monitoring, backup rehearsal, auth sender-domain setup, and first customer-specific deployment adapters.' }
+      { heading: 'Next', body: 'Design-partner onboarding, production auth email setup, signed pilot terms, first customer-specific deployment adapters, and managed-provider traffic observation.' }
     ]
   },
   status: {
@@ -110,8 +111,10 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Setup', body: 'Create a private pilot project, define one app, import examples with stable external IDs, and upload safety-check outputs that reference those IDs.' },
       { heading: 'Run', body: 'Preview coverage first. Create the uploaded-output run only when every selected safety check covers every suite example. Managed REST/model-judge jobs remain advanced.' },
+      { heading: 'Customize benchmarks', body: 'Start from customer support, internal assistant, or agent workflow templates, then add buyer-specific risk categories, expected decisions, weights, metadata, and holdout examples before using results for release evidence.' },
+      { heading: 'Compare candidates', body: 'Register frontier baselines, open-weight judges, safety guard models, customer REST checks, context policies, and hybrid fallback routes as candidate safety options.' },
       { heading: 'Release', body: 'Issue a release report, collect signoffs, and connect the result to CI/CD or LLM app-release tooling with GitHub Actions, GitLab, CircleCI, or signed webhook templates.' },
-      { heading: 'Operate', body: 'Before real data, complete uptime checks, Cloud Run alerts, Supabase backup/restore rehearsal, Auth email setup, support ownership, and customer data-mode decisions.' }
+      { heading: 'Operate', body: 'Before real data, confirm production Auth email setup, support ownership, signed customer data terms, and customer data-mode decisions.' }
     ]
   },
   integrations: {
@@ -130,10 +133,10 @@ const pages: Record<string, StaticContent> = {
     eyebrow: 'Resources',
     title: 'Pilot Readiness',
     summary: 'A concrete preflight for turning the current staging app into a sellable design-partner pilot without pretending it is broad public production.',
-    note: 'This checklist intentionally skips Sentry. The minimum operating bar is log-based alerts, uptime checks, backup/restore evidence, Auth email setup, and a support owner.',
+    note: 'This checklist intentionally skips Sentry. Staging has log-based alerts, uptime checks, alert routing, and restore evidence; the remaining operating bar is Auth email setup, signed terms, and a support owner for the live pilot.',
     sections: [
       { heading: 'Product scope', body: 'One app, one example suite, uploaded safety-check outputs, a recommendation, overlap review, targeted tests, release report, and release-gate integration.' },
-      { heading: 'Ops evidence', body: 'Confirm uptime checks, Cloud Run alerts, Supabase restore rehearsal, Auth email setup, data mode, and support ownership before bringing real customer examples into the pilot.' },
+      { heading: 'Ops evidence', body: 'Staging uptime checks, Cloud Run alert policies, alert routing, and restore rehearsal are complete. Confirm production Auth email setup, data mode, signed terms, and support ownership before real customer examples.' },
       { heading: 'Data boundary', body: 'Prefer redacted snippets, hashes, metadata, and uploaded outputs. Local/customer-owned models are represented by outputs, REST endpoints, or future customer-hosted workers.' },
       { heading: 'Done means', body: 'A design partner can complete the pilot path without command-line help, and the team can restore data, route alerts, support users, and block unsafe deployments.' }
     ]
@@ -146,7 +149,8 @@ const pages: Record<string, StaticContent> = {
     sections: [
       { heading: 'Core idea', body: 'Combinations should be evaluated by joint behavior, not just one-at-a-time safety-check scores.' },
       { heading: 'Targeted tests', body: 'StackCert tests overlaps that can change the recommendation instead of measuring every expensive path.' },
-      { heading: 'Frontier proof', body: 'The proof page runs this idea on a 240-example support-safety task against xAI Grok 4.3 and local candidate checks.' },
+      { heading: 'CASS v2 replay', body: 'The proof page now compares the retained old_cass K=2 serial reference against CASS v2 search over larger committees and voting/quota rules, using saved outputs.' },
+      { heading: 'Frontier proof', body: 'The proof page runs this idea on a 240-example support-safety task against xAI Grok 4.3 and local candidate checks. It keeps the frontier result visible instead of claiming local always wins.' },
       { heading: 'CASS details', body: 'CASS now means atom-aware, correlation-aware committee search for scoped release evidence. The legacy K<=2 serial interval certificate is retained as old_cass for audit and ablation.' }
     ]
   },
@@ -296,7 +300,7 @@ const pages: Record<string, StaticContent> = {
       { heading: 'What is purchased', body: 'A design-partner pilot that produces a scoped release report and helps wire the decision into the customer release workflow.' },
       { heading: 'What is not purchased', body: 'A universal AI safety certification, hosted arbitrary local model infrastructure, or a guarantee that future traffic is safe.' },
       { heading: 'Data handling', body: 'Customers can start with redacted examples and uploaded outputs, then choose stronger controls such as hashes-only records or customer-hosted evidence paths.' },
-      { heading: 'Operational proof', body: 'Before real customer data, StackCert should provide smoke-test results, backup/restore evidence, alert/uptime check ids, and a named support owner.' }
+      { heading: 'Operational proof', body: 'Before real customer data, StackCert should provide smoke-test results, alert/uptime ids, restore evidence, production Auth email setup, signed terms, and a named support owner.' }
     ]
   },
   support: {

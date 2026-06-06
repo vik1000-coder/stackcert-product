@@ -4,9 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Badge, ButtonLink, Card, Chip, LogoMark } from '../components/Primitives';
 import { api, type SamplePilot } from '../lib/api';
 import proofBenchmark from '../data/proofBenchmark.json';
+import cassSearchReplay from '../data/cassSearchReplay.json';
 
 const proofRows = (proofBenchmark as { comparison_rows: ProofComparisonRow[] }).comparison_rows;
 const proofRowById = Object.fromEntries(proofRows.map((row) => [row.id, row]));
+const cassReplay = cassSearchReplay as CassSearchReplay;
+const publicCassScope = cassReplay.scopes.find((scope) => scope.id === 'public_frontier_sample_240');
+const broadLocalScope = cassReplay.scopes.find((scope) => scope.id === 'broad_local_fixture_2000');
 
 type ProofComparisonRow = {
   id: string;
@@ -19,6 +23,39 @@ type ProofComparisonRow = {
   goal_score: number;
   provider_cost_usd: number;
   mean_runtime_sec: number;
+};
+
+type CassReplayCandidate = {
+  agents: string[];
+  agent_ids: string[];
+  rule_label: string;
+  release_decision: string;
+  unsafe_miss_rate: number;
+  benign_pass_rate: number;
+  goal_score: number;
+  provider_cost_usd: number;
+};
+
+type CassReplayScope = {
+  id: string;
+  label: string;
+  examples: number;
+  candidate_count_old_cass: number;
+  candidate_count_cass: number;
+  old_cass_reference: CassReplayCandidate;
+  cass_recommendation: CassReplayCandidate;
+  frontier_reference?: CassReplayCandidate | null;
+  delta_vs_old_cass: {
+    goal_score: number;
+    unsafe_miss_rate: number;
+    benign_pass_rate: number;
+  };
+};
+
+type CassSearchReplay = {
+  scopes: CassReplayScope[];
+  max_k: number;
+  lambda: number;
 };
 
 export function LandingPage() {
@@ -65,16 +102,17 @@ export function LandingPage() {
         <div className="landing-container" style={{ position: 'relative' }}>
           <div style={{ display: 'grid', gap: 28, textAlign: 'center', maxWidth: 900, margin: '0 auto' }}>
             <h1 className="hero-title">
-              Make agentic
+              Find the cheapest
               <br />
-              workflows cheaper
+              defensible release path
               <br />
-              and safer to release.
+              for your AI agent.
             </h1>
             <p className="hero-copy">
-              StackCert compares rules, classifiers, model judges, stronger models, context changes, and fallback
-              strategies on your agent workflow examples, then produces a release report showing which combination is
-              reliable enough to ship, what it costs, and when to escalate to a frontier model.
+              StackCert is a service-led evidence platform for agentic workflows. We compare rules, classifiers,
+              open-weight judges, guard models, frontier fallbacks, context policies, and human-review gates on your
+              workflow examples, then produce a release report showing what is safe enough to ship, what it costs, and
+              when the frontier model still needs to be in the loop.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
               <ButtonLink to="/demo" variant="primary">
@@ -87,8 +125,8 @@ export function LandingPage() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap', color: 'var(--sc-ink-3)', fontSize: 12.5 }}>
               <span>Agentic workflow gates</span>
-              <span>Small-model combinations</span>
-              <span>Frontier fallback when needed</span>
+              <span>Open and closed model candidates</span>
+              <span>Frontier fallback when it changes the decision</span>
             </div>
           </div>
           <div className="product-preview">
@@ -225,48 +263,57 @@ function AgenticWorkflowSection() {
 }
 
 function ModelComparisonSection() {
-  const rows = [
-    proofRowById.always_grok,
-    proofRowById.best_local_single,
-    proofRowById.stackcert_local_pair,
-    proofRowById.stackcert_local_triple,
-    proofRowById.stackcert_expanded_pair
-  ].filter(Boolean);
   const candidates = [
-    'xAI Grok 4.3 judge',
-    'Qwen3 8B judge',
-    'Llama Guard 3 1B',
-    'Phi-3 Mini judge',
-    'Llama 3.2 1B/3B judges',
-    'Gemma 3 1B judge',
-    'rules and classifiers',
-    'customer REST checks'
+    'Frontier baselines: GPT, Claude, Gemini, Grok',
+    'Open-weight judges: Qwen, Llama, Gemma, Mistral, Phi, DeepSeek, OLMo',
+    'Safety guards: Llama Guard, ShieldGemma, Qwen Guard',
+    'Workflow guards: LlamaFirewall-style and OpenGuardrails-style checks',
+    'Customer controls: rules, classifiers, REST checks, MCP/tool gates',
+    'Hybrid routes: local-first, frontier-on-disagreement, human review'
   ];
+  const experimentRows = [
+    publicCassScope?.frontier_reference
+      ? { label: 'Frontier benchmark', scope: 'Public 240-example proof', candidate: publicCassScope.frontier_reference }
+      : null,
+    proofRowById.best_local_single
+      ? { label: 'Best local single', scope: 'Public 240-example proof', candidate: proofRowById.best_local_single }
+      : null,
+    publicCassScope
+      ? { label: 'old_cass K=2 serial', scope: 'Public 240-example proof', candidate: publicCassScope.old_cass_reference }
+      : null,
+    publicCassScope
+      ? { label: 'CASS v2 local search', scope: `${publicCassScope.candidate_count_cass} candidates`, candidate: publicCassScope.cass_recommendation }
+      : null,
+    broadLocalScope
+      ? { label: 'CASS v2 broad local', scope: '2,000-example local fixture', candidate: broadLocalScope.cass_recommendation }
+      : null
+  ].filter(Boolean) as Array<{ label: string; scope: string; candidate: CassReplayCandidate | ProofComparisonRow }>;
   return (
     <section style={{ borderTop: '1px solid var(--sc-line)', padding: '96px 0' }}>
       <div className="landing-container">
         <div style={{ maxWidth: 860 }}>
-          <div className="section-eyebrow">Concrete model comparison</div>
-          <h2 className="section-title">Compare SOTA fallback, a single small model, and small-model combinations.</h2>
+          <div className="section-eyebrow">Candidate search, not leaderboard theater</div>
+          <h2 className="section-title">Compare frontier fallback, open models, guardrails, and hybrid routes.</h2>
           <p className="hero-copy" style={{ margin: '16px 0 0', fontSize: 17 }}>
-            In the public 240-example support-copilot proof pack, always calling Grok 4.3 is strongest on score. But
-            the selected local pair reaches the same pass release decision with lower provider spend, while the best
-            local single check still lands at warn. That is the pattern StackCert is built to find.
+            The current proof does not say cheap models beat frontier models. It says a buyer should compare the full
+            candidate set, then choose the cheapest release path that survives their safety, cost, latency, and review
+            constraints. Sometimes that is local-first. Sometimes it is frontier fallback. StackCert should say which.
           </p>
         </div>
         <div className="grid grid-2" style={{ marginTop: 30, alignItems: 'start' }}>
           <Card>
-            <h3 style={{ margin: '0 0 14px', fontSize: 18 }}>Candidates shown in pilot evidence</h3>
+            <h3 style={{ margin: '0 0 14px', fontSize: 18 }}>Candidates we can evaluate in a pilot</h3>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {candidates.map((candidate) => <Chip key={candidate}>{candidate}</Chip>)}
             </div>
             <p className="muted" style={{ margin: '16px 0 0', lineHeight: 1.55 }}>
-              StackCert does not assume small models always win. It compares always-frontier, best single, local
-              combinations, and hybrid routes, then says which decision is supported for this workflow.
+              The first pilot is guided: we help define the benchmark slices, pick candidate checks, import or run the
+              outputs, freeze the release goal, and produce an auditable report instead of pretending self-serve
+              automation can infer the right risk policy from a blank page.
             </p>
           </Card>
           <Card>
-            <h3 style={{ margin: '0 0 14px', fontSize: 18 }}>Observed proof-pack differences</h3>
+            <h3 style={{ margin: '0 0 14px', fontSize: 18 }}>Current replay results</h3>
             <div className="table-wrap" style={{ margin: 0 }}>
               <table>
                 <thead>
@@ -274,32 +321,42 @@ function ModelComparisonSection() {
                     <th>Option</th>
                     <th className="right">Unsafe miss</th>
                     <th className="right">Benign pass</th>
-                    <th className="right">Provider cost</th>
+                    <th className="right">Goal score</th>
                     <th>Decision</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id}>
+                  {experimentRows.map(({ label, scope, candidate }) => (
+                    <tr key={`${label}-${scope}`}>
                       <td>
-                        <strong>{row.label}</strong>
-                        <div className="muted" style={{ fontSize: 11 }}>{row.agents.join(' + ')}</div>
+                        <strong>{label}</strong>
+                        <div className="muted" style={{ fontSize: 11 }}>{scope}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>{candidate.agents.join(' + ')}</div>
                       </td>
-                      <td className="right mono">{formatRate(row.unsafe_miss_rate)}</td>
-                      <td className="right mono">{formatRate(row.benign_pass_rate)}</td>
-                      <td className="right mono">${row.provider_cost_usd.toFixed(3)}</td>
-                      <td><Badge tone={row.release_decision === 'pass' ? 'ok' : 'warn'}>{row.release_decision}</Badge></td>
+                      <td className="right mono">{formatRate(candidate.unsafe_miss_rate)}</td>
+                      <td className="right mono">{formatRate(candidate.benign_pass_rate)}</td>
+                      <td className="right mono">{candidate.goal_score.toFixed(4)}</td>
+                      <td><Badge tone={candidate.release_decision === 'pass' ? 'ok' : 'warn'}>{candidate.release_decision}</Badge></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <p className="muted" style={{ margin: '12px 0 0', lineHeight: 1.5 }}>
-              Scoped result only: one task, one example mix, one release goal. If the frontier route changes the
-              decision, StackCert should admit it.
+              CASS v2 searched K&lt;=4 committees and voting/quota rules; old_cass remains the K=2 serial-veto audit
+              reference. These are scoped replay results, not universal model claims.
             </p>
           </Card>
         </div>
+        {broadLocalScope ? (
+          <div className="notice" style={{ marginTop: 18 }}>
+            On the broader 2,000-example local fixture, CASS v2 improved lambda-5 goal score by{' '}
+            <strong>{broadLocalScope.delta_vs_old_cass.goal_score.toFixed(4)}</strong> versus old_cass and reduced
+            unsafe miss by <strong>{formatRate(Math.abs(broadLocalScope.delta_vs_old_cass.unsafe_miss_rate))}</strong>,
+            while lowering benign pass-through by{' '}
+            <strong>{formatRate(Math.abs(broadLocalScope.delta_vs_old_cass.benign_pass_rate))}</strong>.
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -691,34 +748,34 @@ function DocsSection() {
 function PricingSection() {
   const tiers = [
     {
-      name: 'Starter',
+      name: 'Sample Sandbox',
       price: 'Free',
-      desc: 'Try the sample pilot and evaluate one private app with uploaded outputs.',
-      features: ['1 workflow draft', '1 active release report', 'Markdown and JSON exports'],
+      desc: 'Try the guided sample pilot and inspect the release-report workflow before sharing private data.',
+      features: ['3 sample agent workflows', 'Template evidence clearly marked', 'Markdown and JSON sample exports'],
       cta: 'Run sample pilot',
       href: '/demo'
     },
     {
-      name: 'Design Partner Pilot',
-      price: '$8k-$15k',
-      desc: 'Guided 2-4 week pilot for one LLM workflow and one release decision.',
-      features: ['100-1,000 examples', '3-10 safety checks', '1 release report and review call'],
+      name: 'Diagnostic Sprint',
+      price: '$5k-$10k',
+      desc: 'A short service-led read on whether StackCert can produce a useful release report for one agent workflow.',
+      features: ['Benchmark design session', 'Candidate safety-option map', 'Small evidence replay and go/no-go memo'],
       cta: 'Book pilot',
       href: '/onboarding'
     },
     {
-      name: 'Team',
-      price: '$499-$1,500/mo',
-      desc: 'Repeat release reports across a small platform team after the first pilot works.',
-      features: ['3 workflows', '5 users', '10k examples/month plus customer-paid provider costs'],
+      name: 'Design Partner Pilot',
+      price: '$15k-$35k',
+      desc: 'Guided 2-6 week pilot for one private release decision with buyer-specific examples and safety options.',
+      features: ['100-2,000 examples', '3-15 candidate checks or routes', 'Release report, review call, and retest plan'],
       cta: 'Start team pilot',
       href: '/onboarding'
     },
     {
-      name: 'Enterprise',
-      price: 'Custom',
-      desc: 'Security review, custom retention, SSO, VPC or self-hosted paths, and private adapters.',
-      features: ['Contracted workflows', 'Procurement packet', 'Customer-hosted evidence options'],
+      name: 'Evidence Program',
+      price: '$4k-$12k/mo',
+      desc: 'Ongoing release evidence for teams that need repeated reports, retests, and release-gate integrations.',
+      features: ['Multiple workflows', 'Reviewer seats and audit history', 'Customer-paid provider costs and enterprise add-ons'],
       cta: 'Discuss enterprise',
       href: '/procurement'
     }
@@ -727,10 +784,11 @@ function PricingSection() {
     <section id="pricing" style={{ borderTop: '1px solid var(--sc-line)', background: 'var(--sc-surface-2)', padding: '112px 0' }}>
       <div className="landing-container">
         <div className="section-eyebrow">Pricing</div>
-        <h2 className="section-title">A concrete pilot package, then repeatable release evidence.</h2>
+        <h2 className="section-title">Service-led pilots first, product automation underneath.</h2>
         <p className="hero-copy" style={{ margin: '16px 0 0', maxWidth: 760, fontSize: 17 }}>
-          Early packages are subscription plus customer-paid provider costs. The unit of value is a scoped workflow:
-          examples, safety checks, evaluation runs, report artifacts, and release-gate decisions.
+          Early buyers need help choosing benchmarks, candidate checks, and release gates. The software makes the work
+          repeatable; the paid wedge is a guided pilot that ends with a defensible report and a clear path to automate
+          future agent workflow releases.
         </p>
         <div className="grid grid-4" style={{ marginTop: 44 }}>
           {tiers.map((tier, index) => (
@@ -743,7 +801,7 @@ function PricingSection() {
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>
-              <ButtonLink to={tier.href} variant={index === 1 ? 'accent' : 'primary'}>
+              <ButtonLink to={tier.href} variant={index === 2 ? 'accent' : 'primary'}>
                 {tier.cta}
               </ButtonLink>
             </Card>

@@ -11,6 +11,8 @@ class DesignPartnerOpsCheckTest(unittest.TestCase):
         self.assertFalse(report["sentry_required"])
         self.assertIn("api_health_uptime_check", report["missing"])
         self.assertIn("supabase_restore_rehearsal", report["missing"])
+        self.assertIn("alert_notification_channels", report["missing"])
+        self.assertIn("supabase_full_restore_rehearsal", report["missing"])
         self.assertNotIn("sentry", " ".join(report["missing"]).lower())
 
     def test_report_is_ready_when_all_required_evidence_is_present(self) -> None:

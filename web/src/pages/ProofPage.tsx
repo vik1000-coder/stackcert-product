@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import proofBenchmark from '../data/proofBenchmark.json';
+import cassSearchReplay from '../data/cassSearchReplay.json';
 import { Badge, ButtonLink, Card, LogoMark } from '../components/Primitives';
 import { fmtNumber, fmtPercent, fmtUsd } from '../lib/format';
 import { Footer } from './LandingPage';
@@ -21,6 +22,33 @@ type ProofRow = {
 };
 
 type ProofMetricRow = Omit<ProofRow, 'id' | 'label'> & Partial<Pick<ProofRow, 'id' | 'label'>>;
+
+type CassReplayCandidate = {
+  agents: string[];
+  agent_ids: string[];
+  rule_label: string;
+  release_decision: string;
+  unsafe_miss_rate: number;
+  benign_pass_rate: number;
+  goal_score: number;
+  provider_cost_usd: number;
+};
+
+type CassReplayScope = {
+  id: string;
+  label: string;
+  examples: number;
+  candidate_count_old_cass: number;
+  candidate_count_cass: number;
+  old_cass_reference: CassReplayCandidate;
+  cass_recommendation: CassReplayCandidate;
+  frontier_reference?: CassReplayCandidate | null;
+  delta_vs_old_cass: {
+    goal_score: number;
+    unsafe_miss_rate: number;
+    benign_pass_rate: number;
+  };
+};
 
 type ProofCellDetail = {
   cell_id: string;
@@ -119,6 +147,14 @@ const proof = proofBenchmark as unknown as {
   replication_commands: string[];
 };
 
+const cassReplay = cassSearchReplay as {
+  lambda: number;
+  max_k: number;
+  scopes: CassReplayScope[];
+  limitations: string[];
+};
+const replayScopes = cassReplay.scopes;
+
 export function ProofPage() {
   const alwaysGrok = proof.comparison_rows.find((row) => row.id === 'always_grok');
   const bestLocalSingle = proof.comparison_rows.find((row) => row.id === 'best_local_single');
@@ -129,8 +165,9 @@ export function ProofPage() {
     : 'A concrete frontier comparison for one scoped release decision.';
   const statusTone = supported ? 'ok' : 'warn';
   const savingsCopy = supported
-    ? 'external provider spend saved for the matching local-pair decision'
-    : 'provider spend delta versus always-Grok; release-decision match required for the savings claim';
+    ? 'local-pair release decision matched Grok in this scoped sample; Grok still scored higher on raw safety/usefulness'
+    : 'frontier fallback, narrower scope, or more evidence is needed before making a savings claim';
+  const primaryResultValue = supported ? 'Same decision' : 'Fallback needed';
   const comparisonTitle = supported
     ? 'Grok is strong, but not always necessary for the release decision.'
     : 'The cheaper-same-decision claim was not supported in this run.';
@@ -161,9 +198,9 @@ export function ProofPage() {
               <Badge tone={statusTone}>Frontier proof benchmark</Badge>
               <h1 className="section-title">{headline}</h1>
               <p className="hero-copy">
-                We ran a 240-example support-copilot safety task against xAI Grok 4.3 and local safety checks. The
-                result is intentionally narrow: prompt safety classification for one release question, with provider
-                spend and scope visible.
+                We ran a 240-example support-copilot safety task against xAI Grok 4.3 and local safety checks, then
+                replayed the same outputs with CASS v2 candidate search. The result is intentionally narrow: prompt
+                safety classification for one release question, with provider spend, candidate count, and scope visible.
               </p>
               <div className="proof-actions">
                 <ButtonLink to="/demo" variant="primary">
@@ -179,7 +216,7 @@ export function ProofPage() {
                 <Badge tone={statusTone}>{proof.summary.claim_status.replace('_', ' ')}</Badge>
               </div>
               <div className="proof-summary-result">
-                <strong>{fmtPercent(proof.summary.provider_savings_percent / 100, 0)}</strong>
+                <strong>{primaryResultValue}</strong>
                 <span>{savingsCopy}</span>
               </div>
               <div className="proof-summary-grid">
@@ -244,6 +281,84 @@ export function ProofPage() {
                 <h3 className="proof-card-title">Lambda {fmtNumber(proof.summary.primary_lambda, 0)}</h3>
                 <p className="muted">
                   Safety-heavy setting: missed unsafe prompts are weighted more heavily than benign friction when ranking candidate checks.
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        <section className="proof-section">
+          <div className="landing-container">
+            <div className="proof-section-head">
+              <div>
+                <div className="section-eyebrow">CASS v2 replay</div>
+                <h2 className="section-title">The new method searches more deployable candidates than old_cass.</h2>
+              </div>
+              <p>
+                old_cass is the retained K=2 serial-veto audit reference. CASS now means the broader atom-aware,
+                correlation-aware search over committee size, voting/quota rule, cost, and release goal.
+              </p>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Scope</th>
+                    <th>Method</th>
+                    <th>Checks</th>
+                    <th className="right">Candidates</th>
+                    <th className="right">Unsafe miss</th>
+                    <th className="right">Benign pass</th>
+                    <th className="right">Goal score</th>
+                    <th className="right">Decision</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {replayScopes.flatMap((scope) => [
+                    <tr key={`${scope.id}-old`}>
+                      <td>{scope.label}</td>
+                      <td><strong>old_cass</strong><div className="muted" style={{ fontSize: 12 }}>K=2 serial reference</div></td>
+                      <td>{scope.old_cass_reference.agents.join(' + ')}</td>
+                      <td className="right mono">{scope.candidate_count_old_cass}</td>
+                      <td className="right mono">{fmtPercent(scope.old_cass_reference.unsafe_miss_rate, 1)}</td>
+                      <td className="right mono">{fmtPercent(scope.old_cass_reference.benign_pass_rate, 1)}</td>
+                      <td className="right mono">{fmtNumber(scope.old_cass_reference.goal_score, 4)}</td>
+                      <td className="right"><Badge tone={decisionTone(scope.old_cass_reference.release_decision)}>{scope.old_cass_reference.release_decision}</Badge></td>
+                    </tr>,
+                    <tr key={`${scope.id}-new`}>
+                      <td>{scope.label}</td>
+                      <td><strong>CASS</strong><div className="muted" style={{ fontSize: 12 }}>K&lt;={cassReplay.max_k}, {scope.cass_recommendation.rule_label}</div></td>
+                      <td>{scope.cass_recommendation.agents.join(' + ')}</td>
+                      <td className="right mono">{scope.candidate_count_cass.toLocaleString()}</td>
+                      <td className="right mono">{fmtPercent(scope.cass_recommendation.unsafe_miss_rate, 1)}</td>
+                      <td className="right mono">{fmtPercent(scope.cass_recommendation.benign_pass_rate, 1)}</td>
+                      <td className="right mono">{fmtNumber(scope.cass_recommendation.goal_score, 4)}</td>
+                      <td className="right"><Badge tone={decisionTone(scope.cass_recommendation.release_decision)}>{scope.cass_recommendation.release_decision}</Badge></td>
+                    </tr>
+                  ])}
+                </tbody>
+              </table>
+            </div>
+            <div className="proof-mechanism-grid">
+              {replayScopes.map((scope) => (
+                <Card key={scope.id}>
+                  <div className="section-eyebrow">{scope.examples.toLocaleString()} examples</div>
+                  <h3 className="proof-card-title">{scope.label}</h3>
+                  <p className="muted">
+                    CASS improved goal score by <strong>{fmtNumber(scope.delta_vs_old_cass.goal_score, 4)}</strong>
+                    {' '}versus old_cass. Unsafe miss changed by{' '}
+                    <strong>{fmtPercent(scope.delta_vs_old_cass.unsafe_miss_rate, 1)}</strong>; benign pass changed
+                    by <strong>{fmtPercent(scope.delta_vs_old_cass.benign_pass_rate, 1)}</strong>.
+                  </p>
+                </Card>
+              ))}
+              <Card>
+                <div className="section-eyebrow">Interpretation</div>
+                <h3 className="proof-card-title">Better search does not remove fallback.</h3>
+                <p className="muted">
+                  The public frontier sample still shows Grok as the strongest raw scorer. The marketable claim is not
+                  that local committees always beat frontier models; it is that StackCert can find when local,
+                  frontier, or hybrid routing is the defensible release path.
                 </p>
               </Card>
             </div>

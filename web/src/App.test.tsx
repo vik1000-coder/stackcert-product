@@ -40,18 +40,19 @@ const footerLinkedRoutes = [
 ];
 
 describe('StackCert app', () => {
-  it('renders the landing page value proposition', () => {
+  it('renders the landing page value proposition', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Make agentic.*workflows cheaper.*and safer to release/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Find the cheapest.*defensible release path.*for your AI agent/i })).toBeInTheDocument();
     expect(screen.getByText(/Tool-using agents need release evidence/i)).toBeInTheDocument();
-    expect(screen.getByText(/Compare SOTA fallback, a single small model, and small-model combinations/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Best local single check/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/StackCert local pair/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Compare frontier fallback, open models, guardrails, and hybrid routes/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Best local single/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/CASS v2 local search/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/old_cass K=2 serial/i)).toBeInTheDocument();
     expect(screen.getByText(/An LLM app has many safety options/i)).toBeInTheDocument();
     expect(screen.getByText(/Choosing the combination is the hard part/i)).toBeInTheDocument();
     expect(screen.getByText(/What teams often do instead/i)).toBeInTheDocument();
@@ -60,8 +61,8 @@ describe('StackCert app', () => {
       '/demo'
     );
     expect(screen.getByRole('link', { name: /View sample report/i })).toHaveAttribute('href', '/sample-report');
-    expect(screen.getByText(/\$8k-\$15k/i)).toBeInTheDocument();
-    expect(screen.getByText(/100-1,000 examples/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$15k-\$35k/i)).toBeInTheDocument();
+    expect(screen.getByText(/100-2,000 examples/i)).toBeInTheDocument();
   });
 
   it('renders pilot sign-in by default instead of prefilled demo credentials', async () => {
@@ -72,21 +73,21 @@ describe('StackCert app', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Sign in to your pilot account/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Sign in to your pilot account/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue to pilot/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('');
     await user.click(screen.getByRole('button', { name: /Create account/i }));
     expect(screen.getByText(/Create a pilot account/i)).toBeInTheDocument();
   });
 
-  it('keeps the sample demo behind an explicit sandbox flow', () => {
+  it('keeps the sample demo behind an explicit sandbox flow', async () => {
     render(
       <MemoryRouter initialEntries={['/demo']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Preview the first release-report path with safe sample data/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Preview the first release-report path with safe sample data/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Sample walkthrough/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/What the walkthrough teaches/i)).toBeInTheDocument();
     expect(screen.getByText(/Release question/i)).toBeInTheDocument();
@@ -101,14 +102,14 @@ describe('StackCert app', () => {
     );
   });
 
-  it('prefills credentials only for the explicit demo auth flow', () => {
+  it('prefills credentials only for the explicit demo auth flow', async () => {
     render(
       <MemoryRouter initialEntries={['/auth/sign-in?flow=demo&next=%2Fapp%2Fws_demo%2Fproj_acme_copilot%2Foverview']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Open the isolated sample demo/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Open the isolated sample demo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toHaveValue('demo@stackcert.dev');
     expect(screen.getByRole('button', { name: /Open sample walkthrough/i })).toBeInTheDocument();
   });
@@ -126,14 +127,14 @@ describe('StackCert app', () => {
     expect(authDestination('/app/ws_demo/proj_acme_copilot/overview', 'beta')).toBe('/onboarding?resume=1');
   });
 
-  it('renders onboarding flow shell', () => {
+  it('renders onboarding flow shell', async () => {
     render(
       <MemoryRouter initialEntries={['/onboarding']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Set up a real pilot/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Set up a real pilot/i)).toBeInTheDocument();
     expect(screen.getByText(/What this pilot will produce/i)).toBeInTheDocument();
     expect(screen.getByText(/private version of the sample walkthrough/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Name the app and deployment surface/i })).toBeInTheDocument();
@@ -144,14 +145,14 @@ describe('StackCert app', () => {
     expect(screen.getByLabelText(/LLM app or workflow/i)).toHaveValue('');
   });
 
-  it.each(footerLinkedRoutes)('renders $path with clear page content and a footer', ({ path, heading, staticPage }) => {
+  it.each(footerLinkedRoutes)('renders $path with clear page content and a footer', async ({ path, heading, staticPage }) => {
     render(
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
     if (staticPage) {
       expect(screen.getByText(/Current pilot posture/i)).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Ready to try the workflow/i })).toBeInTheDocument();
@@ -161,28 +162,28 @@ describe('StackCert app', () => {
     expect(within(footer).getByRole('link', { name: /Terms/i })).toHaveAttribute('href', '/terms');
   });
 
-  it('renders the blog index and full empirical article route', () => {
+  it('renders the blog index and full empirical article route', async () => {
     render(
       <MemoryRouter initialEntries={['/blog']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Evidence-backed safety decisions/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Evidence-backed safety decisions/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /A 2,000 Example Test/i })).toHaveAttribute(
       'href',
       '/blog/two-thousand-example-test'
     );
   });
 
-  it('renders blog post figures and scoped limitations', () => {
+  it('renders blog post figures and scoped limitations', async () => {
     render(
       <MemoryRouter initialEntries={['/blog/two-thousand-example-test']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /When Marginal Selection Fails/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /When Marginal Selection Fails/i })).toBeInTheDocument();
     expect(screen.getByAltText(/Finite oracle gap/i)).toHaveAttribute(
       'src',
       '/blog/figures/fig01_finite_oracle_gap.svg'
@@ -191,18 +192,21 @@ describe('StackCert app', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('renders the frontier proof page with concrete Grok comparison data', () => {
+  it('renders the frontier proof page with concrete Grok comparison data', async () => {
     render(
       <MemoryRouter initialEntries={['/proof']}>
         <App />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: /Same release decision without always calling Grok/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Same release decision without always calling Grok/i })).toBeInTheDocument();
     expect(screen.getByText(/240-example support-copilot safety task/i)).toBeInTheDocument();
     expect(screen.getAllByText(/xAI Grok 4\.3 judge/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/StackCert local pair/i)).toBeInTheDocument();
     expect(screen.getByText(/The best local model still underperforms alone/i)).toBeInTheDocument();
+    expect(screen.getByText(/The new method searches more deployable candidates than old_cass/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/old_cass/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/CASS/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Any selected check can veto/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Task-specific slices show when combinations matter/i)).toBeInTheDocument();
     expect(screen.getByText(/Cost simulator/i)).toBeInTheDocument();

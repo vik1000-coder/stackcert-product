@@ -3,11 +3,12 @@
 This is an isolated product prototype for CASS Labs / StackCert. It is separate
 from the research apparatus in the parent directory.
 
-StackCert helps teams choose the right safety-check combinations for LLM apps.
-The product compares rules, classifiers, model judges, stronger-model routes,
-context policies, and other checks on examples from the application the team
-actually cares about. The goal is safer, useful results at lower test cost,
-with scoped release evidence instead of broad safety claims.
+StackCert helps teams find the cheapest defensible release path for agentic LLM
+workflows. The product compares rules, classifiers, open-weight model judges,
+guard models, frontier fallback routes, context policies, workflow controls, and
+other checks on examples from the application the team actually cares about. The
+goal is safer, useful results at lower test cost, with scoped release evidence
+instead of broad safety claims.
 
 The current scope includes the CASS core under the hood, a product API, a React
 LLM app safety workbench, Supabase schema/Auth/Storage foundations, CI checks,
@@ -16,7 +17,9 @@ layer RBAC/audit controls, immutable evidence packet snapshots, private
 evidence artifacts, idempotent worker evidence persistence, connector price
 cards/token accounting, managed connector-secret references, lease renewal,
 pilot setup coverage diagnostics, a live frontier proof page comparing local
-StackCert combinations against xAI Grok 4.3 on a scoped support-safety task,
+StackCert combinations against xAI Grok 4.3 on a scoped support-safety task, a
+CASS v2 replay comparing broader committee/voting-rule search against the
+retained `old_cass` K=2 serial reference,
 workspace admin operations, worker
 queue/dead-letter UI, MCP and release-gate machine-token auth, and a hosted
 Cloudflare/Supabase/Cloud Run staging demo. The onboarding flow now captures a
@@ -36,6 +39,8 @@ The core engine includes:
 The product direction is now a production-oriented full-stack app:
 
 - public landing page that explains safety options and why combinations matter;
+- service-led diagnostic/design-partner packaging, with product automation
+  underneath the guided pilot workflow;
 - guided onboarding that creates a workspace, project, and persistent pilot
   profile with role, evidence source, risk concerns, CASS objective, budget
   posture, and release-gate intent;
@@ -290,3 +295,18 @@ python3 examples/paper_demo.py \
   --budget-fraction 0.5 \
   --markdown-out /tmp/stackcert_release_evidence.md
 ```
+
+## CASS v2 Replay
+
+The frontend proof copy imports `web/src/data/cassSearchReplay.json`, generated
+from saved outputs with:
+
+```bash
+uv run python scripts/cass_v2_replay.py
+```
+
+The replay compares `old_cass` K=2 serial-veto selection against CASS v2 search
+over K<=4 committees and voting/quota rules. Current saved-output results show
+CASS v2 improving local lambda-5 goal score on both the public 240-example proof
+sample and the broader 2,000-example local fixture, while still keeping the
+frontier baseline visible where it wins on raw score.

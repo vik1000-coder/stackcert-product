@@ -112,7 +112,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'We also added Qwen3 8B as a stronger feasible local model. It helped at lower safety penalties, but it did not make combination selection obsolete. In the safety-heavy setting, the CASS search frame chose a different pair with much lower adversarial miss-through.'
+          'We also added Qwen3 8B as a stronger feasible local model. The newer CASS v2 replay goes one step further: it searches K<=4 committees and voting/quota rules, improving the local lambda-5 result over the old_cass K=2 reference while still keeping frontier fallback visible when it wins.'
       },
       { type: 'heading', text: 'What release evidence does not mean' },
       {
@@ -129,7 +129,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The rest of this series covers the business case, the theory, CASS as the new committee-search frame, old_cass as the retained interval audit layer, the 2,000-example run, and the stronger-model comparison. The throughline is simple: safety-check selection is a scoped decision problem, not a race to add more checks.'
+          'The rest of this series covers the business case, the theory, CASS as the current committee-search frame, old_cass as the retained interval audit layer, the 2,000-example run, and the stronger-model comparison. The throughline is simple: safety-check selection is a scoped release-path decision, not a claim that cheap local checks always beat frontier models.'
       }
     ]
   },
@@ -636,7 +636,7 @@ export const blogPosts: BlogPost[] = [
         type: 'callout',
         title: 'Scope note',
         body:
-          'This is a strong local-model comparison, not a full cloud-frontier comparison. gpt-oss:20b timed out on a one-example JSON diagnostic locally. OpenAI and xAI API baselines were not run because reproducible API credentials were not configured.'
+          'This started as a strong local-model comparison, not a full cloud-frontier comparison. The current proof page now includes a saved xAI Grok 4.3 frontier sample and a CASS v2 replay, but the product claim remains scoped: find the cheapest defensible release path for this workflow.'
       },
       { type: 'heading', text: 'Qwen had a clear profile' },
       {
@@ -673,7 +673,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The useful part is not that one method wins a local table. It is how the selected combination changes. In the expanded 9-agent pool, CASS uses Qwen at lambda 1 and lambda 2, selecting llama_guard3_1b + qwen3_8b_judge. At lambda 5, it avoids Qwen and selects llama_guard3_1b + phi3_mini_judge.'
+          'The useful part is not that one method wins a local table. It is how the selected combination changes. In the expanded 9-agent pool, the old K=2 search used Qwen at lower safety penalties and avoided it at lambda 5. The newer CASS v2 replay admits larger committees and selects Llama Guard 3 1B + Phi-3 Mini judge + Qwen3 8B on the broader local fixture.'
       },
       { type: 'heading', text: 'The stronger-model lesson' },
       {
@@ -684,7 +684,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'For StackCert, stronger models should be first-class candidate checks. A customer should be able to compare them against cheaper checks and combinations, see when they are worth the spend, and avoid using them when they do not improve the scoped evidence.'
+          'For StackCert, stronger models should be first-class candidate checks alongside frontier baselines, open-weight judges, guard models, workflow controls, and hybrid fallback routes. A customer should be able to compare them against cheaper combinations, see when they are worth the spend, and avoid using them when they do not improve the scoped evidence.'
       },
       { type: 'heading', text: 'What remains open' },
       {
@@ -700,7 +700,7 @@ export const blogPosts: BlogPost[] = [
       {
         type: 'paragraph',
         text:
-          'The current result refutes a simple version of the stronger-model shortcut in our local setting. It does not prove stronger models are unnecessary. It shows why StackCert should treat them as powerful options inside the same evidence-backed selection workflow.'
+          'The current result refutes a simple version of the stronger-model shortcut in our local setting. It does not prove stronger models are unnecessary. It shows why StackCert should treat them as powerful options inside a service-led, evidence-backed selection workflow that can admit frontier fallback when it is the right answer.'
       }
     ]
   }
